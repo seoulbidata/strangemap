@@ -1,0 +1,2796 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"
+    />
+    <title>StrangeMap Subway Route Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        background: #f4f6f2;
+        color: #132018;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(102, 182, 124, 0.14), transparent 26%),
+          linear-gradient(180deg, #fbfcfa 0%, #eef4ee 100%);
+      }
+
+      .shell {
+        width: min(1180px, calc(100vw - 28px));
+        margin: 18px auto 28px;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.84);
+        border: 1px solid rgba(19, 32, 24, 0.08);
+        border-radius: 26px;
+        overflow: hidden;
+        box-shadow: 0 26px 60px rgba(28, 52, 34, 0.12);
+        backdrop-filter: blur(10px);
+      }
+
+      .header {
+        padding: 24px 24px 10px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e8f5e8;
+        color: #1d6a3a;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 14px 0 8px;
+        font-size: clamp(28px, 5vw, 42px);
+        line-height: 1.06;
+      }
+
+      p {
+        margin: 0;
+        color: #435248;
+        line-height: 1.6;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 8px 24px 20px;
+      }
+
+      .card {
+        background: #fbfdfb;
+        border: 1px solid rgba(19, 32, 24, 0.08);
+        border-radius: 20px;
+        padding: 18px;
+      }
+
+      .card strong {
+        display: block;
+        margin-bottom: 12px;
+        font-size: 15px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 14px;
+        color: #334239;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid rgba(19, 32, 24, 0.12);
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 15px;
+        outline: none;
+        background: white;
+      }
+
+      input:focus {
+        border-color: #1d6a3a;
+        box-shadow: 0 0 0 3px rgba(29, 106, 58, 0.12);
+      }
+
+      select {
+        width: 100%;
+        border: 1px solid rgba(19, 32, 24, 0.12);
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 15px;
+        outline: none;
+        background: white;
+      }
+
+      select:focus {
+        border-color: #1d6a3a;
+        box-shadow: 0 0 0 3px rgba(29, 106, 58, 0.12);
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .field-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .field-actions input {
+        flex: 1;
+      }
+
+      .field-actions button {
+        flex: 0 0 auto;
+        padding-inline: 12px;
+      }
+
+      .suggestions {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .suggestion-button {
+        width: 100%;
+        border-radius: 14px;
+        padding: 10px 12px;
+        background: #f8fbf9;
+        border: 1px solid rgba(19, 32, 24, 0.08);
+        color: #132018;
+        text-align: left;
+        font-weight: 600;
+      }
+
+      .suggestion-button span {
+        display: block;
+        margin-top: 4px;
+        color: #607066;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .selected-place {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #1d6a3a;
+        line-height: 1.45;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 16px;
+        background: #1d6a3a;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #ddeee0;
+        color: #1d5e34;
+      }
+
+      .hint-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #f0f5f1;
+        font-size: 13px;
+        color: #476053;
+      }
+
+      .results {
+        display: grid;
+        grid-template-columns: 1.35fr 0.9fr;
+        gap: 16px;
+        padding: 0 24px 24px;
+      }
+
+      #map {
+        width: 100%;
+        min-height: 620px;
+        border-radius: 24px;
+        border: 1px solid rgba(19, 32, 24, 0.08);
+        overflow: hidden;
+      }
+
+      .summary {
+        display: grid;
+        gap: 12px;
+      }
+
+      .arrival-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .arrival-item {
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: #f8fbf9;
+        border: 1px solid rgba(19, 32, 24, 0.07);
+      }
+
+      .arrival-item strong {
+        margin: 0 0 6px;
+        font-size: 14px;
+      }
+
+      .arrival-item p {
+        font-size: 13px;
+        margin: 4px 0 0;
+      }
+
+      .congestion-badge {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        border-radius: 999px;
+        padding: 5px 9px;
+        color: #fff !important;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .congestion-bar {
+        height: 8px;
+        margin-top: 8px;
+        border-radius: 999px;
+        background: #e8eee9;
+        overflow: hidden;
+      }
+
+      .congestion-bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+      }
+
+      .metric {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: #f7faf8;
+        border: 1px solid rgba(19, 32, 24, 0.06);
+      }
+
+      .metric span {
+        display: block;
+        font-size: 13px;
+        color: #5d6d62;
+        margin-bottom: 4px;
+      }
+
+      .metric strong {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .route-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .route-step {
+        display: grid;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: #f8fbf9;
+        border: 1px solid rgba(19, 32, 24, 0.07);
+      }
+
+      .alternative-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .alternative-button {
+        width: 100%;
+        display: grid;
+        gap: 7px;
+        border: 1px solid rgba(19, 32, 24, 0.08);
+        border-radius: 16px;
+        padding: 12px 14px;
+        background: #f8fbf9;
+        color: #132018;
+        text-align: left;
+      }
+
+      .alternative-button.active {
+        border-color: rgba(29, 106, 58, 0.48);
+        box-shadow: 0 0 0 3px rgba(29, 106, 58, 0.1);
+      }
+
+      .alternative-button strong {
+        margin: 0;
+      }
+
+      .alternative-button span {
+        color: #607066;
+        font-size: 13px;
+      }
+
+      .route-step .badge {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        color: white;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status {
+        font-size: 14px;
+        color: #435248;
+        line-height: 1.6;
+      }
+
+      code {
+        background: #eef3ef;
+        border-radius: 8px;
+        padding: 2px 6px;
+      }
+
+      @media (max-width: 960px) {
+        .controls,
+        .results,
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+
+        #map {
+          min-height: 420px;
+        }
+      }
+    </style>
+    <script>
+      window.navermap_authFailure = function () {
+        const message =
+          "네이버 지도 인증에 실패했습니다. 콘솔의 Web 서비스 URL에 http://localhost 와 http://127.0.0.1 이 등록되어 있는지 확인하세요.";
+        console.error(message);
+        alert(message);
+      };
+    </script>
+    <script
+      type="text/javascript"
+      src="/api/naver-map-script"
+    ></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <header class="header">
+          <span class="eyebrow">StrangeMap Route Prototype</span>
+          <h1>서울 대중교통 길찾기</h1>
+          <p>
+            서울시 대중교통환승경로 API로 버스와 지하철을 함께 고려한 실제 경로를 조회합니다.
+            주소를 넣으면 좌표로 바꾼 뒤 최종 목적지까지 가는 환승 경로와 지하철 실시간 정보를 보여줍니다.
+          </p>
+        </header>
+
+        <section class="controls">
+          <div class="card">
+              <strong>경로 테스트</strong>
+              <div class="form-grid">
+                <label>
+                  출발지
+                  <div class="field-actions">
+                    <input id="origin-input" placeholder="예: 서울시청, 홍대입구역, 강남대로 390" />
+                    <button id="search-origin" class="secondary" type="button">검색</button>
+                  </div>
+                  <div id="origin-selected" class="selected-place">출발지를 검색해 선택해 주세요.</div>
+                  <div id="origin-suggestions" class="suggestions"></div>
+                </label>
+                <label>
+                  목적지
+                  <div class="field-actions">
+                    <input id="destination-input" placeholder="예: 잠실역, 코엑스, 세종대로 110" />
+                    <button id="search-destination" class="secondary" type="button">검색</button>
+                  </div>
+                  <div id="destination-selected" class="selected-place">목적지를 검색해 선택해 주세요.</div>
+                  <div id="destination-suggestions" class="suggestions"></div>
+                </label>
+                <label>
+                  경로 필터
+                  <select id="route-mode">
+                    <option value="all">전체 최적 경로</option>
+                    <option value="subway">지하철만</option>
+                    <option value="bus">버스만</option>
+                    <option value="mixed">버스 + 지하철</option>
+                  </select>
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="search-route" type="button">길찾기 실행</button>
+                <button id="use-current-location" class="secondary" type="button">현재 위치 사용</button>
+                <button id="load-sample" class="secondary" type="button">예시 경로 넣기</button>
+              </div>
+            </div>
+        </section>
+
+        <section class="results">
+          <div id="map" aria-label="지하철 길찾기 지도"></div>
+
+          <div class="summary">
+            <div class="card">
+              <strong>계산 결과</strong>
+              <div class="metric">
+                <span>상태</span>
+                <strong id="route-status">출발지와 목적지를 입력해 주세요.</strong>
+              </div>
+              <div class="metric">
+                <span>예상 소요</span>
+                <strong id="route-duration">-</strong>
+              </div>
+              <div class="metric">
+                <span>환승 횟수</span>
+                <strong id="route-transfers">-</strong>
+              </div>
+              <div class="metric">
+                <span>예상 혼잡도</span>
+                <strong id="route-congestion">-</strong>
+              </div>
+            </div>
+
+            <div class="card">
+              <strong>추천 대안</strong>
+              <div id="route-alternatives" class="alternative-list">
+                <button class="alternative-button" type="button" disabled>
+                  <strong>아직 추천 대안이 없습니다.</strong>
+                  <span>길찾기를 실행하면 빠른 경로와 혼잡 회피 대안을 함께 보여줍니다.</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="card">
+              <strong>이동 단계</strong>
+              <div id="route-steps" class="route-list">
+                <div class="route-step">
+                  <div class="status">
+                    출발지와 목적지를 입력하면 버스+지하철 환승 경로를 조회합니다.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <strong>탑승/환승 실시간 정보</strong>
+              <div id="arrival-status" class="status">길찾기를 실행하면 버스 탑승 정류장과 지하철 환승역 기준 실시간 정보를 불러옵니다.</div>
+              <div id="arrival-list" class="arrival-list" style="margin-top: 12px;">
+                <div class="arrival-item">
+                  <p>아직 조회된 실시간 정보가 없습니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const LINE_META = {
+        L1: { name: "1호선", color: "#0052A4", realtimeCode: "1001" },
+        L2: { name: "2호선", color: "#00A84D", realtimeCode: "1002" },
+        L3: { name: "3호선", color: "#EF7C1C", realtimeCode: "1003" },
+        L4: { name: "4호선", color: "#00A5DE", realtimeCode: "1004" },
+        L5: { name: "5호선", color: "#996CAC", realtimeCode: "1005" },
+        L7: { name: "7호선", color: "#747F00", realtimeCode: "1007" },
+        L9: { name: "9호선", color: "#BDB092", realtimeCode: "1009" },
+      };
+
+      const REALTIME_LINE_CODES = {
+        "1호선": "1001",
+        "2호선": "1002",
+        "3호선": "1003",
+        "4호선": "1004",
+        "5호선": "1005",
+        "6호선": "1006",
+        "7호선": "1007",
+        "8호선": "1008",
+        "9호선": "1009",
+        "경의중앙선": "1063",
+        "공항철도": "1065",
+        "경춘선": "1067",
+        "수인분당선": "1075",
+        "신분당선": "1077",
+      };
+
+      const BUS_ROUTE_TYPE_META = {
+        1: { label: "공항", color: "#8b5cf6" },
+        2: { label: "마을", color: "#16a34a" },
+        3: { label: "간선", color: "#2563eb" },
+        4: { label: "지선", color: "#16a34a" },
+        5: { label: "순환", color: "#f59e0b" },
+        6: { label: "광역", color: "#dc2626" },
+        7: { label: "인천", color: "#64748b" },
+        8: { label: "경기", color: "#dc2626" },
+      };
+
+      const STATIONS = {
+        hongdae: { id: "hongdae", name: "홍대입구", lat: 37.5572, lng: 126.9245, lines: ["L2"] },
+        hapjeong: { id: "hapjeong", name: "합정", lat: 37.5498, lng: 126.9140, lines: ["L2"] },
+        dangsan: { id: "dangsan", name: "당산", lat: 37.5344, lng: 126.9023, lines: ["L2"] },
+        yeongdeungpo: { id: "yeongdeungpo", name: "영등포구청", lat: 37.5247, lng: 126.8958, lines: ["L2"] },
+        sindorim: { id: "sindorim", name: "신도림", lat: 37.5090, lng: 126.8913, lines: ["L2"] },
+        cityhall: { id: "cityhall", name: "시청", lat: 37.5659, lng: 126.9769, lines: ["L1", "L2"] },
+        eulji1: { id: "eulji1", name: "을지로입구", lat: 37.5660, lng: 126.9820, lines: ["L2"] },
+        eulji3: { id: "eulji3", name: "을지로3가", lat: 37.5663, lng: 126.9910, lines: ["L2", "L3"] },
+        wangsimni: { id: "wangsimni", name: "왕십리", lat: 37.5615, lng: 127.0373, lines: ["L2", "L5"] },
+        seongsu: { id: "seongsu", name: "성수", lat: 37.5446, lng: 127.0559, lines: ["L2"] },
+        jamsil: { id: "jamsil", name: "잠실", lat: 37.5133, lng: 127.1001, lines: ["L2"] },
+        seoulstation: { id: "seoulstation", name: "서울역", lat: 37.5547, lng: 126.9725, lines: ["L1", "L4"] },
+        myeongdong: { id: "myeongdong", name: "명동", lat: 37.5609, lng: 126.9863, lines: ["L4"] },
+        chungmuro: { id: "chungmuro", name: "충무로", lat: 37.5613, lng: 126.9941, lines: ["L3", "L4"] },
+        ddp: { id: "ddp", name: "동대문역사문화공원", lat: 37.5651, lng: 127.0091, lines: ["L2", "L4", "L5"] },
+        sadang: { id: "sadang", name: "사당", lat: 37.4766, lng: 126.9817, lines: ["L2", "L4"] },
+        gyodae: { id: "gyodae", name: "교대", lat: 37.4931, lng: 127.0145, lines: ["L2", "L3"] },
+        gangnam: { id: "gangnam", name: "강남", lat: 37.4979, lng: 127.0276, lines: ["L2"] },
+        seolleung: { id: "seolleung", name: "선릉", lat: 37.5045, lng: 127.0489, lines: ["L2"] },
+        express: {
+          id: "express",
+          name: "고속터미널",
+          lat: 37.5049,
+          lng: 127.0049,
+          lines: ["L3", "L7", "L9"],
+        },
+        yeouido: { id: "yeouido", name: "여의도", lat: 37.5216, lng: 126.9241, lines: ["L5", "L9"] },
+        gwanghwamun: { id: "gwanghwamun", name: "광화문", lat: 37.5717, lng: 126.9765, lines: ["L5"] },
+        jongno3: { id: "jongno3", name: "종로3가", lat: 37.5716, lng: 126.9913, lines: ["L3", "L5"] },
+      };
+
+      const EDGES = [
+        ["hongdae", "hapjeong", "L2", 2],
+        ["hapjeong", "dangsan", "L2", 3],
+        ["dangsan", "yeongdeungpo", "L2", 2],
+        ["yeongdeungpo", "sindorim", "L2", 2],
+        ["cityhall", "eulji1", "L2", 2],
+        ["eulji1", "eulji3", "L2", 2],
+        ["eulji3", "wangsimni", "L2", 7],
+        ["wangsimni", "seongsu", "L2", 3],
+        ["seongsu", "seolleung", "L2", 9],
+        ["seolleung", "gangnam", "L2", 3],
+        ["gangnam", "gyodae", "L2", 2],
+        ["gyodae", "sadang", "L2", 4],
+        ["seolleung", "jamsil", "L2", 7],
+        ["cityhall", "seoulstation", "L1", 2],
+        ["seoulstation", "myeongdong", "L4", 2],
+        ["myeongdong", "chungmuro", "L4", 2],
+        ["chungmuro", "ddp", "L4", 3],
+        ["ddp", "sadang", "L4", 10],
+        ["eulji3", "chungmuro", "L3", 2],
+        ["chungmuro", "jongno3", "L3", 2],
+        ["jongno3", "express", "L3", 9],
+        ["express", "gyodae", "L3", 2],
+        ["gwanghwamun", "jongno3", "L5", 2],
+        ["jongno3", "ddp", "L5", 2],
+        ["ddp", "wangsimni", "L5", 4],
+        ["gwanghwamun", "yeouido", "L5", 6],
+        ["yeouido", "express", "L9", 6],
+        ["express", "yeouido", "L9", 6],
+      ];
+
+      const TRANSFER_MINUTES = 4;
+
+      const state = {
+        map: null,
+        pathLine: null,
+        walkingLines: [],
+        startMarker: null,
+        endMarker: null,
+        transferMarkers: [],
+        currentOriginPoint: null,
+        selectedOrigin: null,
+        selectedDestination: null,
+        allRouteCandidates: [],
+        routeAlternatives: [],
+        selectedRouteIndex: 0,
+        currentRouteContext: null,
+        geocodeCache: new Map(),
+        segmentShapeCache: new Map(),
+        busCongestionCache: new Map(),
+        subwayCongestionCache: new Map(),
+      };
+
+      function createGraph() {
+        const graph = {};
+
+        Object.keys(STATIONS).forEach((id) => {
+          graph[id] = [];
+        });
+
+        EDGES.forEach(([from, to, line, minutes]) => {
+          graph[from].push({ to, line, minutes });
+          graph[to].push({ to: from, line, minutes });
+        });
+
+        return graph;
+      }
+
+      const GRAPH = createGraph();
+
+      function findStationIdByName(name) {
+        const normalized = String(name || "").trim();
+        const match = Object.values(STATIONS).find((station) => station.name === normalized);
+        return match ? match.id : null;
+      }
+
+      function toRad(degree) {
+        return (degree * Math.PI) / 180;
+      }
+
+      function calculateDistanceMeters(a, b) {
+        const earthRadius = 6371000;
+        const latDelta = toRad(b.lat - a.lat);
+        const lngDelta = toRad(b.lng - a.lng);
+        const startLat = toRad(a.lat);
+        const endLat = toRad(b.lat);
+        const haversine =
+          Math.sin(latDelta / 2) * Math.sin(latDelta / 2) +
+          Math.cos(startLat) *
+            Math.cos(endLat) *
+            Math.sin(lngDelta / 2) *
+            Math.sin(lngDelta / 2);
+        return 2 * earthRadius * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+      }
+
+      function estimateWalkingMinutes(from, to) {
+        const distance = calculateDistanceMeters(from, to);
+        return Math.max(1, Math.round(distance / 67));
+      }
+
+      function findNearestStation(point) {
+        const stations = Object.values(STATIONS);
+        let nearest = stations[0];
+        let nearestDistance = Number.POSITIVE_INFINITY;
+
+        stations.forEach((station) => {
+          const distance = calculateDistanceMeters(point, station);
+          if (distance < nearestDistance) {
+            nearest = station;
+            nearestDistance = distance;
+          }
+        });
+
+        return {
+          station: nearest,
+          distanceMeters: Math.round(nearestDistance),
+          walkingMinutes: estimateWalkingMinutes(point, nearest),
+        };
+      }
+
+      function normalizeSearchText(value) {
+        return String(value || "")
+          .replace(/\s+/g, "")
+          .replace(/역$/, "")
+          .toLowerCase();
+      }
+
+      function isExactPlaceMatch(candidate, query) {
+        const normalizedQuery = normalizeSearchText(query);
+        const normalizedLabel = normalizeSearchText(candidate.label);
+        const normalizedPlaceName = normalizeSearchText(candidate.placeName);
+        return normalizedPlaceName === normalizedQuery || normalizedLabel === normalizedQuery;
+      }
+
+      function scorePlaceCandidate(candidate, query) {
+        const normalizedQuery = normalizeSearchText(query);
+        const normalizedLabel = normalizeSearchText(candidate.label);
+        const normalizedPlaceName = normalizeSearchText(candidate.placeName);
+        const normalizedAddress = normalizeSearchText(candidate.address);
+        let score = 0;
+
+        if (candidate.source === "naverLocalPlace") score += 30;
+        if (candidate.source === "naverGeocode") score += 20;
+        if (candidate.category && /지하철|역|철도/.test(candidate.category)) score += 18;
+        if (normalizedPlaceName === normalizedQuery) score += 80;
+        if (normalizedLabel === normalizedQuery) score += 60;
+        if (normalizedPlaceName.includes(normalizedQuery)) score += 30;
+        if (normalizedLabel.includes(normalizedQuery)) score += 18;
+        if (normalizedAddress.includes(normalizedQuery)) score += 8;
+        if (candidate.address && candidate.address.length < 30) score += 4;
+
+        return score;
+      }
+
+      function sortPlaceCandidates(items, query) {
+        return [...items].sort((a, b) => {
+          const aExact = isExactPlaceMatch(a, query);
+          const bExact = isExactPlaceMatch(b, query);
+          if (aExact !== bExact) {
+            return aExact ? -1 : 1;
+          }
+          return scorePlaceCandidate(b, query) - scorePlaceCandidate(a, query);
+        });
+      }
+
+      function geocodeAddress(query) {
+        const cacheKey = normalizeSearchText(query);
+        if (state.geocodeCache.has(cacheKey)) {
+          return Promise.resolve(state.geocodeCache.get(cacheKey));
+        }
+
+        return fetch("/api/geocode?q=" + encodeURIComponent(query))
+          .then((response) => response.json().then((body) => ({ ok: response.ok, body })))
+          .then(({ ok, body }) => {
+            if (!ok) {
+              throw new Error("주소를 찾지 못했습니다: " + query);
+            }
+
+            const items = sortPlaceCandidates(normalizePlaceCandidates(body?.addresses || [], query), query);
+
+            if (!items.length) {
+              throw new Error("검색 결과가 없습니다: " + query);
+            }
+
+            const first = items[0];
+            const lng = Number.parseFloat(first.lng);
+            const lat = Number.parseFloat(first.lat);
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+              throw new Error("좌표 변환에 실패했습니다: " + query);
+            }
+
+            const selected = {
+              label: first.label || query,
+              placeName: first.placeName || "",
+              address: first.address || "",
+              category: first.category || "",
+              source: first.source || "geocode",
+              lat,
+              lng,
+            };
+            state.geocodeCache.set(cacheKey, selected);
+            return selected;
+          });
+      }
+
+      async function searchPlaces(kind) {
+        const inputId = kind === "origin" ? "origin-input" : "destination-input";
+        const selectedId = kind === "origin" ? "origin-selected" : "destination-selected";
+        const suggestionsId = kind === "origin" ? "origin-suggestions" : "destination-suggestions";
+        const query = document.getElementById(inputId).value.trim();
+
+        if (!query) {
+          document.getElementById(selectedId).textContent = "검색어를 입력해 주세요.";
+          return;
+        }
+
+        document.getElementById(selectedId).textContent = "장소 후보를 검색하는 중입니다.";
+        document.getElementById(suggestionsId).innerHTML = "";
+
+        try {
+          const response = await fetch("/api/geocode?q=" + encodeURIComponent(query));
+          const body = await response.json();
+
+          if (!response.ok) {
+            throw new Error("장소 검색에 실패했습니다.");
+          }
+
+          const candidates = sortPlaceCandidates(normalizePlaceCandidates(body.addresses || [], query), query);
+
+          if (!candidates.length) {
+            document.getElementById(selectedId).textContent =
+              "검색 결과가 없습니다. 더 큰 장소명, 역명, 도로명 주소로 다시 입력해 주세요.";
+            return;
+          }
+
+          renderPlaceCandidates(kind, candidates);
+          document.getElementById(selectedId).textContent =
+            "후보 중 하나를 선택하면 길찾기에 사용할 좌표가 확정됩니다.";
+        } catch (error) {
+          console.error(error);
+          document.getElementById(selectedId).textContent =
+            error.message || "장소 검색 중 오류가 발생했습니다.";
+        }
+      }
+
+      function normalizePlaceCandidates(items, fallbackLabel) {
+        const seen = new Set();
+        return items
+          .map((item) => {
+            const lng = Number.parseFloat(item.x);
+            const lat = Number.parseFloat(item.y);
+            const label =
+              item.placeName || item.roadAddress || item.jibunAddress || item.englishAddress || fallbackLabel;
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || !label) {
+              return null;
+            }
+
+            const key = label + "|" + lat.toFixed(6) + "|" + lng.toFixed(6);
+            if (seen.has(key)) {
+              return null;
+            }
+            seen.add(key);
+
+            return {
+              label,
+              placeName: item.placeName || "",
+              address: item.roadAddress || item.jibunAddress || "",
+              category: item.category || "",
+              source: item.source || "geocode",
+              lat,
+              lng,
+            };
+          })
+          .filter(Boolean)
+          .slice(0, 6);
+      }
+
+      function renderPlaceCandidates(kind, candidates) {
+        const root = document.getElementById(
+          kind === "origin" ? "origin-suggestions" : "destination-suggestions"
+        );
+
+        root.innerHTML = candidates
+          .map((candidate, index) => {
+            const title = candidate.placeName || candidate.label;
+            const detail = [
+              candidate.category,
+              candidate.address && candidate.address !== title ? candidate.address : "",
+              candidate.source,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              '<button class="suggestion-button" type="button" data-kind="' +
+              kind +
+              '" data-index="' +
+              index +
+              '">' +
+              title +
+              "<span>" +
+              detail +
+              "</span></button>"
+            );
+          })
+          .join("");
+
+        root.querySelectorAll("button").forEach((button) => {
+          button.addEventListener("click", function () {
+            selectPlace(kind, candidates[Number(button.dataset.index)]);
+          });
+        });
+      }
+
+      function selectPlace(kind, place) {
+        if (kind === "origin") {
+          state.selectedOrigin = place;
+          document.getElementById("origin-selected").textContent = "선택됨: " + place.label;
+          document.getElementById("origin-suggestions").innerHTML = "";
+          document.getElementById("origin-input").value = place.label;
+        } else {
+          state.selectedDestination = place;
+          document.getElementById("destination-selected").textContent = "선택됨: " + place.label;
+          document.getElementById("destination-suggestions").innerHTML = "";
+          document.getElementById("destination-input").value = place.label;
+        }
+      }
+
+      function clearSelectedPlace(kind) {
+        if (kind === "origin") {
+          state.selectedOrigin = null;
+          document.getElementById("origin-selected").textContent = "출발지를 검색해 선택해 주세요.";
+        } else {
+          state.selectedDestination = null;
+          document.getElementById("destination-selected").textContent =
+            "목적지를 검색해 선택해 주세요.";
+        }
+      }
+
+      function computeShortestRoute(originId, destinationId) {
+        const queue = [{ stationId: originId, line: null, cost: 0, path: [{ stationId: originId, line: null }] }];
+        const bestCost = new Map();
+
+        while (queue.length > 0) {
+          queue.sort((a, b) => a.cost - b.cost);
+          const current = queue.shift();
+          const visitKey = current.stationId + "|" + (current.line || "none");
+
+          if (bestCost.has(visitKey) && bestCost.get(visitKey) < current.cost) {
+            continue;
+          }
+
+          if (current.stationId === destinationId) {
+            return current;
+          }
+
+          const neighbors = GRAPH[current.stationId] || [];
+
+          neighbors.forEach((edge) => {
+            const transferPenalty =
+              current.line && current.line !== edge.line ? TRANSFER_MINUTES : 0;
+            const nextCost = current.cost + edge.minutes + transferPenalty;
+            const nextKey = edge.to + "|" + edge.line;
+
+            if (!bestCost.has(nextKey) || nextCost < bestCost.get(nextKey)) {
+              bestCost.set(nextKey, nextCost);
+              queue.push({
+                stationId: edge.to,
+                line: edge.line,
+                cost: nextCost,
+                path: current.path.concat([{ stationId: edge.to, line: edge.line }]),
+              });
+            }
+          });
+        }
+
+        return null;
+      }
+
+      function countTransfers(path) {
+        let transfers = 0;
+        let previousLine = null;
+
+        path.forEach((segment) => {
+          if (segment.line && previousLine && segment.line !== previousLine) {
+            transfers += 1;
+          }
+          if (segment.line) {
+            previousLine = segment.line;
+          }
+        });
+
+        return transfers;
+      }
+
+      function groupSegments(path) {
+        const groups = [];
+
+        path.slice(1).forEach((segment, index) => {
+          const previousStation = STATIONS[path[index].stationId];
+          const currentStation = STATIONS[segment.stationId];
+
+          if (groups.length === 0 || groups[groups.length - 1].line !== segment.line) {
+            groups.push({
+              line: segment.line,
+              stations: [previousStation.name, currentStation.name],
+            });
+            return;
+          }
+
+          groups[groups.length - 1].stations.push(currentStation.name);
+        });
+
+        return groups;
+      }
+
+      function setBadgeStyle(lineCode) {
+        const line = LINE_META[lineCode];
+        return "background:" + line.color + ";";
+      }
+
+      function renderRouteSteps(routeSummary) {
+        if (routeSummary.apiRoute) {
+          renderApiRouteSteps(routeSummary);
+          return;
+        }
+
+        const routeSteps = document.getElementById("route-steps");
+        const groups = groupSegments(routeSummary.subway.path);
+
+        const walkingToStation =
+          '<article class="route-step">' +
+          '<span class="badge" style="background:#65756a;">도보</span>' +
+          "<div>" +
+          routeSummary.origin.label +
+          " -> " +
+          routeSummary.originNearest.station.name +
+          "</div>" +
+          '<div class="status">약 ' +
+          routeSummary.originNearest.walkingMinutes +
+          "분, " +
+          routeSummary.originNearest.distanceMeters +
+          "m</div>" +
+          "</article>";
+
+        const subwaySegments = groups
+          .map((group) => {
+            const line = LINE_META[group.line];
+            return (
+              '<article class="route-step">' +
+              '<span class="badge" style="' +
+              setBadgeStyle(group.line) +
+              '">' +
+              line.name +
+              "</span>" +
+              "<div>" +
+              group.stations.join(" -> ") +
+              "</div>" +
+              '<div class="status">정차역 ' +
+              group.stations.length +
+              "개 구간</div>" +
+              "</article>"
+            );
+          })
+          .join("");
+
+        const walkingToDestination =
+          '<article class="route-step">' +
+          '<span class="badge" style="background:#65756a;">도보</span>' +
+          "<div>" +
+          routeSummary.destinationNearest.station.name +
+          " -> " +
+          routeSummary.destination.label +
+          "</div>" +
+          '<div class="status">약 ' +
+          routeSummary.destinationNearest.walkingMinutes +
+          "분, " +
+          routeSummary.destinationNearest.distanceMeters +
+          "m</div>" +
+          "</article>";
+
+        routeSteps.innerHTML = walkingToStation + subwaySegments + walkingToDestination;
+      }
+
+      function renderApiRouteSteps(routeSummary) {
+        const routeSteps = document.getElementById("route-steps");
+        const route = routeSummary.apiRoute;
+
+        const firstStation = route.paths[0];
+        const lastStation = route.paths[route.paths.length - 1];
+        const stepMinutes = estimateApiRouteStepMinutes(routeSummary);
+
+        const walkingToStation =
+          '<article class="route-step">' +
+          '<span class="badge" style="background:#65756a;">도보</span>' +
+          "<div>" +
+          routeSummary.origin.label +
+          " -> " +
+          firstStation.fromName +
+          "</div>" +
+          '<div class="status">약 ' +
+          stepMinutes.walkToFirst +
+          "분 · 출발지에서 첫 탑승지까지 이동</div>" +
+          "</article>";
+
+        const subwaySteps = route.paths
+          .map((step, index) => {
+            const isSubway = step.mode === "subway";
+            const busTypeMeta = isSubway ? null : getBusRouteTypeMeta(step);
+            const badgeColor = getTransitColor(step);
+            const badgeText = isSubway ? step.lineName : busTypeMeta.label + " " + step.lineName;
+            const directionText = isSubway
+              ? stripStationSuffix(step.toName) + " 방면"
+              : step.toName + " 하차";
+            const congestion = step.congestion || estimateSegmentCongestion(step, index);
+
+            return (
+              '<article class="route-step">' +
+              '<span class="badge" style="background:' +
+              badgeColor +
+              ';">' +
+              badgeText +
+              "</span>" +
+              "<div>" +
+              step.fromName +
+              " -> " +
+              step.toName +
+              "</div>" +
+              '<div class="status">구간 링크 ' +
+              step.railLinkCount +
+              "개, " +
+              directionText +
+              " · 약 " +
+              stepMinutes.transit[index] +
+              "분" +
+              "</div>" +
+              renderCongestionBadge(congestion) +
+              "</article>"
+            );
+          })
+          .join("");
+
+        const walkingToDestination =
+          '<article class="route-step">' +
+          '<span class="badge" style="background:#65756a;">도보</span>' +
+          "<div>" +
+          lastStation.toName +
+          " -> " +
+          routeSummary.destination.label +
+          "</div>" +
+          '<div class="status">약 ' +
+          stepMinutes.walkToDestination +
+          "분 · 마지막 하차지에서 목적지까지 이동</div>" +
+          "</article>";
+
+        routeSteps.innerHTML = walkingToStation + subwaySteps + walkingToDestination;
+      }
+
+      function estimateApiRouteStepMinutes(routeSummary) {
+        const route = routeSummary.apiRoute;
+        const firstStep = route.paths[0];
+        const lastStep = route.paths[route.paths.length - 1];
+        const walkToFirst = firstStep && Number.isFinite(firstStep.fromLat) && Number.isFinite(firstStep.fromLng)
+          ? estimateWalkingMinutes(routeSummary.origin, { lat: firstStep.fromLat, lng: firstStep.fromLng })
+          : 0;
+        const walkToDestination = lastStep && Number.isFinite(lastStep.toLat) && Number.isFinite(lastStep.toLng)
+          ? estimateWalkingMinutes({ lat: lastStep.toLat, lng: lastStep.toLng }, routeSummary.destination)
+          : 0;
+        const transitBudget = Math.max(
+          route.paths.length,
+          (route.time || 0) - walkToFirst - walkToDestination
+        );
+        const weights = route.paths.map((step) => {
+          const distance =
+            Number.isFinite(step.fromLat) &&
+            Number.isFinite(step.fromLng) &&
+            Number.isFinite(step.toLat) &&
+            Number.isFinite(step.toLng)
+              ? calculateDistanceMeters(
+                  { lat: step.fromLat, lng: step.fromLng },
+                  { lat: step.toLat, lng: step.toLng }
+                )
+              : 1000;
+          const modeWeight = step.mode === "bus" ? 1.1 : 1;
+          return Math.max(1, distance / 1000) * modeWeight;
+        });
+        const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1;
+        const transit = weights.map((weight) => Math.max(1, Math.round((transitBudget * weight) / totalWeight)));
+        const diff = transitBudget - transit.reduce((sum, value) => sum + value, 0);
+        if (transit.length && diff !== 0) {
+          transit[transit.length - 1] = Math.max(1, transit[transit.length - 1] + diff);
+        }
+
+        return {
+          walkToFirst,
+          walkToDestination,
+          transit,
+        };
+      }
+
+      function getRealtimeRouteMinutes(route) {
+        return Number.isFinite(route?.realtimeAdjustedTime)
+          ? route.realtimeAdjustedTime
+          : route?.time || 0;
+      }
+
+      function getRouteTimeLabel(route) {
+        const baseMinutes = route?.time || 0;
+        const realtimeMinutes = getRealtimeRouteMinutes(route);
+        if (route?.realtimeBusWaitMinutes > 0 && realtimeMinutes > baseMinutes) {
+          return realtimeMinutes + "분";
+        }
+        return baseMinutes + "분";
+      }
+
+      function getRouteTimeDetail(route) {
+        if (route?.realtimeBusWaitMinutes > 0) {
+          return (
+            "소요시간 기준 " +
+            (route.time || 0) +
+            "분 · 버스 실시간 대기 +" +
+            route.realtimeBusWaitMinutes +
+            "분"
+          );
+        }
+        return "소요시간 기준 " + routeQualityScore(route) + "분";
+      }
+
+      function getLineColor(lineName) {
+        const match = Object.values(LINE_META).find((line) => line.name === lineName);
+        return match ? match.color : "#1d6a3a";
+      }
+
+      function inferBusRouteType(routeName) {
+        const value = String(routeName || "");
+        if (/^M/i.test(value) || /^9\d{3}/.test(value)) return "6";
+        if (/^[가-힣]+ ?\d+/.test(value)) return "2";
+        if (/^\d{4}/.test(value)) return "4";
+        return "3";
+      }
+
+      function getBusRouteTypeMeta(step) {
+        const routeType = String(step.busRouteType || inferBusRouteType(step.lineName));
+        return BUS_ROUTE_TYPE_META[routeType] || BUS_ROUTE_TYPE_META[3];
+      }
+
+      function getTransitColor(step) {
+        if (step.mode === "bus") {
+          return getBusRouteTypeMeta(step).color;
+        }
+        return getLineColor(step.lineName);
+      }
+
+      function stripStationSuffix(name) {
+        return String(name || "").replace(/역$/, "");
+      }
+
+      function estimateRouteCongestion(route) {
+        const segments = (route?.paths || [])
+          .map((path, index) => path.congestion || estimateSegmentCongestion(path, index))
+          .filter(Boolean);
+        if (!segments.length) {
+          return null;
+        }
+
+        const averageScore = Math.round(
+          segments.reduce((sum, item) => sum + item.score, 0) / segments.length
+        );
+        return congestionFromScore(averageScore, "전체 경로 평균");
+      }
+
+      function getRouteCongestionScore(route) {
+        return route?.congestion?.score || estimateRouteCongestion(route)?.score || 50;
+      }
+
+      function countRouteTransfers(route) {
+        return Math.max(0, (route?.paths || []).length - 1);
+      }
+
+      function routeModeChangeCount(route) {
+        let changes = 0;
+        let previousMode = null;
+        (route?.paths || []).forEach((path) => {
+          if (previousMode && previousMode !== path.mode) {
+            changes += 1;
+          }
+          previousMode = path.mode;
+        });
+        return changes;
+      }
+
+      function routeQualityScore(route) {
+        return route.time || 999;
+      }
+
+      function decorateRouteAlternatives(routes) {
+        const decorated = routes.map((route, index) => {
+          const congestion = route.congestion || estimateRouteCongestion(route);
+          return {
+            ...route,
+            originalIndex: index,
+            congestion,
+            alternativeLabel: "",
+          };
+        });
+
+        const selected = [];
+        const pick = (route, label) => {
+          if (!route || selected.includes(route)) {
+            return;
+          }
+          route.alternativeLabel = label;
+          selected.push(route);
+        };
+
+        const fastest = decorated.reduce((best, route) =>
+          route.time < best.time ? route : best
+        , decorated[0]);
+        pick(fastest, "가장 빠른 경로");
+
+        const smoothest = decorated
+          .filter((route) => route !== fastest)
+          .reduce((best, route) => {
+            if (!best) return route;
+            if (getRouteCongestionScore(route) !== getRouteCongestionScore(best)) {
+              return getRouteCongestionScore(route) < getRouteCongestionScore(best) ? route : best;
+            }
+            return route.time < best.time ? route : best;
+          }, null);
+        pick(smoothest, "가장 원활한 경로");
+
+        const balancedPool = decorated.filter((route) => route !== fastest && route !== smoothest);
+        const balanced = balancedPool
+          .filter((route) => !smoothest || route.time < smoothest.time)
+          .reduce((best, route) => {
+            if (!best) return route;
+            const routeScore = getRouteCongestionScore(route) * 0.65 + route.time * 0.35;
+            const bestScore = getRouteCongestionScore(best) * 0.65 + best.time * 0.35;
+            return routeScore < bestScore ? route : best;
+          }, null) ||
+          balancedPool.reduce((best, route) => {
+            if (!best) return route;
+            const routeScore = getRouteCongestionScore(route) * 0.55 + route.time * 0.45;
+            const bestScore = getRouteCongestionScore(best) * 0.55 + best.time * 0.45;
+            return routeScore < bestScore ? route : best;
+          }, null);
+        pick(balanced, "빠른 원활 대안");
+
+        return selected;
+      }
+
+      async function enrichRouteAlternativesWithCongestion(routes) {
+        const limitedRoutes = routes.slice(0, 5);
+        return Promise.all(
+          limitedRoutes.map(async (route) => {
+            const segmentCongestions = await Promise.all(
+              (route.paths || []).map(async (path, index) => {
+                if (path.mode === "bus") {
+                  return (await loadBusCongestionForPath(path, index)) || estimateSegmentCongestion(path, index);
+                }
+                return (await loadSubwayCongestionForPath(path, index)) || estimateSegmentCongestion(path, index);
+              })
+            );
+            const averageScore = segmentCongestions.length
+              ? Math.round(segmentCongestions.reduce((sum, item) => sum + item.score, 0) / segmentCongestions.length)
+              : getRouteCongestionScore(route);
+            const paths = (route.paths || []).map((path, index) => ({
+              ...path,
+              congestion: segmentCongestions[index] || path.congestion || estimateSegmentCongestion(path, index),
+            }));
+            return {
+              ...route,
+              paths,
+              congestion: congestionFromScore(averageScore, "선택 가능한 구간별 승하차 혼잡도 평균"),
+            };
+          })
+        );
+      }
+
+      function estimateSegmentCongestion(path, index, realtimeHint) {
+        const now = new Date();
+        const hour = now.getHours();
+        const day = now.getDay();
+        const isWeekday = day >= 1 && day <= 5;
+        const isMorningRush = isWeekday && hour >= 7 && hour <= 9;
+        const isEveningRush = isWeekday && hour >= 17 && hour <= 20;
+        const isLunchOrWeekend = (!isWeekday && hour >= 12 && hour <= 20) || (hour >= 12 && hour <= 14);
+        const isSubway = path.mode === "subway";
+        const nameBundle = [path.lineName, path.fromName, path.toName].join(" ");
+
+        let score = isSubway ? 46 : 40;
+        if (isMorningRush || isEveningRush) score += 24;
+        if (isLunchOrWeekend) score += 8;
+        if (/2호선|9호선|신분당선|1호선/.test(path.lineName || "")) score += 8;
+        if (/강남|잠실|홍대입구|서울역|시청|고속터미널|사당|신도림|여의도|왕십리/.test(nameBundle)) {
+          score += 10;
+        }
+        if (index > 0) score += 4;
+        if (realtimeHint?.arrivingSoon) score += 5;
+
+        const reason = isMorningRush || isEveningRush
+          ? "출퇴근 시간대와 주요 환승 지점을 반영한 추정치"
+          : "현재 시간대, 노선, 환승 지점을 반영한 추정치";
+
+        return congestionFromScore(score, reason);
+      }
+
+      function congestionFromScore(score, reason) {
+        const numericScore = Number(score) || 0;
+        const normalized = Math.max(0, Math.round(numericScore * 10) / 10);
+        if (normalized <= 25) {
+          return {
+            score: normalized,
+            label: "원활",
+            color: "#2563eb",
+            reason,
+          };
+        }
+        if (normalized <= 50) {
+          return {
+            score: normalized,
+            label: "보통",
+            color: "#16a34a",
+            reason,
+          };
+        }
+        if (normalized <= 75) {
+          return {
+            score: normalized,
+            label: "약간 혼잡",
+            color: "#f97316",
+            reason,
+          };
+        }
+        if (normalized <= 100) {
+          return {
+            score: normalized,
+            label: "혼잡",
+            color: "#dc2626",
+            reason,
+          };
+        }
+        return {
+          score: normalized,
+          label: "매우 혼잡",
+          color: "#991b1b",
+          reason,
+        };
+      }
+
+      function legacyCongestionFromScore(score, reason) {
+        const normalized = Math.max(15, Math.min(95, score));
+        if (normalized >= 78) {
+          return {
+            score: normalized,
+            label: "혼잡",
+            color: "#c43d2b",
+            reason,
+          };
+        }
+        if (normalized >= 58) {
+          return {
+            score: normalized,
+            label: "보통 이상",
+            color: "#d48725",
+            reason,
+          };
+        }
+        if (normalized >= 38) {
+          return {
+            score: normalized,
+            label: "보통",
+            color: "#587f39",
+            reason,
+          };
+        }
+        return {
+          score: normalized,
+          label: "여유",
+          color: "#23856f",
+          reason,
+        };
+      }
+
+      function renderCongestionBadge(congestion) {
+        if (!congestion) {
+          return "";
+        }
+
+        return (
+          '<span class="congestion-badge" style="background:' +
+          congestion.color +
+          '; color:#fff;">혼잡도 ' +
+          congestion.label +
+          " · " +
+          congestion.score +
+          "%</span>" +
+          '<div class="congestion-bar"><span style="width:' +
+          Math.min(Number(congestion.score) || 0, 100) +
+          "%; background:" +
+          congestion.color +
+          ';"></span></div>'
+        );
+      }
+
+      function renderCongestionDetail(congestion) {
+        if (!congestion) {
+          return "";
+        }
+        return "";
+      }
+
+      function isArrivingSoon(text) {
+        const value = String(text || "");
+        return /곧|진입|도착|전역|1분|2분|3분/.test(value);
+      }
+
+      function formatDurationSeconds(totalSeconds) {
+        const seconds = Number(totalSeconds);
+        if (!Number.isFinite(seconds) || seconds <= 0) {
+          return "곧 도착";
+        }
+
+        const minutes = Math.floor(seconds / 60);
+        const remainder = Math.round(seconds % 60);
+        if (minutes <= 0) {
+          return remainder + "초 후";
+        }
+        if (remainder <= 0) {
+          return minutes + "분 후";
+        }
+        return minutes + "분 " + remainder + "초 후";
+      }
+
+      function getArrivalWaitMinutes(arrival) {
+        const seconds = Number(arrival?.arrivalSeconds1);
+        if (Number.isFinite(seconds) && seconds > 0) {
+          return Math.ceil(seconds / 60);
+        }
+
+        const message = String(arrival?.arrmsg1 || "");
+        const minuteMatch = message.match(/(\d+)\s*분/);
+        if (minuteMatch) {
+          return Number(minuteMatch[1]);
+        }
+        return isArrivingSoon(message) ? 0 : null;
+      }
+
+      function cleanArrivalMessage(message) {
+        return String(message || "")
+          .replace(/후\s*\[/g, " 후 [")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function formatBusArrivalMessage(label, message, seconds, stationCount) {
+        const parts = [];
+        const numericSeconds = Number(seconds);
+        if (Number.isFinite(numericSeconds) && numericSeconds >= 0) {
+          parts.push(formatDurationSeconds(numericSeconds));
+        } else if (message) {
+          parts.push(cleanArrivalMessage(message));
+        }
+
+        const numericStationCount = Number(stationCount);
+        if (Number.isFinite(numericStationCount) && numericStationCount > 0) {
+          parts.push(numericStationCount + "번째 전 정류장");
+        }
+
+        return label + ": " + (parts.length ? parts.join(" · ") : "정보 없음");
+      }
+
+      function busRealtimeCongestionFromArrival(arrival) {
+        if (!arrival) {
+          return null;
+        }
+
+        const code = Number(arrival.fullFlag1) === 1 ? 7 : Number(arrival.congestionCode1 || 0);
+        const rerideCount = Number(arrival.rerideCount1 || 0);
+        const mapping = {
+          3: { score: 22, label: "여유" },
+          4: { score: 45, label: "보통" },
+          5: { score: 75, label: "혼잡" },
+          6: { score: 92, label: "매우 혼잡" },
+          7: { score: 100, label: "만차" },
+        };
+
+        if (mapping[code]) {
+          const congestion = congestionFromScore(
+            mapping[code].score,
+            "서울 버스 도착정보 API의 차량별 실시간 혼잡도 코드를 먼저 반영했습니다."
+          );
+          return {
+            ...congestion,
+            label: mapping[code].label,
+            source: "seoulBusRealtime",
+            arrivalMessage: arrival.arrmsg1,
+            arrivalSeconds: arrival.arrivalSeconds1,
+            stationCount: arrival.stationCount1,
+            vehicleId: arrival.vehicleId1,
+            vehicleNumber: arrival.plainNo1,
+            busType: arrival.busType1,
+            congestionCode: code,
+            fullFlag: arrival.fullFlag1,
+            rerideCount,
+            lastUpdated: arrival.lastUpdated,
+          };
+        } else {
+          return null;
+        }
+      }
+
+      function renderSubwayArrivalLine(arrival, index) {
+        const label = index === 0 ? "이번 열차" : "다음 열차";
+        const positionText = arrival.position
+          ? "현재 " + (arrival.position.statnNm || "-") + " 부근"
+          : arrival.arvlMsg3 || "위치 정보 없음";
+        const details = [
+          arrival.arvlMsg2 || "-",
+          positionText,
+          arrival.btrainNo ? "열차번호 " + arrival.btrainNo : "",
+        ].filter(Boolean);
+
+        return "<p>" + label + ": " + details.join(" · ") + "</p>";
+      }
+
+      function clearPath() {
+        if (state.pathLine) {
+          state.pathLine.setMap(null);
+          state.pathLine = null;
+        }
+        state.walkingLines.forEach((line) => line.setMap(null));
+        state.walkingLines = [];
+        if (state.startMarker) {
+          state.startMarker.setMap(null);
+          state.startMarker = null;
+        }
+        if (state.endMarker) {
+          state.endMarker.setMap(null);
+          state.endMarker = null;
+        }
+        state.transferMarkers.forEach((marker) => marker.setMap(null));
+        state.transferMarkers = [];
+      }
+
+      function mapMarkerContent(kind, label, detail, color) {
+        const textColor = kind === "walk" ? "#26352b" : "#fff";
+        const background = kind === "walk" ? "#f7faf7" : color;
+        const border = kind === "walk" ? "#8a968e" : color;
+        return (
+          '<div style="' +
+          "display:grid;gap:2px;min-width:54px;max-width:128px;padding:7px 9px;" +
+          "border-radius:14px;border:2px solid " +
+          border +
+          ";background:" +
+          background +
+          ";color:" +
+          textColor +
+          ";font-size:12px;font-weight:900;line-height:1.12;text-align:center;" +
+          "box-shadow:0 10px 24px rgba(19,32,24,.24);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
+          '">' +
+          '<span style="font-size:11px;opacity:.82;">' +
+          label +
+          "</span>" +
+          (detail ? '<span style="font-size:13px;">' + detail + "</span>" : "") +
+          "</div>"
+        );
+      }
+
+      function addMapMarker(point, kind, label, detail, color, title) {
+        const marker = new naver.maps.Marker({
+          map: state.map,
+          position: point,
+          title: title || [label, detail].filter(Boolean).join(" "),
+          icon: {
+            content: mapMarkerContent(kind, label, detail, color),
+            anchor: new naver.maps.Point(28, 42),
+          },
+        });
+        state.transferMarkers.push(marker);
+        return marker;
+      }
+
+      function addRouteLine(points, color, weight, opacity, options) {
+        const lineOptions = {
+          map: state.map,
+          path: points,
+          strokeColor: color,
+          strokeWeight: weight,
+          strokeOpacity: opacity,
+          strokeLineCap: "round",
+          strokeLineJoin: "round",
+          ...(options || {}),
+        };
+        state.walkingLines.push(new naver.maps.Polyline(lineOptions));
+      }
+
+      function addStyledTransitLine(points, color, mode) {
+        addRouteLine(points, "#132018", 11, 0.22);
+        addRouteLine(points, color, mode === "subway" ? 7 : 8, mode === "subway" ? 0.95 : 0.9);
+      }
+
+      function modeLabel(step) {
+        if (step.mode === "bus") {
+          return getBusRouteTypeMeta(step).label + "버스";
+        }
+        return "지하철";
+      }
+
+      function lineShortLabel(step) {
+        if (step.mode === "bus") {
+          return step.lineName || "버스";
+        }
+        return step.lineName || "철도";
+      }
+
+      async function renderRouteOnMap(routeSummary) {
+        if (routeSummary.apiRoute) {
+          await renderApiRouteOnMap(routeSummary);
+          return;
+        }
+
+        clearPath();
+
+        const latLngs = routeSummary.subway.path.map((step) => {
+          const station = STATIONS[step.stationId];
+          return new naver.maps.LatLng(station.lat, station.lng);
+        });
+
+        state.pathLine = new naver.maps.Polyline({
+          map: state.map,
+          path: latLngs,
+          strokeColor: "#1d6a3a",
+          strokeWeight: 6,
+          strokeOpacity: 0.85,
+        });
+
+        const originStation = routeSummary.originNearest.station;
+        const destinationStation = routeSummary.destinationNearest.station;
+
+        state.startMarker = new naver.maps.Marker({
+          map: state.map,
+          position: new naver.maps.LatLng(routeSummary.origin.lat, routeSummary.origin.lng),
+          title: routeSummary.origin.label,
+        });
+
+        state.endMarker = new naver.maps.Marker({
+          map: state.map,
+          position: new naver.maps.LatLng(routeSummary.destination.lat, routeSummary.destination.lng),
+          title: routeSummary.destination.label,
+        });
+
+        state.transferMarkers.push(
+          new naver.maps.Marker({
+            map: state.map,
+            position: new naver.maps.LatLng(originStation.lat, originStation.lng),
+            title: originStation.name,
+          })
+        );
+
+        state.transferMarkers.push(
+          new naver.maps.Marker({
+            map: state.map,
+            position: new naver.maps.LatLng(destinationStation.lat, destinationStation.lng),
+            title: destinationStation.name,
+          })
+        );
+
+        state.walkingLines.push(
+          new naver.maps.Polyline({
+            map: state.map,
+            path: [
+              new naver.maps.LatLng(routeSummary.origin.lat, routeSummary.origin.lng),
+              new naver.maps.LatLng(originStation.lat, originStation.lng),
+            ],
+            strokeColor: "#65756a",
+            strokeWeight: 4,
+            strokeOpacity: 0.8,
+          })
+        );
+
+        state.walkingLines.push(
+          new naver.maps.Polyline({
+            map: state.map,
+            path: [
+              new naver.maps.LatLng(destinationStation.lat, destinationStation.lng),
+              new naver.maps.LatLng(routeSummary.destination.lat, routeSummary.destination.lng),
+            ],
+            strokeColor: "#65756a",
+            strokeWeight: 4,
+            strokeOpacity: 0.8,
+          })
+        );
+
+        const bounds = new naver.maps.LatLngBounds();
+        bounds.extend(new naver.maps.LatLng(routeSummary.origin.lat, routeSummary.origin.lng));
+        latLngs.forEach((point) => bounds.extend(point));
+        bounds.extend(new naver.maps.LatLng(routeSummary.destination.lat, routeSummary.destination.lng));
+        state.map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
+      }
+
+      async function renderApiRouteOnMap(routeSummary) {
+        clearPath();
+
+        const bounds = new naver.maps.LatLngBounds();
+        const originPoint = new naver.maps.LatLng(routeSummary.origin.lat, routeSummary.origin.lng);
+        const destinationPoint = new naver.maps.LatLng(routeSummary.destination.lat, routeSummary.destination.lng);
+        let previousPoint = originPoint;
+
+        bounds.extend(originPoint);
+
+        const addLine = (from, to, color, weight, opacity) => {
+          addRouteLine([from, to], color, weight, opacity, { strokeStyle: "shortdash" });
+          bounds.extend(from);
+          bounds.extend(to);
+        };
+
+        const shapeResults = await Promise.all(
+          routeSummary.apiRoute.paths.map(async (step) => ({
+            step,
+            shapePoints: await loadTransitSegmentShape(step),
+          }))
+        );
+
+        for (const { step, shapePoints } of shapeResults) {
+          if (!Number.isFinite(step.fromLat) || !Number.isFinite(step.fromLng)) {
+            continue;
+          }
+          if (!Number.isFinite(step.toLat) || !Number.isFinite(step.toLng)) {
+            continue;
+          }
+
+          const fromPoint = new naver.maps.LatLng(step.fromLat, step.fromLng);
+          const toPoint = new naver.maps.LatLng(step.toLat, step.toLng);
+          const transitPoints = shapePoints.length >= 2
+            ? shapePoints.map((point) => new naver.maps.LatLng(point.lat, point.lng))
+            : [fromPoint, toPoint];
+
+          addLine(previousPoint, fromPoint, "#8a968e", 4, 0.72);
+          const lineColor = getTransitColor(step);
+          const isLastStep = step === routeSummary.apiRoute.paths[routeSummary.apiRoute.paths.length - 1];
+          addStyledTransitLine(transitPoints, lineColor, step.mode);
+          addMapMarker(
+            fromPoint,
+            step.mode,
+            modeLabel(step) + " 탑승",
+            lineShortLabel(step),
+            lineColor,
+            modeLabel(step) + " " + lineShortLabel(step) + " 탑승: " + step.fromName
+          );
+          addMapMarker(
+            toPoint,
+            "walk",
+            isLastStep ? "하차" : "환승",
+            stripStationSuffix(step.toName || ""),
+            "#8a968e",
+            (isLastStep ? "하차: " : "환승: ") + step.toName
+          );
+          transitPoints.forEach((point) => bounds.extend(point));
+
+          previousPoint = transitPoints[transitPoints.length - 1] || toPoint;
+        }
+
+        addLine(previousPoint, destinationPoint, "#8a968e", 4, 0.72);
+
+        state.startMarker = addMapMarker(
+          originPoint,
+          "walk",
+          "출발",
+          routeSummary.origin.label,
+          "#1d6a3a",
+          routeSummary.origin.label
+        );
+
+        state.endMarker = addMapMarker(
+          destinationPoint,
+          "destination",
+          "도착",
+          routeSummary.destination.label,
+          "#dc2626",
+          routeSummary.destination.label
+        );
+
+        state.map.fitBounds(bounds, { top: 100, right: 80, bottom: 100, left: 80 });
+      }
+
+      async function loadTransitSegmentShape(step) {
+        try {
+          const cacheKey = [
+            step.mode,
+            step.routeId || "",
+            step.lineName || "",
+            step.fromId || "",
+            step.toId || "",
+            step.railLinkCount || "",
+          ].join("|");
+          if (state.segmentShapeCache.has(cacheKey)) {
+            return state.segmentShapeCache.get(cacheKey);
+          }
+
+          const endpoint =
+            step.mode === "bus"
+              ? "/api/bus/segment-shape?routeId=" +
+                encodeURIComponent(step.routeId || "") +
+                "&fromId=" +
+                encodeURIComponent(step.fromId || "") +
+                "&toId=" +
+                encodeURIComponent(step.toId || "")
+              : "/api/subway/segment-shape?fromId=" +
+                encodeURIComponent(step.fromId || "") +
+                "&fromName=" +
+                encodeURIComponent(step.fromName || "") +
+                "&toId=" +
+                encodeURIComponent(step.toId || "") +
+                "&toName=" +
+                encodeURIComponent(step.toName || "") +
+                "&lineName=" +
+                encodeURIComponent(step.lineName || "") +
+                "&railLinkCount=" +
+                encodeURIComponent(step.railLinkCount || "");
+          const response = await fetch(endpoint);
+          const data = await response.json();
+          if (!response.ok || data.status !== "OK") {
+            return [];
+          }
+          const points = (data.points || []).filter((point) =>
+            Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng))
+          );
+          state.segmentShapeCache.set(cacheKey, points);
+          return points;
+        } catch (error) {
+          console.error(error);
+          return [];
+        }
+      }
+
+      function renderSummary(routeSummary) {
+        if (routeSummary.apiRoute) {
+          const selectedLabel = routeSummary.apiRoute.alternativeLabel
+            ? "[" + routeSummary.apiRoute.alternativeLabel + "] "
+            : "";
+          document.getElementById("route-status").textContent =
+            selectedLabel +
+            routeSummary.origin.label +
+            " -> " +
+            routeSummary.destination.label +
+            " 실제 대중교통 경로를 찾았습니다.";
+          document.getElementById("route-duration").textContent = getRouteTimeLabel(routeSummary.apiRoute);
+          document.getElementById("route-transfers").textContent =
+            Math.max(0, routeSummary.apiRoute.paths.length - 1) + "회";
+          const congestion = estimateRouteCongestion(routeSummary.apiRoute);
+          document.getElementById("route-congestion").textContent = congestion
+            ? congestion.label + " · " + congestion.score + "%"
+            : "-";
+          return;
+        }
+
+        document.getElementById("route-status").textContent =
+          routeSummary.origin.label + " -> " + routeSummary.destination.label + " 경로를 찾았습니다.";
+        document.getElementById("route-duration").textContent = routeSummary.totalMinutes + "분";
+        document.getElementById("route-transfers").textContent =
+          countTransfers(routeSummary.subway.path) + "회";
+        document.getElementById("route-congestion").textContent = "-";
+      }
+
+      function renderRouteAlternatives(routeSummary) {
+        const root = document.getElementById("route-alternatives");
+        const alternatives = state.routeAlternatives;
+
+        if (!alternatives.length) {
+          root.innerHTML =
+            '<button class="alternative-button" type="button" disabled>' +
+            "<strong>추천 대안이 없습니다.</strong>" +
+            "<span>다른 이동 수단을 선택하거나 출발지/목적지를 바꿔보세요.</span>" +
+            "</button>";
+          return;
+        }
+
+        root.innerHTML = alternatives
+          .map((route, index) => {
+            const congestion = route.congestion || estimateRouteCongestion(route);
+            const modeSummary = summarizeRouteModes(route);
+            const activeClass = index === state.selectedRouteIndex ? " active" : "";
+            return (
+              '<button class="alternative-button' +
+              activeClass +
+              '" type="button" data-index="' +
+              index +
+              '">' +
+              "<strong>" +
+              route.alternativeLabel +
+              " · " +
+              getRouteTimeLabel(route) +
+              "</strong>" +
+              "<span>" +
+              modeSummary +
+              " · 환승 " +
+              countRouteTransfers(route) +
+              "회 · " +
+              getRouteTimeDetail(route) +
+              " · 혼잡도 " +
+              (congestion ? congestion.label + " " + congestion.score + "%" : "-") +
+              "</span>" +
+              renderCongestionBadge(congestion) +
+              "</button>"
+            );
+          })
+          .join("");
+
+        root.querySelectorAll("button[data-index]").forEach((button) => {
+          button.addEventListener("click", function () {
+            selectRouteAlternative(Number(button.dataset.index));
+          });
+        });
+      }
+
+      function summarizeRouteModes(route) {
+        const modes = new Set((route.paths || []).map((path) => path.mode));
+        if (modes.has("bus") && modes.has("subway")) return "버스+지하철";
+        if (modes.has("subway")) return "지하철";
+        if (modes.has("bus")) return "버스";
+        return "대중교통";
+      }
+
+      function filterRoutesByMode(routes, mode) {
+        return routes.filter((route) => {
+          const modes = new Set((route.paths || []).map((path) => path.mode));
+          if (mode === "subway") return modes.size === 1 && modes.has("subway");
+          if (mode === "bus") return modes.size === 1 && modes.has("bus");
+          if (mode === "mixed") return modes.has("bus") && modes.has("subway");
+          return true;
+        });
+      }
+
+      async function applyRouteFilter(mode) {
+        if (!state.currentRouteContext || !state.allRouteCandidates.length) {
+          return;
+        }
+
+        const filteredRoutes = filterRoutesByMode(state.allRouteCandidates, mode);
+        if (!filteredRoutes.length) {
+          state.routeAlternatives = [];
+          state.selectedRouteIndex = 0;
+          renderRouteAlternatives({});
+          document.getElementById("route-status").textContent =
+            "현재 탐색 결과에는 선택한 필터에 맞는 경로가 없습니다.";
+          document.getElementById("route-duration").textContent = "-";
+          document.getElementById("route-transfers").textContent = "-";
+          document.getElementById("route-congestion").textContent = "-";
+          setArrivalStatus("다른 경로 필터를 선택해 주세요.");
+          renderArrivalList([]);
+          return;
+        }
+
+        const baseAlternatives = decorateRouteAlternatives(filteredRoutes);
+        state.routeAlternatives = baseAlternatives;
+        state.selectedRouteIndex = 0;
+        state.currentRouteContext.routeMode = mode;
+        await selectRouteAlternative(0);
+        enrichRouteAlternativesWithCongestion(baseAlternatives)
+          .then((alternatives) => {
+            if (!state.currentRouteContext || state.currentRouteContext.routeMode !== mode) {
+              return;
+            }
+            const currentSelected = state.routeAlternatives[state.selectedRouteIndex];
+            const selectedOriginalIndex = currentSelected?.originalIndex ?? 0;
+            state.routeAlternatives = alternatives;
+            const nextSelectedIndex = Math.max(
+              0,
+              alternatives.findIndex((item) => item.originalIndex === selectedOriginalIndex)
+            );
+            state.selectedRouteIndex = nextSelectedIndex >= 0 ? nextSelectedIndex : 0;
+            const routeSummary = {
+              ...state.currentRouteContext,
+              apiRoute: state.routeAlternatives[state.selectedRouteIndex],
+            };
+            renderSummary(routeSummary);
+            renderRouteAlternatives(routeSummary);
+            renderRouteSteps(routeSummary);
+          })
+          .catch(console.error);
+      }
+
+      async function selectRouteAlternative(index) {
+        const route = state.routeAlternatives[index];
+        if (!route || !state.currentRouteContext) {
+          return;
+        }
+
+        state.selectedRouteIndex = index;
+        const routeSummary = {
+          ...state.currentRouteContext,
+          apiRoute: route,
+        };
+        renderSummary(routeSummary);
+        renderRouteAlternatives(routeSummary);
+        renderRouteSteps(routeSummary);
+        renderRouteOnMap(routeSummary).catch(console.error);
+        loadRealtimeForRoute(routeSummary).catch(console.error);
+      }
+
+      function setArrivalStatus(message) {
+        document.getElementById("arrival-status").textContent = message;
+      }
+
+      function renderArrivalList(items) {
+        const root = document.getElementById("arrival-list");
+
+        if (!items.length) {
+          root.innerHTML = '<div class="arrival-item"><p>실시간 도착 정보가 없습니다.</p></div>';
+          return;
+        }
+
+        root.innerHTML = items
+          .map((item) => {
+            if (item.mode === "bus") {
+              if (item.error) {
+                return (
+                  '<article class="arrival-item">' +
+                  "<strong>버스 " +
+                  item.routeName +
+                  " / " +
+                  item.stopName +
+                  "</strong>" +
+                "<p>" +
+                item.error +
+                "</p>" +
+                renderCongestionBadge(item.congestion) +
+                renderCongestionDetail(item.congestion) +
+                "</article>"
+              );
+            }
+
+            return (
+                '<article class="arrival-item">' +
+                "<strong>버스 " +
+                item.routeName +
+                " / " +
+                item.stopName +
+                "</strong>" +
+                "<p>" +
+                formatBusArrivalMessage("도착 예정", item.arrmsg1, item.arrivalSeconds1, item.stationCount1) +
+                "</p>" +
+                (item.arrmsg2
+                  ? "<p>" +
+                    formatBusArrivalMessage("다음 버스", item.arrmsg2, item.arrivalSeconds2, item.stationCount2) +
+                    "</p>"
+                  : "") +
+                (item.lastUpdated ? "<p>정보 갱신: " + item.lastUpdated + "</p>" : "") +
+                renderCongestionBadge(item.congestion) +
+                renderCongestionDetail(item.congestion) +
+                "</article>"
+              );
+            }
+
+            const subwayArrivals = Array.isArray(item.arrivals) && item.arrivals.length
+              ? item.arrivals
+              : [item];
+
+            return (
+              '<article class="arrival-item">' +
+              "<strong>" +
+              (item.trainLineNm || "열차 정보") +
+              "</strong>" +
+              subwayArrivals
+                .slice(0, 2)
+                .map((arrival, index) => renderSubwayArrivalLine(arrival, index))
+                .join("") +
+              renderCongestionBadge(item.congestion) +
+              renderCongestionDetail(item.congestion) +
+              "</article>"
+            );
+          })
+          .join("");
+      }
+
+      function getLastSubwayPath(route) {
+        const subwayPaths = route.paths.filter((path) => path.mode === "subway");
+        return subwayPaths.length ? subwayPaths[subwayPaths.length - 1] : null;
+      }
+
+      async function loadRealtimeForRoute(routeSummary) {
+        if (routeSummary.apiRoute) {
+          await loadRealtimeForSegments(routeSummary.apiRoute);
+          return;
+        }
+
+        const lastSegment = routeSummary.subway.path[routeSummary.subway.path.length - 1];
+        const lineMeta = LINE_META[lastSegment.line];
+        const stationName = routeSummary.destinationNearest.station.name;
+
+        await loadRealtimeByStation(stationName, lineMeta.name, lineMeta.realtimeCode);
+      }
+
+      async function loadRealtimeForSegments(route) {
+        const realtimeTargets = route.paths.map((path, index) => ({ path, index }));
+
+        if (!realtimeTargets.length) {
+          setArrivalStatus("조회할 탑승 구간이 없습니다.");
+          renderArrivalList([]);
+          return;
+        }
+
+        setArrivalStatus("버스 정류장과 지하철역 실시간 정보를 불러오는 중입니다.");
+
+        const results = await Promise.all(
+          realtimeTargets.map(async ({ path, index }) => {
+            if (path.mode === "bus") {
+              return loadBusRealtimeForPath(path, index);
+            }
+            return loadSubwayRealtimeForPath(path, index);
+          })
+        );
+
+        const realtimeItems = results.flat().filter(Boolean);
+        applyRealtimeResultsToRoute(route, results);
+
+        setArrivalStatus(
+          results.length +
+            "개 탑승/환승 구간의 실시간 정보를 조회했습니다." +
+            (route.realtimeBusWaitMinutes > 0 ? " 버스 대기 " + route.realtimeBusWaitMinutes + "분을 반영했습니다." : "")
+        );
+        rerenderSelectedRoute(route);
+        renderArrivalList(realtimeItems);
+        hydrateRealtimeCongestionDetails(route, results).catch(console.error);
+      }
+
+      function applyRealtimeResultsToRoute(route, results) {
+        const realtimeItems = results.flat().filter(Boolean);
+        const busWaitMinutes = realtimeItems.reduce((sum, item) => {
+          if (item.mode !== "bus" || !Number.isFinite(item.waitMinutes)) {
+            return sum;
+          }
+          return sum + item.waitMinutes;
+        }, 0);
+
+        route.paths = route.paths.map((path, index) => ({
+          ...path,
+          congestion: results[index]?.congestion || path.congestion || estimateSegmentCongestion(path, index),
+          realtimeWaitMinutes:
+            results[index]?.mode === "bus" && Number.isFinite(results[index].waitMinutes)
+              ? results[index].waitMinutes
+              : path.realtimeWaitMinutes,
+        }));
+        route.congestion = estimateRouteCongestion(route);
+        route.realtimeBusWaitMinutes = busWaitMinutes;
+        route.realtimeAdjustedTime = busWaitMinutes > 0 ? (route.time || 0) + busWaitMinutes : route.time;
+      }
+
+      function rerenderSelectedRoute(route) {
+        if (state.currentRouteContext && state.routeAlternatives[state.selectedRouteIndex] === route) {
+          const routeSummary = {
+            ...state.currentRouteContext,
+            apiRoute: route,
+          };
+          renderSummary(routeSummary);
+          renderRouteAlternatives(routeSummary);
+          renderRouteSteps(routeSummary);
+        }
+      }
+
+      async function hydrateRealtimeCongestionDetails(route, results) {
+        const hydrated = await Promise.all(
+          route.paths.map(async (path, index) => {
+            const current = results[index];
+            if (current?.congestion?.source === "seoulBusRealtime") {
+              return current;
+            }
+
+            const congestion = path.mode === "bus"
+              ? await loadBusCongestionForPath(path, index, {
+                  arrivingSoon: isArrivingSoon(current?.arrmsg1),
+                })
+              : await loadSubwayCongestionForPath(path, index, {
+                  arrivingSoon: isArrivingSoon(current?.arvlMsg2 || current?.arvlMsg3),
+                });
+
+            return {
+              ...current,
+              congestion: congestion || current?.congestion || path.congestion || estimateSegmentCongestion(path, index),
+            };
+          })
+        );
+
+        applyRealtimeResultsToRoute(route, hydrated);
+        rerenderSelectedRoute(route);
+        renderArrivalList(hydrated.flat().filter(Boolean));
+      }
+
+      async function loadBusRealtimeForPath(path, index) {
+        try {
+          const response = await fetch(
+            "/api/bus/realtime?stopId=" +
+              encodeURIComponent(path.fromId) +
+              "&routeId=" +
+              encodeURIComponent(path.routeId || "") +
+              "&routeName=" +
+              encodeURIComponent(path.lineName || "")
+          );
+          const data = await response.json();
+
+          if (data.headerCode && data.headerCode !== "0") {
+            return {
+              mode: "bus",
+              routeName: path.lineName,
+              stopName: path.fromName,
+              error:
+                "버스 도착정보 API 권한이 필요합니다. " +
+                (data.headerMessage || "현재 키로는 버스 실시간 정보 접근이 거부되었습니다."),
+              congestion: estimateSegmentCongestion(path, index),
+            };
+          }
+
+          const arrival = data.arrivals?.[0] || {};
+          const waitMinutes = getArrivalWaitMinutes(arrival);
+          const congestion = busRealtimeCongestionFromArrival(arrival) ||
+            estimateSegmentCongestion(path, index, {
+              arrivingSoon: isArrivingSoon(arrival.arrmsg1),
+            });
+          return {
+            mode: "bus",
+            routeName: path.lineName,
+            stopName: path.fromName,
+            arrmsg1: arrival.arrmsg1,
+            arrmsg2: arrival.arrmsg2,
+            arrivalSeconds1: arrival.arrivalSeconds1,
+            arrivalSeconds2: arrival.arrivalSeconds2,
+            stationCount1: arrival.stationCount1,
+            stationCount2: arrival.stationCount2,
+            lastUpdated: arrival.lastUpdated,
+            waitMinutes,
+            congestion,
+          };
+        } catch (error) {
+          console.error(error);
+          return {
+            mode: "bus",
+            routeName: path.lineName,
+            stopName: path.fromName,
+            error: "버스 실시간 정보를 불러오지 못했습니다.",
+            congestion: estimateSegmentCongestion(path, index),
+          };
+        }
+      }
+
+      async function loadBusCongestionForPath(path, index, realtimeHint) {
+        try {
+          if (path.congestion?.source === "seoulBusRealtime" || path.congestion?.source === "seoulBusCard") {
+            return path.congestion;
+          }
+
+          const cacheKey = [path.fromId || "", path.routeId || "", path.lineName || ""].join("|");
+          if (state.busCongestionCache.has(cacheKey)) {
+            return state.busCongestionCache.get(cacheKey);
+          }
+
+          const response = await fetch(
+            "/api/bus/congestion?stopId=" +
+              encodeURIComponent(path.fromId || "") +
+              "&routeId=" +
+              encodeURIComponent(path.routeId || "") +
+              "&routeName=" +
+              encodeURIComponent(path.lineName || "")
+          );
+          const data = await response.json();
+
+          if (!response.ok || data.status !== "OK") {
+            return null;
+          }
+
+          const contextual = estimateSegmentCongestion(path, index, realtimeHint);
+          const hasOfficialCode = data.source === "seoulBusRealtime" && Number(data.congestionCode || 0) >= 3;
+          const adjustedScore = hasOfficialCode ? data.score : Math.max(Number(data.score || 0), contextual.score);
+          const adjustedReason = hasOfficialCode
+            ? data.reason
+            : "공식 혼잡도 코드가 없어서 재차/승하차 값과 현재 시간대, 노선, 환승 지점 추정을 함께 반영했습니다.";
+          const congestion = congestionFromScore(adjustedScore, adjustedReason);
+
+          const result = {
+            ...congestion,
+            source: data.source,
+            adjustedByContext: !hasOfficialCode && adjustedScore > Number(data.score || 0),
+            rawScore: data.score,
+            dayType: data.dayType,
+            timeSlot: data.timeSlot,
+            matchedDirections: data.matchedDirections,
+            dailyDate: data.dailyDate,
+            timeMonth: data.timeMonth,
+            dailyTotal: data.dailyTotal,
+            hourlyEstimatedTotal: data.hourlyEstimatedTotal,
+            estimatedVehiclesPerHour: data.estimatedVehiclesPerHour,
+            vehicleEstimatedPassengers: data.vehicleEstimatedPassengers,
+            maximumCapacity: data.maximumCapacity,
+            currentPassengers: data.currentPassengers,
+            arrivalMessage: data.arrivalMessage,
+            arrivalSeconds: data.arrivalSeconds,
+            stationCount: data.stationCount,
+            vehicleId: data.vehicleId,
+            vehicleNumber: data.vehicleNumber,
+            busType: data.busType,
+            congestionCode: data.congestionCode,
+            fullFlag: data.fullFlag,
+            rerideCount: data.rerideCount,
+            lastUpdated: data.lastUpdated,
+          };
+          state.busCongestionCache.set(cacheKey, result);
+          return result;
+        } catch (error) {
+          console.error(error);
+          return null;
+        }
+      }
+
+      async function loadSubwayRealtimeForPath(path, index) {
+        try {
+          const stationName = stripStationSuffix(path.fromName);
+          const lineName = path.lineName;
+          const lineCode = REALTIME_LINE_CODES[lineName] || "";
+          const response = await fetch(
+            "/api/subway/realtime?station=" +
+              encodeURIComponent(stationName) +
+              "&lineCode=" +
+              encodeURIComponent(lineCode) +
+              "&lineName=" +
+              encodeURIComponent(lineName)
+          );
+          const data = await response.json();
+          const subwayArrivals = (data.arrivals || []).slice(0, 2);
+          const arrival = subwayArrivals[0] || {};
+          const congestion = estimateSegmentCongestion(path, index, {
+            arrivingSoon: isArrivingSoon(arrival.arvlMsg2 || arrival.arvlMsg3),
+          });
+
+          return {
+            mode: "subway",
+            trainLineNm: arrival.trainLineNm || lineName + " / " + stationName + "역",
+            arrivals: subwayArrivals,
+            arvlMsg2: arrival.arvlMsg2,
+            arvlMsg3: arrival.arvlMsg3,
+            btrainNo: arrival.btrainNo,
+            position: arrival.position,
+            congestion,
+          };
+        } catch (error) {
+          console.error(error);
+          return {
+            mode: "subway",
+            trainLineNm: path.lineName + " / " + path.fromName,
+            arvlMsg2: "실시간 정보를 불러오지 못했습니다.",
+            congestion: estimateSegmentCongestion(path, index),
+          };
+        }
+      }
+
+      async function loadSubwayCongestionForPath(path, index, realtimeHint) {
+        try {
+          if (path.congestion?.source === "seoulSubwayConfusion" || path.congestion?.source === "seoulSubwayCard") {
+            return path.congestion;
+          }
+
+          const cacheKey = [
+            path.lineName || "",
+            path.fromId || "",
+            path.toId || "",
+            path.fromName || "",
+            path.toName || "",
+            path.railLinkCount || "",
+          ].join("|");
+          if (state.subwayCongestionCache.has(cacheKey)) {
+            return state.subwayCongestionCache.get(cacheKey);
+          }
+
+          const stationName = stripStationSuffix(path.fromName);
+          const response = await fetch(
+            "/api/subway/congestion?station=" +
+              encodeURIComponent(stationName) +
+              "&lineName=" +
+              encodeURIComponent(path.lineName || "") +
+              "&fromId=" +
+              encodeURIComponent(path.fromId || "") +
+              "&toId=" +
+              encodeURIComponent(path.toId || "") +
+              "&fromName=" +
+              encodeURIComponent(path.fromName || "") +
+              "&toName=" +
+              encodeURIComponent(path.toName || "") +
+              "&railLinkCount=" +
+              encodeURIComponent(path.railLinkCount || "")
+          );
+          const data = await response.json();
+
+          if (!response.ok || data.status !== "OK") {
+            return null;
+          }
+
+          const congestion = congestionFromScore(data.score, data.reason);
+
+          const result = {
+            ...congestion,
+            source: data.source,
+            dayType: data.dayType,
+            timeSlot: data.timeSlot,
+            matchedDirection: data.matchedDirection,
+            matchedDirections: data.matchedDirections,
+            dailyDate: data.dailyDate,
+            timeMonth: data.timeMonth,
+            dailyTotal: data.dailyTotal,
+            hourlyEstimatedTotal: data.hourlyEstimatedTotal,
+            estimatedVehiclesPerHour: data.estimatedVehiclesPerHour,
+            vehicleEstimatedPassengers: data.vehicleEstimatedPassengers,
+            maximumCapacity: data.maximumCapacity,
+            currentPassengers: data.currentPassengers,
+          };
+          state.subwayCongestionCache.set(cacheKey, result);
+          return result;
+        } catch (error) {
+          console.error(error);
+          return null;
+        }
+      }
+
+      async function loadRealtimeByStation(stationName, lineName, lineCode) {
+        setArrivalStatus(stationName + "역 실시간 정보를 불러오는 중입니다.");
+
+        try {
+          const response = await fetch(
+            "/api/subway/realtime?station=" +
+              encodeURIComponent(stationName) +
+              "&lineCode=" +
+              encodeURIComponent(lineCode) +
+              "&lineName=" +
+              encodeURIComponent(lineName)
+          );
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error("실시간 정보를 불러오지 못했습니다.");
+          }
+
+          setArrivalStatus(
+            stationName +
+              "역 " +
+              lineName +
+              " 기준으로 " +
+              data.arrivals.length +
+              "건의 실시간 열차 정보를 찾았습니다."
+          );
+          renderArrivalList(data.arrivals || []);
+        } catch (error) {
+          console.error(error);
+          setArrivalStatus("실시간 열차 정보를 불러오지 못했습니다.");
+          renderArrivalList([]);
+        }
+      }
+
+      async function fetchTransitRoutes(originPoint, destinationPoint) {
+        const query =
+          "?startX=" +
+          encodeURIComponent(originPoint.lng) +
+          "&startY=" +
+          encodeURIComponent(originPoint.lat) +
+          "&endX=" +
+          encodeURIComponent(destinationPoint.lng) +
+          "&endY=" +
+          encodeURIComponent(destinationPoint.lat);
+        const endpoints = [
+          "/api/transit/mixed-route",
+          "/api/transit/subway-route",
+          "/api/transit/bus-route",
+        ];
+        const responses = await Promise.allSettled(
+          endpoints.map(async (endpoint) => {
+            const response = await fetch(endpoint + query);
+            const data = await response.json();
+            if (!response.ok || data.headerCode !== "0") {
+              throw new Error(data.headerMessage || data.message || data.error || endpoint + " 호출 실패");
+            }
+            return data.routes || [];
+          })
+        );
+        const routes = responses
+          .filter((result) => result.status === "fulfilled")
+          .flatMap((result) => result.value);
+        const uniqueRoutes = dedupeRoutes(routes).sort((a, b) => routeQualityScore(a) - routeQualityScore(b));
+
+        if (!uniqueRoutes.length) {
+          throw new Error("추천 가능한 대중교통 경로가 없습니다.");
+        }
+
+        return uniqueRoutes;
+      }
+
+      function dedupeRoutes(routes) {
+        const seen = new Set();
+        return routes.filter((route) => {
+          const key = (route.paths || [])
+            .map((path) => [path.mode, path.lineName, path.fromName, path.toName].join(":"))
+            .join("|");
+          if (seen.has(key)) {
+            return false;
+          }
+          seen.add(key);
+          return true;
+        });
+      }
+
+      async function findRoute() {
+        const originQuery = document.getElementById("origin-input").value.trim();
+        const destinationQuery = document.getElementById("destination-input").value.trim();
+        const routeMode = document.getElementById("route-mode").value;
+
+        if (!originQuery || !destinationQuery) {
+          document.getElementById("route-status").textContent =
+            "출발지와 목적지를 모두 입력해 주세요.";
+          return;
+        }
+
+        document.getElementById("route-status").textContent = "주소를 좌표로 변환하는 중입니다.";
+
+        try {
+          const originPointPromise =
+            state.currentOriginPoint && originQuery.includes("(현재 위치)")
+              ? Promise.resolve(state.currentOriginPoint)
+              : state.selectedOrigin
+                ? Promise.resolve(state.selectedOrigin)
+                : geocodeAddress(originQuery);
+
+          const destinationPointPromise = state.selectedDestination
+            ? Promise.resolve(state.selectedDestination)
+            : geocodeAddress(destinationQuery);
+
+          const [originPoint, destinationPoint] = await Promise.all([
+            originPointPromise,
+            destinationPointPromise,
+          ]);
+
+          document.getElementById("route-status").textContent =
+            "서울시 대중교통 경로 API에서 전체 후보 경로를 불러오는 중입니다.";
+
+          const routes = await fetchTransitRoutes(originPoint, destinationPoint);
+          state.allRouteCandidates = routes;
+          const filteredRoutes = filterRoutesByMode(routes, routeMode);
+
+          if (!filteredRoutes.length) {
+            throw new Error("전체 경로는 찾았지만 선택한 필터에 맞는 경로가 없습니다. 필터를 전체 최적 경로로 바꿔보세요.");
+          }
+
+          const baseAlternatives = decorateRouteAlternatives(filteredRoutes);
+          state.routeAlternatives = baseAlternatives;
+          state.selectedRouteIndex = 0;
+          state.currentRouteContext = {
+            origin: originPoint,
+            destination: destinationPoint,
+            routeMode,
+          };
+          const apiRoute = baseAlternatives[0];
+
+          const routeSummary = {
+            ...state.currentRouteContext,
+            apiRoute,
+          };
+
+          renderSummary(routeSummary);
+          renderRouteAlternatives(routeSummary);
+          renderRouteSteps(routeSummary);
+          renderRouteOnMap(routeSummary).catch(console.error);
+          loadRealtimeForRoute(routeSummary).catch(console.error);
+
+          enrichRouteAlternativesWithCongestion(baseAlternatives)
+            .then((alternatives) => {
+              if (
+                !state.currentRouteContext ||
+                state.currentRouteContext.origin.lat !== originPoint.lat ||
+                state.currentRouteContext.origin.lng !== originPoint.lng ||
+                state.currentRouteContext.destination.lat !== destinationPoint.lat ||
+                state.currentRouteContext.destination.lng !== destinationPoint.lng ||
+                state.currentRouteContext.routeMode !== routeMode
+              ) {
+                return;
+              }
+
+              const currentSelected = state.routeAlternatives[state.selectedRouteIndex];
+              const selectedOriginalIndex = currentSelected?.originalIndex ?? 0;
+              state.routeAlternatives = alternatives;
+              const nextSelectedIndex = Math.max(
+                0,
+                alternatives.findIndex((item) => item.originalIndex === selectedOriginalIndex)
+              );
+              state.selectedRouteIndex = nextSelectedIndex >= 0 ? nextSelectedIndex : 0;
+              const refreshedSummary = {
+                ...state.currentRouteContext,
+                apiRoute: state.routeAlternatives[state.selectedRouteIndex],
+              };
+              renderSummary(refreshedSummary);
+              renderRouteAlternatives(refreshedSummary);
+              renderRouteSteps(refreshedSummary);
+            })
+            .catch(console.error);
+        } catch (error) {
+          console.error(error);
+          document.getElementById("route-status").textContent =
+            error.message || "경로 계산 중 오류가 발생했습니다.";
+          document.getElementById("route-duration").textContent = "-";
+          document.getElementById("route-transfers").textContent = "-";
+          document.getElementById("route-congestion").textContent = "-";
+          state.allRouteCandidates = [];
+          state.routeAlternatives = [];
+          state.currentRouteContext = null;
+          renderRouteAlternatives({ origin: null, destination: null });
+          setArrivalStatus("실시간 정보는 경로 계산 후에 조회됩니다.");
+          renderArrivalList([]);
+        }
+      }
+
+      function initMap() {
+        const center = new naver.maps.LatLng(37.535, 126.995);
+        state.map = new naver.maps.Map("map", {
+          center,
+          zoom: 11,
+          minZoom: 9,
+          scaleControl: true,
+          mapDataControl: false,
+        });
+
+        document.getElementById("search-origin").addEventListener("click", function () {
+          searchPlaces("origin");
+        });
+        document.getElementById("search-destination").addEventListener("click", function () {
+          searchPlaces("destination");
+        });
+        document.getElementById("origin-input").addEventListener("input", function () {
+          clearSelectedPlace("origin");
+        });
+        document.getElementById("destination-input").addEventListener("input", function () {
+          clearSelectedPlace("destination");
+        });
+        document.getElementById("origin-input").addEventListener("keydown", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            searchPlaces("origin");
+          }
+        });
+        document.getElementById("destination-input").addEventListener("keydown", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            searchPlaces("destination");
+          }
+        });
+        document.getElementById("search-route").addEventListener("click", findRoute);
+        document.getElementById("route-mode").addEventListener("change", function (event) {
+          applyRouteFilter(event.target.value);
+        });
+        document
+          .getElementById("use-current-location")
+          .addEventListener("click", function () {
+            if (!navigator.geolocation) {
+              document.getElementById("route-status").textContent =
+                "브라우저가 현재 위치 기능을 지원하지 않습니다.";
+              return;
+            }
+
+            document.getElementById("route-status").textContent =
+              "현재 위치를 불러오는 중입니다.";
+
+            navigator.geolocation.getCurrentPosition(
+              function (position) {
+                document.getElementById("origin-input").value =
+                  position.coords.latitude.toFixed(6) +
+                  ", " +
+                  position.coords.longitude.toFixed(6) +
+                  " (현재 위치)";
+
+                const currentPoint = {
+                  label: "현재 위치",
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                };
+
+                state.startMarker?.setMap(null);
+                state.startMarker = new naver.maps.Marker({
+                  map: state.map,
+                  position: new naver.maps.LatLng(currentPoint.lat, currentPoint.lng),
+                  title: currentPoint.label,
+                });
+
+                state.map.panTo(new naver.maps.LatLng(currentPoint.lat, currentPoint.lng));
+
+                state.currentOriginPoint = currentPoint;
+                state.selectedOrigin = currentPoint;
+                document.getElementById("route-status").textContent =
+                  "현재 위치를 출발지로 설정했습니다.";
+                document.getElementById("origin-selected").textContent = "선택됨: 현재 위치";
+              },
+              function () {
+                document.getElementById("route-status").textContent =
+                  "현재 위치를 가져오지 못했습니다. 위치 권한을 확인해 주세요.";
+              }
+            );
+          });
+        document.getElementById("load-sample").addEventListener("click", function () {
+          document.getElementById("origin-input").value = "서울시청";
+          document.getElementById("destination-input").value = "잠실역";
+          clearSelectedPlace("origin");
+          clearSelectedPlace("destination");
+          searchPlaces("origin");
+          searchPlaces("destination");
+        });
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initMap);
+      } else {
+        initMap();
+      }
+    </script>
+  </body>
+</html>

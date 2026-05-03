@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no"
+    />
+    <title>StrangeMap NAVER Map Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        background: #f5f7f4;
+        color: #132018;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top right, rgba(96, 176, 128, 0.18), transparent 28%),
+          linear-gradient(180deg, #f8fbf7 0%, #eef4ee 100%);
+      }
+
+      .shell {
+        width: min(1100px, calc(100vw - 32px));
+        margin: 24px auto;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(19, 32, 24, 0.08);
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 24px 60px rgba(30, 55, 36, 0.12);
+      }
+
+      .header {
+        padding: 24px 24px 12px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e7f4e9;
+        color: #246b3d;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 14px 0 8px;
+        font-size: clamp(28px, 5vw, 44px);
+        line-height: 1.05;
+      }
+
+      p {
+        margin: 0;
+        color: #425248;
+        line-height: 1.6;
+      }
+
+      #map {
+        width: 100%;
+        height: 68vh;
+        min-height: 480px;
+        border-top: 1px solid rgba(19, 32, 24, 0.08);
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 16px 24px 24px;
+        font-size: 14px;
+        color: #526157;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 0 24px 20px;
+      }
+
+      .status-card {
+        flex: 1 1 280px;
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: #f6faf7;
+        border: 1px solid rgba(36, 107, 61, 0.12);
+      }
+
+      .status-card strong,
+      .list-card strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 15px;
+      }
+
+      .status-text {
+        font-size: 14px;
+        color: #425248;
+        line-height: 1.6;
+      }
+
+      .action-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 14px;
+        background: #246b3d;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #dcecdf;
+        color: #225636;
+      }
+
+      .list-card {
+        flex: 1 1 320px;
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: #ffffff;
+        border: 1px solid rgba(19, 32, 24, 0.08);
+        max-height: 220px;
+        overflow: auto;
+      }
+
+      .event-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .event-item {
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: #f7faf8;
+        border: 1px solid rgba(19, 32, 24, 0.06);
+      }
+
+      .event-item h3 {
+        margin: 0 0 6px;
+        font-size: 14px;
+      }
+
+      .event-item p,
+      .event-item span {
+        font-size: 13px;
+      }
+
+      code {
+        padding: 2px 6px;
+        border-radius: 8px;
+        background: #f1f5f2;
+      }
+    </style>
+    <script>
+      window.navermap_authFailure = function () {
+        const message =
+          "네이버 지도 인증에 실패했습니다. 콘솔의 Web 서비스 URL에 http://localhost 와 http://127.0.0.1 이 등록되어 있는지 확인하세요.";
+        console.error(message);
+        alert(message);
+      };
+    </script>
+    <script
+      type="text/javascript"
+      src="/api/naver-map-script"
+    ></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <header class="header">
+          <span class="eyebrow">StrangeMap Local Demo</span>
+          <h1>네이버 지도 + 서울 문화행사 테스트</h1>
+          <p>
+            로컬호스트에서 네이버 지도 위에 서울 문화행사 데이터를 올리고, 현재 지도 영역에 맞는
+            행사만 추려서 보는 데모입니다.
+          </p>
+        </header>
+
+        <section class="toolbar">
+          <div class="status-card">
+            <strong>데이터 상태</strong>
+            <div id="status" class="status-text">지도를 준비하는 중입니다.</div>
+            <div class="action-row">
+              <button id="reload-events" type="button">행사 다시 불러오기</button>
+              <button id="focus-seoul" class="secondary" type="button">서울시청으로 이동</button>
+            </div>
+          </div>
+
+          <div class="list-card">
+            <strong>현재 화면의 행사</strong>
+            <div id="visible-events" class="event-list">
+              <div class="event-item">
+                <p>지도가 준비되면 현재 보이는 지역의 행사가 여기에 표시됩니다.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div id="map" aria-label="네이버 지도"></div>
+
+        <footer class="footer">
+          <span>기본 중심 좌표: 서울시청</span>
+          <span>접속 주소 예시: <code>http://localhost:3000/naver-map-demo.html</code></span>
+        </footer>
+      </section>
+    </main>
+
+    <script>
+      const SEOUL_EVENT_URL = "/api/seoul-events";
+
+      const state = {
+        map: null,
+        infoWindow: null,
+        markers: [],
+        events: [],
+      };
+
+      function setStatus(message) {
+        const statusEl = document.getElementById("status");
+        if (statusEl) {
+          statusEl.textContent = message;
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function formatEventPeriod(event) {
+        if (!event.startDate && !event.endDate) {
+          return "일정 정보 없음";
+        }
+
+        const start = event.startDate ? event.startDate.slice(0, 10) : "?";
+        const end = event.endDate ? event.endDate.slice(0, 10) : "?";
+        return start === end ? start : start + " ~ " + end;
+      }
+
+      function normalizeEvent(raw, index) {
+        const lat = Number.parseFloat(raw.LAT);
+        const lng = Number.parseFloat(raw.LOT);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return null;
+        }
+
+        return {
+          id: raw.CODENAME + "-" + raw.TITLE + "-" + index,
+          title: raw.TITLE || "이름 없는 행사",
+          category: raw.CODENAME || "기타",
+          district: raw.GUNAME || "서울",
+          place: raw.PLACE || "장소 정보 없음",
+          organization: raw.ORG_NAME || "주최 정보 없음",
+          startDate: raw.STRTDATE || "",
+          endDate: raw.END_DATE || "",
+          isFree: raw.IS_FREE || "",
+          thumbnail: raw.MAIN_IMG || "",
+          homepage: raw.ORG_LINK || raw.HMPG_ADDR || "",
+          lat,
+          lng,
+        };
+      }
+
+      async function fetchCulturalEvents() {
+        setStatus("서울 문화행사 데이터를 불러오는 중입니다.");
+
+        const response = await fetch(SEOUL_EVENT_URL);
+
+        if (!response.ok) {
+          throw new Error("서울 열린데이터 응답 실패: " + response.status);
+        }
+
+        const json = await response.json();
+        const rows = json?.culturalEventInfo?.row;
+
+        if (!Array.isArray(rows)) {
+          throw new Error("문화행사 데이터 형식이 예상과 다릅니다.");
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const events = rows
+          .map(normalizeEvent)
+          .filter(Boolean)
+          .filter((event) => {
+            if (!event.endDate) {
+              return true;
+            }
+
+            const end = new Date(event.endDate);
+            return Number.isNaN(end.getTime()) || end >= today;
+          });
+
+        state.events = events;
+        setStatus("행사 " + events.length + "개를 불러왔습니다. 현재 지도 영역에 맞게 표시합니다.");
+        return events;
+      }
+
+      function clearMarkers() {
+        state.markers.forEach((marker) => marker.setMap(null));
+        state.markers = [];
+      }
+
+      function createInfoContent(event) {
+        const homepage = event.homepage
+          ? '<a href="' +
+            escapeHtml(event.homepage) +
+            '" target="_blank" rel="noreferrer" style="color:#246b3d;font-weight:700;">홈페이지 보기</a>'
+          : '<span style="color:#6a766e;">홈페이지 정보 없음</span>';
+
+        return [
+          '<div style="padding:14px 16px;min-width:240px;max-width:300px;font-family:Pretendard,Apple SD Gothic Neo,sans-serif;">',
+          '<strong style="display:block;margin-bottom:6px;font-size:15px;">' + escapeHtml(event.title) + "</strong>",
+          '<div style="font-size:13px;line-height:1.6;color:#334239;">',
+          "<div>장소: " + escapeHtml(event.place) + "</div>",
+          "<div>지역: " + escapeHtml(event.district) + "</div>",
+          "<div>일정: " + escapeHtml(formatEventPeriod(event)) + "</div>",
+          "<div>분류: " + escapeHtml(event.category) + "</div>",
+          event.isFree ? "<div>이용요금: " + escapeHtml(event.isFree) + "</div>" : "",
+          "</div>",
+          '<div style="margin-top:10px;">' + homepage + "</div>",
+          "</div>",
+        ].join("");
+      }
+
+      function renderVisibleEventList(events) {
+        const listEl = document.getElementById("visible-events");
+
+        if (!listEl) {
+          return;
+        }
+
+        if (events.length === 0) {
+          listEl.innerHTML =
+            '<div class="event-item"><p>현재 보이는 지도 영역에 표시할 행사가 없습니다.</p></div>';
+          return;
+        }
+
+        listEl.innerHTML = events
+          .slice(0, 8)
+          .map(
+            (event) =>
+              '<article class="event-item">' +
+              "<h3>" +
+              escapeHtml(event.title) +
+              "</h3>" +
+              "<p>" +
+              escapeHtml(event.place) +
+              "</p>" +
+              "<span>" +
+              escapeHtml(formatEventPeriod(event)) +
+              "</span>" +
+              "</article>"
+          )
+          .join("");
+      }
+
+      function renderMarkersForCurrentBounds() {
+        if (!state.map || !state.events.length) {
+          return;
+        }
+
+        const bounds = state.map.getBounds();
+        const visibleEvents = state.events.filter((event) =>
+          bounds.hasLatLng(new naver.maps.LatLng(event.lat, event.lng))
+        );
+
+        clearMarkers();
+
+        visibleEvents.forEach((event) => {
+          const marker = new naver.maps.Marker({
+            position: new naver.maps.LatLng(event.lat, event.lng),
+            map: state.map,
+            title: event.title,
+          });
+
+          naver.maps.Event.addListener(marker, "click", function () {
+            state.infoWindow.setContent(createInfoContent(event));
+            state.infoWindow.open(state.map, marker);
+          });
+
+          state.markers.push(marker);
+        });
+
+        renderVisibleEventList(visibleEvents);
+        setStatus(
+          "전체 행사 " +
+            state.events.length +
+            "개 중 현재 지도 영역에는 " +
+            visibleEvents.length +
+            "개가 표시되고 있습니다."
+        );
+      }
+
+      async function loadEventsIntoMap() {
+        try {
+          await fetchCulturalEvents();
+          renderMarkersForCurrentBounds();
+        } catch (error) {
+          console.error(error);
+          setStatus(
+            "행사 데이터를 불러오지 못했습니다. CORS 또는 API 응답 형식을 확인해 주세요. 자세한 내용은 브라우저 콘솔을 확인하세요."
+          );
+        }
+      }
+
+      function initMap() {
+        if (!window.naver || !window.naver.maps) {
+          console.error("NAVER Maps SDK did not load.");
+          return;
+        }
+
+        const cityHall = new naver.maps.LatLng(37.5666103, 126.9783882);
+
+        const map = new naver.maps.Map("map", {
+          center: cityHall,
+          zoom: 12,
+          minZoom: 10,
+          scaleControl: true,
+          mapDataControl: false,
+        });
+
+        state.map = map;
+        state.infoWindow = new naver.maps.InfoWindow({
+          content: [
+            '<div style="padding:12px 14px;min-width:180px;font-family:Pretendard,Apple SD Gothic Neo,sans-serif;">',
+            '<strong style="display:block;margin-bottom:4px;">StrangeMap 시작점</strong>',
+            "<span>서울 문화행사 마커를 불러오는 중입니다.</span>",
+            "</div>",
+          ].join(""),
+        });
+
+        document.getElementById("reload-events").addEventListener("click", loadEventsIntoMap);
+        document.getElementById("focus-seoul").addEventListener("click", function () {
+          map.panTo(cityHall);
+        });
+
+        naver.maps.Event.addListener(map, "idle", renderMarkersForCurrentBounds);
+
+        loadEventsIntoMap();
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initMap);
+      } else {
+        initMap();
+      }
+    </script>
+  </body>
+</html>

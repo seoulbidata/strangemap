@@ -1,0 +1,205 @@
+[
+  {
+    "id": "downtown-palace",
+    "regionName": "도심 궁궐 산책",
+    "description": "조선 왕실의 발자취를 따라 도심을 걸으며 600년 서울의 시간을 만나보세요.",
+    "cover": "🏯",
+    "color": "#f59e0b",
+    "quests": [
+      {
+        "id": "quest-palace-1",
+        "chapterId": "downtown-palace",
+        "title": "조선왕실의 하루를 따라서",
+        "synopsis": "정전에서 침전까지, 왕의 하루 동선을 따라 걸으며 궁궐의 숨은 이야기를 해금합니다.",
+        "difficulty": 1,
+        "estimatedMinutes": 90,
+        "objectives": [
+          {
+            "id": "obj-1",
+            "order": 1,
+            "poiId": "nightview_6",
+            "poiName": "창덕궁",
+            "lat": 37.57950279094907,
+            "lng": 126.99103378705136,
+            "title": "창덕궁 정문에 도착하기",
+            "hint": "돈화문 앞, 커다란 현판이 보이는 곳",
+            "verification": {
+              "type": "gps+quiz",
+              "radiusMeters": 120,
+              "quiz": {
+                "question": "창덕궁의 정문 이름은?",
+                "options": ["광화문", "돈화문", "흥인지문", "숭례문"],
+                "answerIndex": 1,
+                "explanation": "돈화문(敦化門)은 창덕궁의 정문으로, 1412년 태종 때 건립되어 서울에 남은 궁궐 정문 중 가장 오래되었습니다."
+              }
+            },
+            "storyFragment": {
+              "text": "창덕궁은 자연 지형을 그대로 살린 궁궐로, 유네스코 세계유산에 등재된 유일한 조선 궁궐입니다. 후원의 곡선 길은 왕이 사색하던 공간이었습니다."
+            }
+          },
+          {
+            "id": "obj-2",
+            "order": 2,
+            "poiId": "nightview_4",
+            "poiName": "창경궁",
+            "lat": 37.579412935392185,
+            "lng": 126.99522255388881,
+            "title": "창경궁 통명전 찾기",
+            "hint": "왕비의 침전, 봄에는 매화가 피는 자리",
+            "verification": {
+              "type": "gps",
+              "radiusMeters": 150
+            },
+            "storyFragment": {
+              "text": "창경궁은 성종이 세 분의 대비를 모시기 위해 지은 궁궐로, 조선 왕실의 가장 사적인 공간이었습니다. 일제강점기에는 동물원으로 격하되는 아픔을 겪었습니다."
+            }
+          },
+          {
+            "id": "obj-3",
+            "order": 3,
+            "poiId": "nightview_9",
+            "poiName": "청계천",
+            "lat": 37.56915554121704,
+            "lng": 126.97871950992457,
+            "title": "청계광장에서 첫 걸음 떼기",
+            "hint": "스프링 조형물이 있는 분수 광장",
+            "verification": {
+              "type": "gps+quiz",
+              "radiusMeters": 100,
+              "quiz": {
+                "question": "청계천은 몇 년에 복원되어 재개장했을까요?",
+                "options": ["1998년", "2003년", "2005년", "2010년"],
+                "answerIndex": 2,
+                "explanation": "청계천은 2003년 복원사업이 시작되어 2005년 10월 1일 재개장했습니다. 고가도로 철거는 당시 큰 논쟁거리였습니다."
+              }
+            },
+            "storyFragment": {
+              "text": "청계천은 조선시대 '개천'으로 불리며 한양의 생활하천이었습니다. 복원된 물길은 도심 한가운데에서 서울 사람들이 잠시 숨을 돌리는 장소가 되었습니다."
+            }
+          }
+        ],
+        "reward": {
+          "xp": 300,
+          "badge": { "id": "badge-palace", "name": "궁궐 산책가", "icon": "🏯" }
+        }
+      },
+      {
+        "id": "quest-palace-2",
+        "chapterId": "downtown-palace",
+        "title": "광화문 광장의 두 영웅",
+        "synopsis": "세종대왕과 이순신 장군의 동상을 지나며 광장의 역사를 짚어봅니다.",
+        "difficulty": 1,
+        "estimatedMinutes": 40,
+        "objectives": [
+          {
+            "id": "obj-4",
+            "order": 1,
+            "poiId": "nightview_9",
+            "poiName": "광화문 광장",
+            "lat": 37.5724,
+            "lng": 126.9769,
+            "title": "세종대왕상 앞에 서기",
+            "hint": "훈민정음을 손에 든 좌상",
+            "verification": {
+              "type": "gps",
+              "radiusMeters": 80
+            },
+            "storyFragment": {
+              "text": "세종대왕 동상은 2009년 한글날 제막되었습니다. 받침에는 세종 시대의 과학 발명품들이 새겨져 있습니다."
+            }
+          },
+          {
+            "id": "obj-5",
+            "order": 2,
+            "poiId": "nightview_9",
+            "poiName": "광화문",
+            "lat": 37.5759,
+            "lng": 126.9769,
+            "title": "광화문 현판 살펴보기",
+            "hint": "세 글자로 된 한자 현판",
+            "verification": {
+              "type": "gps+quiz",
+              "radiusMeters": 80,
+              "quiz": {
+                "question": "광화문 현판의 글자는 누구의 필체로 제작되었을까요?",
+                "options": ["세종대왕", "정조", "임태영", "김정희"],
+                "answerIndex": 2,
+                "explanation": "광화문 현판은 1865년 경복궁 중건 당시 훈련대장 임태영이 쓴 글씨를 복원해 사용하고 있습니다."
+              }
+            },
+            "storyFragment": {
+              "text": "광화문은 경복궁의 정문으로 '왕의 큰 덕이 온 나라를 비춘다'는 뜻을 담고 있습니다. 임진왜란·한국전쟁 등으로 여러 번 훼손됐다가 2010년 제자리에 돌아왔습니다."
+            }
+          }
+        ],
+        "reward": {
+          "xp": 180,
+          "badge": { "id": "badge-gwanghwamun", "name": "광장의 증인", "icon": "📜" }
+        }
+      }
+    ]
+  },
+  {
+    "id": "namsan-hangang",
+    "regionName": "남산·한강 야경",
+    "description": "해가 진 서울을 가장 아름답게 볼 수 있는 장소들을 이어 걷는 밤의 산책.",
+    "cover": "🌃",
+    "color": "#6366f1",
+    "quests": [
+      {
+        "id": "quest-night-1",
+        "chapterId": "namsan-hangang",
+        "title": "남산의 불빛을 따라서",
+        "synopsis": "남산 타워의 전망과 한강 다리의 조명이 엮어내는 서울의 밤 풍경을 수집합니다.",
+        "difficulty": 2,
+        "estimatedMinutes": 120,
+        "objectives": [
+          {
+            "id": "obj-6",
+            "order": 1,
+            "poiId": "nightview_1",
+            "poiName": "남산서울타워",
+            "lat": 37.5511225714939,
+            "lng": 126.987867837993,
+            "title": "남산 전망대 올라가기",
+            "hint": "서울의 중심, 빨간 N타워",
+            "verification": {
+              "type": "gps+quiz",
+              "radiusMeters": 200,
+              "quiz": {
+                "question": "남산서울타워는 원래 어떤 용도로 세워졌을까요?",
+                "options": ["전망대", "TV·라디오 송신탑", "군사 관측소", "기상 관측소"],
+                "answerIndex": 1,
+                "explanation": "남산타워는 1969년 TV·라디오 전파 송신을 위해 세워졌고, 1980년에야 일반에 개방되었습니다."
+              }
+            },
+            "storyFragment": {
+              "text": "남산타워의 조명은 미세먼지 농도에 따라 색이 바뀝니다. 파란색이면 공기가 맑다는 신호, 붉은색이면 '나쁨'을 의미해요."
+            }
+          },
+          {
+            "id": "obj-7",
+            "order": 2,
+            "poiId": "nightview_10",
+            "poiName": "성수대교",
+            "lat": 37.53617802719353,
+            "lng": 127.03489368057885,
+            "title": "성수대교 야경 포인트",
+            "hint": "한강 북단에서 다리 조명을 정면으로 볼 수 있는 자리",
+            "verification": {
+              "type": "gps",
+              "radiusMeters": 200
+            },
+            "storyFragment": {
+              "text": "성수대교는 1979년 준공된 서울의 11번째 한강 다리로, 현재의 모습은 1997년 재시공된 것입니다. 다리의 붉은 조명은 한강 야경의 상징이 되었습니다."
+            }
+          }
+        ],
+        "reward": {
+          "xp": 260,
+          "badge": { "id": "badge-night", "name": "서울 야행자", "icon": "🌙" }
+        }
+      }
+    ]
+  }
+]

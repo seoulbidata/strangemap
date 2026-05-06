@@ -82,7 +82,7 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
                 className="w-full text-left border-b border-[#F0EDE8] last:border-0 hover:bg-[#F5F2EC] transition-colors"
               >
                 {poi.thumbnail && (
-                  <div className="h-28 overflow-hidden">
+                  <div className="h-[132px] overflow-hidden">
                     <img src={poi.thumbnail} alt={poi.name} className="w-full h-full object-cover" />
                   </div>
                 )}

@@ -14,7 +14,7 @@ const orbitron = Orbitron({
 });
 
 export const metadata: Metadata = {
-  title: "StrangeMap — Seoul Explorer",
+  title: "서울로",
   description: "서울의 숨은 이야기를 지도 위에서 해금하는 탐험 RPG",
 };
 

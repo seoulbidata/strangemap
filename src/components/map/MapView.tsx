@@ -35,7 +35,7 @@ export default function MapView() {
 
   const [poisData, setPoisData] = useState<POIItem[]>([]);
   const [selected, setSelected] = useState<POIItem | null>(null);
-  const [aiAskingPlace, setAiAskingPlace] = useState<string | null>(null);
+  const [aiAskingPOI, setAiAskingPOI] = useState<POIItem | null>(null);
   const [activeQuest, setActiveQuest] = useState<StoryQuest | null>(null);
   const [currentObjIndex, setCurrentObjIndex] = useState(0);
   const [activeCourse, setActiveCourse] = useState<ThemeCourse | null>(null);
@@ -438,14 +438,14 @@ export default function MapView() {
             poi={selected}
             isQuestTarget={isQuestTarget(selected)}
             onClose={() => setSelected(null)}
-            onAskAI={() => setAiAskingPlace(selected.name)}
+            onAskAI={() => setAiAskingPOI(selected)}
             onSetOrigin={() => { setOrigin({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
             onSetDest={() => { setDest({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
           />
         )}
 
         {/* AI 정보 패널 */}
-        <AIInfoPanel placeName={aiAskingPlace} onClose={() => setAiAskingPlace(null)} />
+        <AIInfoPanel poi={aiAskingPOI} onClose={() => setAiAskingPOI(null)} />
 
         {/* 로딩 화면 */}
         {!mapReady && (

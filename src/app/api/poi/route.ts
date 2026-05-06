@@ -16,6 +16,9 @@ export interface POIItem {
   link?: string;
   operating_time?: string;
   subway?: string;
+  tel?: string;
+  bus?: string;
+  parking?: string;
 }
 
 export async function GET() {
@@ -56,6 +59,10 @@ export async function GET() {
     link: r.url,
     operating_time: r.operating_time,
     subway: r.subway,
+    tel: r.tel || undefined,
+    bus: r.bus || undefined,
+    parking: r.parking || undefined,
+    thumbnail: r.image || null,
   }));
 
   return NextResponse.json({ pois: [...culturePOIs, ...nightviewPOIs] });

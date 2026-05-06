@@ -2,29 +2,47 @@
 
 import { useEffect, useState } from "react";
 import type { AIPlaceInfo } from "@/types/quest";
+import type { POIItem } from "@/app/api/poi/route";
 
 interface Props {
-  placeName: string | null;
+  poi: POIItem | null;
   onClose: () => void;
 }
 
-export default function AIInfoPanel({ placeName, onClose }: Props) {
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <div className="flex gap-2.5 text-[12px]">
+      <span className="shrink-0 text-[14px] mt-0.5">{icon}</span>
+      <div className="min-w-0">
+        <span className="text-[10px] text-[#9CA3AF] mr-1">{label}</span>
+        <span className="text-[#374151] leading-relaxed break-words">{value}</span>
+      </div>
+    </div>
+  );
+}
+
+export default function AIInfoPanel({ poi, onClose }: Props) {
   const [info, setInfo] = useState<AIPlaceInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [displayed, setDisplayed] = useState("");
 
   useEffect(() => {
-    if (!placeName) return;
+    if (!poi) return;
     setInfo(null);
     setDisplayed("");
     setLoading(true);
-    fetch(`/api/ai-info?place=${encodeURIComponent(placeName)}`)
+
+    const params = new URLSearchParams({ place: poi.name });
+    if (poi.operating_time) params.set("operating_time", poi.operating_time);
+    if (poi.fee) params.set("fee", poi.fee);
+    if (poi.subway) params.set("subway", poi.subway);
+
+    fetch(`/api/ai-info?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => setInfo(d.info))
       .finally(() => setLoading(false));
-  }, [placeName]);
+  }, [poi]);
 
-  // 타이프라이터 효과
   useEffect(() => {
     if (!info) return;
     let i = 0;
@@ -37,7 +55,7 @@ export default function AIInfoPanel({ placeName, onClose }: Props) {
     return () => clearInterval(id);
   }, [info]);
 
-  if (!placeName) return null;
+  if (!poi) return null;
 
   return (
     <aside className="absolute top-0 bottom-0 right-0 w-[420px] max-w-[94vw] z-40 animate-fade-up">
@@ -53,11 +71,12 @@ export default function AIInfoPanel({ placeName, onClose }: Props) {
                 </span>
                 <span className="text-[10px] font-display tracking-[0.2em] text-[#9CA3AF] uppercase">AI 장소 안내</span>
               </div>
-              <h2 className="text-lg font-bold text-[#1A1E2E] mt-1.5">{placeName}</h2>
+              <h2 className="text-lg font-bold text-[#1A1E2E] mt-1.5">{poi.name}</h2>
+              <p className="text-[11px] text-[#9CA3AF] mt-0.5 truncate">{poi.place}</p>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-[#F5F2EC] hover:bg-[#E5E1D8] text-[#6B7280] flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-lg bg-[#F5F2EC] hover:bg-[#E5E1D8] text-[#6B7280] flex items-center justify-center transition-colors shrink-0"
             >
               ✕
             </button>
@@ -66,6 +85,44 @@ export default function AIInfoPanel({ placeName, onClose }: Props) {
 
         {/* 본문 */}
         <div className="flex-1 overflow-y-auto thin-scroll px-5 py-4 space-y-5">
+
+          {/* 정적 정보 */}
+          <div className="rounded-xl bg-[#F9F8F5] border border-[#E5E1D8] p-3.5 space-y-2.5">
+            <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">장소 정보</p>
+            {poi.operating_time && (
+              <InfoRow icon="🕐" label="운영시간" value={poi.operating_time} />
+            )}
+            {poi.fee && (
+              <InfoRow icon="💰" label="요금" value={poi.fee} />
+            )}
+            {poi.subway && (
+              <InfoRow icon="🚇" label="지하철" value={poi.subway} />
+            )}
+            {poi.bus && (
+              <InfoRow icon="🚌" label="버스" value={poi.bus} />
+            )}
+            {poi.tel && (
+              <InfoRow icon="📞" label="전화" value={poi.tel} />
+            )}
+            {poi.parking && (
+              <InfoRow icon="🅿️" label="주차" value={poi.parking} />
+            )}
+            {poi.link && (
+              <div className="flex gap-2.5 text-[12px]">
+                <span className="shrink-0 text-[14px] mt-0.5">🔗</span>
+                <a
+                  href={poi.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#2563EB] underline truncate"
+                >
+                  공식 홈페이지
+                </a>
+              </div>
+            )}
+          </div>
+
+          {/* AI 섹션 */}
           {loading && (
             <div className="space-y-3 py-4">
               <div className="flex items-center gap-2 text-xs text-[#9CA3AF]">

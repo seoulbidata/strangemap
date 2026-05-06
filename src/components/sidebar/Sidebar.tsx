@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { POIItem } from "@/app/api/poi/route";
 import type { ThemeCourse } from "@/data/themeCourses";
 import SearchPanel from "./SearchPanel";
@@ -58,10 +59,7 @@ export default function Sidebar({
       <div className="w-[72px] bg-white border-r border-[#FDECC8] flex flex-col shadow-sm pointer-events-auto">
         {/* 로고 */}
         <div className="h-16 flex items-center justify-center border-b border-[#FDECC8] shrink-0">
-          <div className="text-center">
-            <div className="text-[13px] font-display font-bold text-[#FE9C00] leading-none tracking-widest">SM</div>
-            <div className="text-[8px] text-[#A8A29E] mt-0.5 leading-none">지도</div>
-          </div>
+          <Image src="/icons/logo.png" alt="서울로" width={48} height={48} className="rounded-lg" />
         </div>
 
         {/* 탭 버튼 */}

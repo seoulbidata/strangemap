@@ -95,7 +95,7 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetOrigin, onSetDes
             onClick={onAskAI}
             className="mt-4 w-full rounded-xl py-2.5 text-sm font-semibold bg-[#FE9C00] text-white hover:bg-[#E08800] transition-colors"
           >
-            AI 장소 정보 보기
+            서울로에 물어보기
           </button>
 
           {/* 경로 설정 버튼 */}

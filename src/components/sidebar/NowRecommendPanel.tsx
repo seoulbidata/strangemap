@@ -105,7 +105,7 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8]">
-        <h2 className="text-base font-bold text-[#1A1E2E]">지금 추천</h2>
+        <h2 className="text-base font-bold text-[#1A1E2E]">실시간 혼잡도</h2>
         <div className="flex items-center justify-between mt-0.5">
           <p className="text-xs text-[#9CA3AF]">
             {loading

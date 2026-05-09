@@ -57,11 +57,28 @@ export interface RegionChapter {
   quests: StoryQuest[];
 }
 
+export interface AIEvent {
+  title: string;
+  desc: string;
+  period: string;
+  link?: string;
+  fee?: string;
+  _distKm?: number;
+}
+
 export interface AIPlaceInfo {
   placeName: string;
   summary: string;
+  right_now?: string;
   highlights: string[];
   tip: string;
+  best_time?: string;
+  crowd_tip?: string;
   era?: string;
   tags: string[];
+  vibe?: string[];
+  viewpoint_guide?: string;
+  event_pick?: string;
+  events?: AIEvent[];
+  nearby?: string[];
 }

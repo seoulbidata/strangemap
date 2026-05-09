@@ -10,7 +10,9 @@ import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
 import AIInfoPanel from "@/components/game/AIInfoPanel";
 import Sidebar from "@/components/sidebar/Sidebar";
+import CultureSpeedDial from "@/components/map/CultureSpeedDial";
 import type { RouteDrawPayload } from "@/components/sidebar/SearchRoadPanel";
+import { CATEGORY_MARKER, type CultureCategory } from "@/lib/cultureCategories";
 
 declare global {
   interface Window { naver: any; }
@@ -24,6 +26,7 @@ export default function MapView() {
   const mapInstance = useRef<any>(null);
   const allPOIs = useRef<POIItem[]>([]);
   const markersRef = useRef<any[]>([]);
+  const cultureMarkersRef = useRef<any[]>([]);
   const questMarkersRef = useRef<any[]>([]);
   const courseMarkersRef = useRef<any[]>([]);
   const coursePolylineRef = useRef<any>(null);
@@ -32,7 +35,6 @@ export default function MapView() {
   const polylineRef = useRef<any>(null);
   const routePolylinesRef = useRef<any[]>([]);
   const routeMarkersRef = useRef<any[]>([]);
-
   const [poisData, setPoisData] = useState<POIItem[]>([]);
   const [selected, setSelected] = useState<POIItem | null>(null);
   const [aiAskingPOI, setAiAskingPOI] = useState<POIItem | null>(null);
@@ -43,7 +45,7 @@ export default function MapView() {
   const [playerStats] = useState({ level: 3, xp: 420, xpToNext: 600, badges: 2 });
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [dest, setDest] = useState<{ lat: number; lng: number } | null>(null);
-  const [showCulture, setShowCulture] = useState(false);
+  const [activeCultureCategory, setActiveCultureCategory] = useState<CultureCategory | null>(null);
   const [showNight, setShowNight] = useState(false);
 
   function handleNaverLoad() {
@@ -94,31 +96,57 @@ export default function MapView() {
     }
   }, []);
 
-  // POI 마커 — showCulture / showNight 토글에 반응
+  // 문화행사 마커 — 카테고리 선택 시 커스텀 PNG 마커로 렌더링 (최대 100개)
   useEffect(() => {
     if (!mapReady) return;
-    clearMarkers();
+    cultureMarkersRef.current.forEach((m) => m.setMap(null));
+    cultureMarkersRef.current = [];
+    if (!activeCultureCategory) return;
+
     const naver = window.naver;
-    const visible = allPOIs.current.filter((poi) =>
-      poi.source === "nightview" ? showNight : showCulture
-    );
-    visible.forEach((poi) => {
-      const isNight = poi.source === "nightview";
-      const fill = isNight ? "#D97706" : "#2563EB";
-      const border = isNight ? "#B45309" : "#1D4ED8";
+    const markerUrl = CATEGORY_MARKER[activeCultureCategory];
+    const filtered = allPOIs.current
+      .filter((p) => p.source === "culture" && p.normalizedCategory === activeCultureCategory)
+      .slice(0, 100);
+
+    filtered.forEach((poi) => {
       const marker = new naver.maps.Marker({
         position: new naver.maps.LatLng(poi.lat, poi.lng),
         map: mapInstance.current,
         title: poi.name,
         icon: {
-          content: `<div style="width:12px;height:12px;border-radius:50%;background:${fill};border:2px solid ${border};box-shadow:0 1px 4px rgba(0,0,0,0.25);cursor:pointer;"></div>`,
-          anchor: new naver.maps.Point(6, 6),
+          content: `<img src="${markerUrl}" style="width:26px;height:26px;cursor:pointer;display:block;" />`,
+          anchor: new naver.maps.Point(13, 13),
         },
       });
       naver.maps.Event.addListener(marker, "click", () => setSelected(poi));
-      markersRef.current.push(marker);
+      cultureMarkersRef.current.push(marker);
     });
-  }, [showCulture, showNight, mapReady, clearMarkers]);
+  }, [activeCultureCategory, mapReady]);
+
+  // 야경명소 마커 — showNight 토글에 반응
+  useEffect(() => {
+    if (!mapReady) return;
+    clearMarkers();
+    if (!showNight) return;
+
+    const naver = window.naver;
+    allPOIs.current
+      .filter((p) => p.source === "nightview")
+      .forEach((poi) => {
+        const marker = new naver.maps.Marker({
+          position: new naver.maps.LatLng(poi.lat, poi.lng),
+          map: mapInstance.current,
+          title: poi.name,
+          icon: {
+            content: `<img src="/markers/marker-nightview.png" style="width:26px;height:26px;cursor:pointer;display:block;" />`,
+            anchor: new naver.maps.Point(8, 8),
+          },
+        });
+        naver.maps.Event.addListener(marker, "click", () => setSelected(poi));
+        markersRef.current.push(marker);
+      });
+  }, [showNight, mapReady, clearMarkers]);
 
   // 퀘스트 마커
   useEffect(() => {
@@ -259,6 +287,8 @@ export default function MapView() {
     }
   }, [origin, dest, mapReady]);
 
+  // 권역 오버레이: 필터 임계값과 동일한 직사각형으로 시각화
+
   const clearRouteOverlay = useCallback(() => {
     routePolylinesRef.current.forEach((l) => l.setMap(null));
     routePolylinesRef.current = [];
@@ -388,30 +418,16 @@ export default function MapView() {
           onRouteClear={clearRouteOverlay}
         />
 
-        {/* 우상단 HUD (플레이어 카드) */}
-        <GameHUD
-          level={playerStats.level}
-          xp={playerStats.xp}
-          xpToNext={playerStats.xpToNext}
-          badges={playerStats.badges}
-        />
 
         {/* 우상단 레이어 토글 버튼 */}
-        <div className="absolute top-[88px] right-4 z-20 flex flex-col gap-2 animate-fade-up">
-          <button
-            onClick={() => setShowCulture((v) => !v)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all ${
-              showCulture
-                ? "bg-[#2563EB] text-white border-[#1D4ED8]"
-                : "bg-white text-[#6B7280] border-[#FDECC8] hover:border-[#FE9C00] hover:text-[#FE9C00]"
-            }`}
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-[#2563EB] border border-[#1D4ED8] inline-block shrink-0" style={{ background: showCulture ? "#fff" : "#2563EB", borderColor: showCulture ? "rgba(255,255,255,0.5)" : "#1D4ED8" }} />
-            문화행사
-          </button>
+        <div className="absolute top-[88px] right-4 z-20 flex flex-col items-end gap-2 animate-fade-up">
+          <CultureSpeedDial
+            activeCategory={activeCultureCategory}
+            onSelectCategory={setActiveCultureCategory}
+          />
           <button
             onClick={() => setShowNight((v) => !v)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all ${
               showNight
                 ? "bg-[#D97706] text-white border-[#B45309]"
                 : "bg-white text-[#6B7280] border-[#FDECC8] hover:border-[#FE9C00] hover:text-[#FE9C00]"
@@ -451,7 +467,7 @@ export default function MapView() {
         {!mapReady && (
           <div className="absolute inset-0 flex items-center justify-center z-30 bg-[#FFFBF0]">
             <div className="text-center space-y-2">
-              <div className="text-[#FE9C00] font-display tracking-[0.2em] text-sm animate-pulse">서울 지도 불러오는 중</div>
+              <div className="text-[#FE9C00] font-display tracking-[0.2em] text-sm animate-pulse">서울로 가는중</div>
               <div className="text-[#9CA3AF] text-xs">잠시만 기다려 주세요</div>
             </div>
           </div>

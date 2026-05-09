@@ -46,6 +46,14 @@ interface CongestionInfo {
   color: string;
 }
 
+interface RealtimeInfo {
+  arrivalMsg: string;
+  arrivalSeconds: number;
+  nextArrivalMsg?: string;
+  nextArrivalSeconds?: number;
+  congestion?: CongestionInfo;
+}
+
 export interface RouteDrawPayload {
   origin: PlaceCandidate;
   destination: PlaceCandidate;
@@ -146,6 +154,97 @@ function scoreToLabel(score: number): CongestionInfo {
   return { score, label: "매우 혼잡", color: "#991b1b" };
 }
 
+function busCongestionCodeToInfo(code: number): CongestionInfo | undefined {
+  if (code === 1) return { score: 20, label: "여유", color: "#2563eb" };
+  if (code === 2) return { score: 45, label: "보통", color: "#16a34a" };
+  if (code === 3) return { score: 75, label: "약간 혼잡", color: "#f97316" };
+  if (code === 4) return { score: 95, label: "혼잡", color: "#dc2626" };
+  return undefined;
+}
+
+function realtimeKey(step: TransitPath) {
+  return `${step.mode}|${step.fromId}|${step.routeId}`;
+}
+
+async function fetchBusRealtime(step: TransitPath): Promise<RealtimeInfo | null> {
+  if (!step.fromId) return null;
+  try {
+    const params = new URLSearchParams({ stopId: step.fromId, routeId: step.routeId, routeName: step.lineName });
+    const res = await fetch(`/api/bus/realtime?${params}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const first = data.arrivals?.[0];
+    if (!first) return null;
+    const nextMsg = first.arrmsg2 || "";
+    const nextSecs = first.arrivalSeconds2 ?? 0;
+    return {
+      arrivalMsg: first.arrmsg1 || "",
+      arrivalSeconds: first.arrivalSeconds1 ?? 0,
+      nextArrivalMsg: nextMsg || undefined,
+      nextArrivalSeconds: nextSecs > 0 ? nextSecs : undefined,
+      congestion: busCongestionCodeToInfo(first.congestionCode1 ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSubwayRealtime(step: TransitPath): Promise<RealtimeInfo | null> {
+  if (!step.fromName) return null;
+  try {
+    const params = new URLSearchParams({ station: step.fromName, lineName: step.lineName });
+    const res = await fetch(`/api/subway/realtime?${params}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const arrivals: Record<string, unknown>[] = data.arrivals ?? [];
+    const first = arrivals[0];
+    if (!first) return null;
+    const firstSecs = parseInt(String(first.barvlDt ?? "0"), 10);
+
+    // 다음 열차: 같은 방향(updnLine)의 두 번째 항목
+    const second = arrivals.find(
+      (a, i) => i > 0 && a.updnLine === first.updnLine
+    );
+    const secondSecs = second ? parseInt(String(second.barvlDt ?? "0"), 10) : undefined;
+
+    return {
+      arrivalMsg: (first.arvlMsg2 as string) || "",
+      arrivalSeconds: isFinite(firstSecs) ? firstSecs : 0,
+      nextArrivalMsg: second ? ((second.arvlMsg2 as string) || "") : undefined,
+      nextArrivalSeconds: secondSecs !== undefined && isFinite(secondSecs) ? secondSecs : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchRealtimeForRoutes(routes: TransitRoute[]): Promise<Record<string, RealtimeInfo>> {
+  const seen = new Set<string>();
+  const tasks: { key: string; step: TransitPath }[] = [];
+  for (const route of routes) {
+    for (const step of route.paths) {
+      const key = realtimeKey(step);
+      if (!seen.has(key)) {
+        seen.add(key);
+        tasks.push({ key, step });
+      }
+    }
+  }
+  const results = await Promise.all(
+    tasks.map(async ({ key, step }) => {
+      const info = step.mode === "bus"
+        ? await fetchBusRealtime(step)
+        : await fetchSubwayRealtime(step);
+      return { key, info };
+    })
+  );
+  const map: Record<string, RealtimeInfo> = {};
+  for (const { key, info } of results) {
+    if (info) map[key] = info;
+  }
+  return map;
+}
+
 function countRouteTransfers(route: TransitRoute) {
   return Math.max(0, route.paths.length - 1);
 }
@@ -205,6 +304,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const [stepArrivals, setStepArrivals] = useState<Record<string, RealtimeInfo>>({});
   const geocacheRef = useRef(new Map<string, PlaceCandidate[]>());
 
   const searchPlaces = useCallback(async (kind: "origin" | "dest", query: string) => {
@@ -290,6 +390,8 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
       if (decorated[0]) {
         onRouteFound?.({ origin, destination: dest, route: decorated[0] });
       }
+
+      fetchRealtimeForRoutes(decorated).then(setStepArrivals);
     } catch (e) {
       setStatus("경로 탐색 중 오류가 발생했습니다.");
       console.error(e);
@@ -405,16 +507,20 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
             {origin && (
               <StepItem icon="출발" label={origin.label} detail="" color="#16A34A" />
             )}
-            {currentRoute.paths.map((step, idx) => (
-              <StepItem
-                key={idx}
-                icon={step.mode === "subway" ? "지하철" : "버스"}
-                label={`${step.fromName} → ${step.toName}`}
-                detail={step.lineName}
-                color={getLineColor(step)}
-                congestion={step.congestion ?? estimateCongestion(step)}
-              />
-            ))}
+            {currentRoute.paths.map((step, idx) => {
+              const rt = stepArrivals[realtimeKey(step)];
+              return (
+                <StepItem
+                  key={idx}
+                  icon={step.mode === "subway" ? "지하철" : "버스"}
+                  label={`${step.fromName} → ${step.toName}`}
+                  detail={step.lineName}
+                  color={getLineColor(step)}
+                  congestion={rt?.congestion ?? estimateCongestion(step)}
+                  realtimeInfo={rt}
+                />
+              );
+            })}
             {dest && (
               <StepItem icon="도착" label={dest.label} detail="" color="#DC2626" />
             )}
@@ -484,12 +590,13 @@ function PlaceInput({
   );
 }
 
-function StepItem({ icon, label, detail, color, congestion }: {
+function StepItem({ icon, label, detail, color, congestion, realtimeInfo }: {
   icon: string;
   label: string;
   detail: string;
   color: string;
   congestion?: CongestionInfo;
+  realtimeInfo?: RealtimeInfo;
 }) {
   return (
     <div className="flex gap-2 p-2 rounded-lg bg-white border border-[#FDECC8]">
@@ -502,6 +609,28 @@ function StepItem({ icon, label, detail, color, congestion }: {
       <div className="flex-1 min-w-0">
         <div className="text-[11px] font-medium text-[#1B3A6B] truncate">{label}</div>
         {detail && <div className="text-[10px] text-[#A8A29E]">{detail}</div>}
+        {realtimeInfo?.arrivalMsg && (
+          <div className="mt-1 space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white shrink-0" style={{ background: color }}>현재</span>
+              <span className="text-[10px] font-medium text-[#1B3A6B] truncate">
+                {realtimeInfo.arrivalSeconds === 0 ? "곧 도착" : realtimeInfo.arrivalMsg}
+              </span>
+            </div>
+            {realtimeInfo.nextArrivalMsg && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white shrink-0 opacity-60" style={{ background: color }}>다음</span>
+                <span className="text-[10px] text-[#A8A29E] truncate">
+                  {realtimeInfo.nextArrivalSeconds !== undefined && realtimeInfo.nextArrivalSeconds >= 60
+                    ? `약 ${Math.round(realtimeInfo.nextArrivalSeconds / 60)}분 후`
+                    : realtimeInfo.nextArrivalSeconds !== undefined && realtimeInfo.nextArrivalSeconds < 60
+                    ? realtimeInfo.nextArrivalMsg || "곧 도착"
+                    : realtimeInfo.nextArrivalMsg || "곧 도착"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
         {congestion && <CongestionBar congestion={congestion} />}
       </div>
     </div>

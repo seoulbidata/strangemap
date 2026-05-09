@@ -2,32 +2,28 @@
 
 import { useState, useMemo } from "react";
 import type { POIItem } from "@/app/api/poi/route";
+import { CULTURE_CATEGORIES, type CultureCategory } from "@/lib/cultureCategories";
 
 interface Props {
   pois: POIItem[];
   onSelectPOI: (poi: POIItem) => void;
 }
 
-const CATEGORIES = ["전체", "음악", "전시/미술", "공연/행사", "교육/체험", "축제", "기타"];
-
 export default function CulturePanel({ pois, onSelectPOI }: Props) {
-  const [activeCategory, setActiveCategory] = useState("전체");
+  const [activeCategory, setActiveCategory] = useState<CultureCategory | "전체">("전체");
   const [showFreeOnly, setShowFreeOnly] = useState(false);
 
   const culturePOIs = useMemo(() => {
     return pois
       .filter((p) => p.source === "culture")
-      .filter((p) => {
-        if (activeCategory !== "전체") {
-          return p.category.includes(activeCategory) || (activeCategory === "기타" && !CATEGORIES.slice(1, -1).some((c) => p.category.includes(c)));
-        }
-        return true;
-      })
+      .filter((p) => activeCategory === "전체" || p.normalizedCategory === activeCategory)
       .filter((p) => {
         if (showFreeOnly) return p.fee === "무료" || p.fee === "" || !p.fee;
         return true;
       });
   }, [pois, activeCategory, showFreeOnly]);
+
+  const allCategories: Array<CultureCategory | "전체"> = ["전체", ...CULTURE_CATEGORIES];
 
   return (
     <div className="flex flex-col h-full">
@@ -39,7 +35,7 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
       {/* 카테고리 필터 */}
       <div className="px-4 py-3 border-b border-[#E5E1D8] space-y-2.5">
         <div className="flex gap-1.5 flex-wrap">
-          {CATEGORIES.map((cat) => (
+          {allCategories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -90,7 +86,7 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#2563EB]">
-                        {poi.category}
+                        {poi.normalizedCategory ?? poi.category}
                       </span>
                       <p className="text-sm font-semibold text-[#1A1E2E] mt-1.5 leading-snug line-clamp-2">{poi.name}</p>
                     </div>

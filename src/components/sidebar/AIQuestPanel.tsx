@@ -12,100 +12,67 @@ interface Suggestion {
 }
 
 type CompanionType = "혼자" | "친구" | "커플" | "가족";
-type TimeType = "낮" | "저녁" | "밤";
-type MoodType = "실내" | "실외" | "맛집" | "문화" | "휴식";
+type AgeGroupType = "10-20대" | "20-30대" | "30-40대" | "40-50대" | "60대 이상";
+type TimeType = "오전" | "오후" | "밤";
+type PurposeType = "힐링" | "놀거리" | "데이트" | "관광" | "운동" | "문화생활";
+type RegionType = "강북" | "강서" | "강남" | "강동" | "상관없음";
+type CongestionType = "여유" | "보통" | "상관없음";
 
-const MOCK_SUGGESTIONS: Record<string, Suggestion[]> = {
-  default: [
-    {
-      title: "청계천 산책 후 광장시장 투어",
-      place: "청계천 → 광장시장",
-      duration: "약 2시간",
-      description: "청계천을 따라 걸으며 서울 도심의 물길을 느끼고, 광장시장에서 전통 먹거리를 즐기세요.",
-      reason: "가볍게 걷기 좋고 먹거리가 풍성해 누구에게나 추천합니다.",
-      tags: ["산책", "맛집", "도심"],
-    },
-    {
-      title: "경복궁 야간개장",
-      place: "경복궁",
-      duration: "약 1시간 30분",
-      description: "조명이 켜진 경복궁은 낮과 전혀 다른 분위기. 사전 예약 필수입니다.",
-      reason: "저녁 시간대에 가장 아름다운 서울의 야경을 만날 수 있습니다.",
-      tags: ["역사", "야경", "문화"],
-    },
-    {
-      title: "성수동 카페 & 브런치 투어",
-      place: "성수동 카페거리",
-      duration: "약 3시간",
-      description: "공장을 개조한 독특한 카페들이 즐비. 감성적인 사진과 맛있는 브런치를 동시에.",
-      reason: "서울에서 가장 힙한 동네로 새로운 감성을 찾는 분께 딱 맞습니다.",
-      tags: ["카페", "브런치", "감성"],
-    },
-  ],
-  "혼자-밤-실외": [
-    {
-      title: "남산 야경 드라이브 & 산책",
-      place: "남산서울타워",
-      duration: "약 2시간",
-      description: "남산 케이블카나 버스로 올라가 서울 야경을 혼자 조용히 감상하세요.",
-      reason: "혼자 밤에 걷기 안전하고, 서울 전경이 한눈에 들어와 힐링이 됩니다.",
-      tags: ["야경", "혼자", "힐링"],
-    },
-    {
-      title: "한강 야간 자전거",
-      place: "여의도한강공원",
-      duration: "약 2시간",
-      description: "자전거 대여 후 한강변을 달리며 서울의 밤을 느끼세요.",
-      reason: "혼자만의 시간을 즐기기 최적. 야간에도 불빛이 충분해 안전합니다.",
-      tags: ["자전거", "한강", "야간"],
-    },
-  ],
-  "커플-저녁-실외": [
-    {
-      title: "반포한강공원 달빛무지개분수",
-      place: "반포한강공원",
-      duration: "약 2시간",
-      description: "세계 최장 교량분수의 야간 쇼와 세빛섬 야경을 함께 즐기세요.",
-      reason: "커플 야경 명소 1위. 분수 쇼 시간대(20~22시)에 맞춰 방문하세요.",
-      tags: ["야경", "커플", "분수"],
-    },
-    {
-      title: "북촌 야간 골목 산책",
-      place: "북촌한옥마을",
-      duration: "약 1시간 30분",
-      description: "골목 조명이 켜진 북촌을 둘이서 천천히 걷는 낭만적인 코스.",
-      reason: "낮보다 조용하고 사람이 적어 오히려 더 운치 있는 분위기.",
-      tags: ["한옥", "야간", "산책"],
-    },
-  ],
+// 카테고리별 파스텔 선택 색상 (bg, text, border)
+const CHIP_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  companion: { bg: "#B8D0E8", text: "#2C5F82", border: "#9BBDD9" },
+  ageGroup:  { bg: "#C8BFE8", text: "#4A3575", border: "#B4A9D9" },
+  time:      { bg: "#F5D5A8", text: "#7A4A10", border: "#E8C285" },
+  purpose:   { bg: "#B8DCCC", text: "#1E5E40", border: "#98CCAD" },
+  place:     { bg: "#B8DBD9", text: "#1E5252", border: "#96C8C6" },
+  congestion:{ bg: "#F0C0C8", text: "#7A2535", border: "#E0A0A8" },
 };
 
-function getSuggestions(companion: CompanionType, time: TimeType, mood: MoodType): Suggestion[] {
-  const key = `${companion}-${time}-${mood}`;
-  return MOCK_SUGGESTIONS[key] ?? MOCK_SUGGESTIONS["default"];
-}
-
 export default function AIQuestPanel() {
-  const [companion, setCompanion] = useState<CompanionType>("친구");
-  const [time, setTime] = useState<TimeType>("저녁");
-  const [mood, setMood] = useState<MoodType>("실외");
+  const [companion, setCompanion]   = useState<CompanionType>("친구");
+  const [ageGroup, setAgeGroup]     = useState<AgeGroupType>("20-30대");
+  const [time, setTime]             = useState<TimeType>("오후");
+  const [purpose, setPurpose]       = useState<PurposeType>("관광");
+  const [region, setRegion]         = useState<RegionType>("상관없음");
+  const [congestion, setCongestion] = useState<CongestionType>("상관없음");
+
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [source, setSource]           = useState<"ai" | "mock" | null>(null);
 
   const handleRecommend = async () => {
     setLoading(true);
     setSuggestions(null);
-    await new Promise((r) => setTimeout(r, 1200));
-    setSuggestions(getSuggestions(companion, time, mood));
-    setLoading(false);
+    setError(null);
+    setSource(null);
+
+    try {
+      const res = await fetch("/api/ai-recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companion, ageGroup, time, purpose, region, congestion }),
+      });
+
+      if (!res.ok) throw new Error("API 오류");
+
+      const data = await res.json();
+      setSuggestions(data.suggestions ?? []);
+      setSource(data._source ?? null);
+    } catch {
+      setError("추천을 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const companions: CompanionType[] = ["혼자", "친구", "커플", "가족"];
-  const times: TimeType[] = ["낮", "저녁", "밤"];
-  const moods: MoodType[] = ["실내", "실외", "맛집", "문화", "휴식"];
+  const summaryLabel = [companion, ageGroup, time, purpose, region !== "상관없음" ? region : null, congestion !== "상관없음" ? `혼잡도 ${congestion}` : null]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="flex flex-col h-full">
+      {/* 헤더 */}
       <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8]">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse" />
@@ -117,27 +84,54 @@ export default function AIQuestPanel() {
 
       <div className="flex-1 overflow-y-auto thin-scroll">
         {/* 상황 선택 */}
-        <div className="px-4 py-4 space-y-4 border-b border-[#E5E1D8]">
+        <div className="px-4 py-4 space-y-3.5 border-b border-[#E5E1D8]">
           <ChipGroup
-            label="동행"
-            options={companions}
+            label="누구랑"
+            options={["혼자", "친구", "커플", "가족"] as CompanionType[]}
             value={companion}
             onChange={(v) => setCompanion(v as CompanionType)}
-            color="#1B3A6B"
+            colorKey="companion"
+            disabled={loading}
+          />
+          <ChipGroup
+            label="나이대"
+            options={["10-20대", "20-30대", "30-40대", "40-50대", "60대 이상"] as AgeGroupType[]}
+            value={ageGroup}
+            onChange={(v) => setAgeGroup(v as AgeGroupType)}
+            colorKey="ageGroup"
+            disabled={loading}
           />
           <ChipGroup
             label="시간대"
-            options={times}
+            options={["오전", "오후", "밤"] as TimeType[]}
             value={time}
             onChange={(v) => setTime(v as TimeType)}
-            color="#D97706"
+            colorKey="time"
+            disabled={loading}
           />
           <ChipGroup
-            label="분위기"
-            options={moods}
-            value={mood}
-            onChange={(v) => setMood(v as MoodType)}
-            color="#16A34A"
+            label="목적"
+            options={["힐링", "놀거리", "데이트", "관광", "운동", "문화생활"] as PurposeType[]}
+            value={purpose}
+            onChange={(v) => setPurpose(v as PurposeType)}
+            colorKey="purpose"
+            disabled={loading}
+          />
+          <ChipGroup
+            label="위치"
+            options={["강북", "강서", "강남", "강동", "상관없음"] as RegionType[]}
+            value={region}
+            onChange={(v) => setRegion(v as RegionType)}
+            colorKey="place"
+            disabled={loading}
+          />
+          <ChipGroup
+            label="혼잡도"
+            options={["여유", "보통", "상관없음"] as CongestionType[]}
+            value={congestion}
+            onChange={(v) => setCongestion(v as CongestionType)}
+            colorKey="congestion"
+            disabled={loading}
           />
         </div>
 
@@ -146,31 +140,73 @@ export default function AIQuestPanel() {
           <button
             onClick={handleRecommend}
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#1B3A6B] text-white text-sm font-semibold hover:bg-[#153060] transition-colors disabled:opacity-60"
+            className="w-full py-3 rounded-xl bg-[#FE9C00] text-white text-sm font-semibold hover:bg-[#E58900] transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
           >
-            {loading ? "추천 생성 중..." : "AI 추천 받기"}
+            {loading ? (
+              <>
+                <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                서울로가 컨텐츠를 생성중이에요...
+              </>
+            ) : (
+              <>
+                <AIIcon className="w-4 h-4" />
+                서울로 추천 받기
+              </>
+            )}
           </button>
         </div>
 
-        {/* 로딩 */}
+        {/* 로딩 UI */}
         {loading && (
-          <div className="px-4 space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl border border-[#E5E1D8] p-4 space-y-2 animate-pulse">
-                <div className="h-3 bg-[#F0EDE8] rounded w-3/4" />
-                <div className="h-2.5 bg-[#F0EDE8] rounded w-full" />
-                <div className="h-2.5 bg-[#F0EDE8] rounded w-5/6" />
+          <div className="px-4 pb-6">
+            <div className="rounded-2xl border border-[#FDECC8] bg-[#FFFBF0] p-5 flex flex-col items-center gap-3">
+              {/* 아이콘 + 펄스 링 */}
+              <div className="relative flex items-center justify-center">
+                <span className="absolute w-14 h-14 rounded-full bg-[#FE9C00]/10 animate-ping" />
+                <div className="w-11 h-11 rounded-full bg-[#FE9C00]/15 flex items-center justify-center z-10">
+                  <AIIcon className="w-6 h-6 text-[#FE9C00]" />
+                </div>
               </div>
-            ))}
+              {/* 텍스트 */}
+              <div className="text-center space-y-1">
+                <p className="text-sm font-semibold text-[#1A1E2E]">오늘의 추천은...?</p>
+                <p className="text-[11px] text-[#9CA3AF]">{summaryLabel} 기준으로 생성하고 있어요</p>
+              </div>
+              {/* 점 애니메이션 */}
+              <div className="flex gap-1.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full bg-[#FE9C00]"
+                    style={{ animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 에러 */}
+        {error && !loading && (
+          <div className="px-4 pb-4">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+              <p className="text-[12px] text-red-600">{error}</p>
+            </div>
           </div>
         )}
 
         {/* 추천 결과 */}
         {suggestions && !loading && (
           <div className="px-4 pb-4 space-y-3 animate-fade-up">
-            <p className="text-[10px] text-[#9CA3AF] pt-1">
-              {companion} · {time} · {mood} 기준 추천
-            </p>
+            <div className="flex items-center justify-between pt-1">
+              <p className="text-[10px] text-[#9CA3AF]">{summaryLabel}</p>
+              {source === "ai" && (
+                <span className="flex items-center gap-1 text-[9px] text-[#2563EB]">
+                  <span className="w-1 h-1 rounded-full bg-[#2563EB] animate-pulse" />
+                  AI 생성
+                </span>
+              )}
+            </div>
             {suggestions.map((s, i) => (
               <div key={i} className="rounded-xl border border-[#E5E1D8] bg-white overflow-hidden">
                 <div className="px-4 py-3.5">
@@ -179,7 +215,7 @@ export default function AIQuestPanel() {
                       <p className="text-sm font-bold text-[#1A1E2E] leading-snug">{s.title}</p>
                       <p className="text-[11px] text-[#2563EB] mt-0.5">{s.place}</p>
                     </div>
-                    <span className="text-[10px] text-[#9CA3AF] shrink-0">{s.duration}</span>
+                    <span className="text-[10px] text-[#9CA3AF] shrink-0 mt-0.5">{s.duration}</span>
                   </div>
                   <p className="text-[12px] text-[#6B7280] mt-2 leading-relaxed">{s.description}</p>
                   <div className="mt-2.5 p-2.5 bg-[#FFFBEB] rounded-lg border border-[#FDE68A]">
@@ -195,17 +231,17 @@ export default function AIQuestPanel() {
                 </div>
               </div>
             ))}
-            <p className="text-[9px] text-[#D1CEC7] text-center pb-2">AI 생성 콘텐츠 · 실제 AI 연동 예정</p>
           </div>
         )}
 
         {/* 초기 상태 */}
-        {!suggestions && !loading && (
+        {!suggestions && !loading && !error && (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center text-[#9CA3AF]">
             <div className="w-12 h-12 rounded-xl bg-[#F5F2EC] flex items-center justify-center mb-3">
               <AIIcon className="w-6 h-6" />
             </div>
             <p className="text-sm">상황을 선택하고 추천을 받아보세요</p>
+            <p className="text-[11px] mt-1 text-[#C4BFB8]">현재 서울 행사도 반영됩니다</p>
           </div>
         )}
       </div>
@@ -218,14 +254,17 @@ function ChipGroup({
   options,
   value,
   onChange,
-  color,
+  colorKey,
+  disabled,
 }: {
   label: string;
   options: string[];
   value: string;
   onChange: (v: string) => void;
-  color: string;
+  colorKey: keyof typeof CHIP_COLORS;
+  disabled?: boolean;
 }) {
+  const active = CHIP_COLORS[colorKey];
   return (
     <div>
       <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">{label}</p>
@@ -233,11 +272,12 @@ function ChipGroup({
         {options.map((opt) => (
           <button
             key={opt}
-            onClick={() => onChange(opt)}
-            className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors border"
+            onClick={() => !disabled && onChange(opt)}
+            disabled={disabled}
+            className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-all border disabled:cursor-not-allowed disabled:opacity-60"
             style={
               value === opt
-                ? { background: color, color: "#fff", borderColor: color }
+                ? { background: active.bg, color: active.text, borderColor: active.border }
                 : { background: "#F5F2EC", color: "#6B7280", borderColor: "#E5E1D8" }
             }
           >
@@ -252,7 +292,12 @@ function ChipGroup({
 function AIIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none">
-      <path d="M12 3v2M12 19v2M3 12h2M19 12h2M6.34 6.34l1.42 1.42M16.24 16.24l1.42 1.42M6.34 17.66l1.42-1.42M16.24 7.76l1.42-1.42" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M12 3v2M12 19v2M3 12h2M19 12h2M6.34 6.34l1.42 1.42M16.24 16.24l1.42 1.42M6.34 17.66l1.42-1.42M16.24 7.76l1.42-1.42"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );

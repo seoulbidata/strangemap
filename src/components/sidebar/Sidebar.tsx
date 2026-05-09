@@ -26,14 +26,14 @@ interface Props {
 
 type TabId = "search" | "culture" | "night" | "ai" | "course" | "now" | "route";
 
-const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: "search", label: "검색", icon: <SearchIcon /> },
-  { id: "culture", label: "문화행사", icon: <CalendarIcon /> },
-  { id: "night", label: "야경명소", icon: <MoonIcon /> },
-  { id: "ai", label: "AI 추천", icon: <AIIcon /> },
-  { id: "course", label: "테마코스", icon: <RouteIcon /> },
-  { id: "now", label: "지금추천", icon: <ClockIcon /> },
-  { id: "route", label: "길찾기", icon: <NavIcon /> },
+const TABS: { id: TabId; label: string; icon: string }[] = [
+  { id: "search", label: "검색", icon: "/sidebaricons/search.png" },
+  { id: "route", label: "길찾기", icon: "/sidebaricons/route.png" },
+  { id: "culture", label: "문화행사", icon: "/sidebaricons/culture.png" },
+  { id: "night", label: "야경명소", icon: "/sidebaricons/night.png" },
+  { id: "ai", label: "AI 추천", icon: "/sidebaricons/ai.png" },
+  { id: "course", label: "테마코스", icon: "/sidebaricons/course.png" },
+  { id: "now", label: "혼잡도", icon: "/sidebaricons/now.png" },
 ];
 
 export default function Sidebar({
@@ -73,12 +73,12 @@ export default function Sidebar({
                 title={tab.label}
                 className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${
                   isActive
-                    ? "bg-[#FE9C00] text-white shadow-md"
-                    : "text-[#A8A29E] hover:bg-[#FFF8E7] hover:text-[#FE9C00]"
+                    ? "bg-[#FE9C00] shadow-md"
+                    : "hover:bg-[#FFF8E7]"
                 }`}
               >
-                <span className="w-5 h-5">{tab.icon}</span>
-                <span className="text-[10px] font-medium leading-none truncate w-full text-center px-1">
+                <Image src={tab.icon} alt={tab.label} width={28} height={28} className="object-contain" />
+                <span className="text-[10px] font-medium leading-none truncate w-full text-center px-1 text-[#2F4F4F]">
                   {tab.label}
                 </span>
               </button>
@@ -133,71 +133,3 @@ export default function Sidebar({
   );
 }
 
-/* ---- 아이콘 SVG ---- */
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="w-full h-full">
-      <circle cx="9" cy="9" r="5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M13 13l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="w-full h-full">
-      <rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M3 8h14" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M7 3v2M13 3v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="w-full h-full">
-      <path d="M15 13.5A6.5 6.5 0 016.5 5 6.5 6.5 0 1015 13.5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function AIIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="w-full h-full">
-      <circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M5.5 5.5l1.5 1.5M13 13l1.5 1.5M5.5 14.5l1.5-1.5M13 7l1.5-1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function RouteIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="w-full h-full">
-      <circle cx="5" cy="5" r="2" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="15" cy="10" r="2" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="5" cy="15" r="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M7 5h3a2 2 0 012 2v1M7 15h3a2 2 0 002-2v-1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="w-full h-full">
-      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M10 6v4l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function NavIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="w-full h-full">
-      <circle cx="5" cy="5" r="2" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="15" cy="15" r="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M7 5h3a3 3 0 013 3v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M13 13l2 2-2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}

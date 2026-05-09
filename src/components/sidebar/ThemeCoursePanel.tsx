@@ -21,7 +21,7 @@ export default function ThemeCoursePanel({ onSelectCourse, activeCourseId }: Pro
     <div className="flex flex-col h-full">
       <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8]">
         <h2 className="text-base font-bold text-[#1A1E2E]">테마 코스</h2>
-        <p className="text-xs text-[#9CA3AF] mt-0.5">큐레이션 탐방 루트 {THEME_COURSES.length}개</p>
+        <p className="text-xs text-[#9CA3AF] mt-0.5">서울로가 추천하는 코스 {THEME_COURSES.length}개</p>
       </div>
 
       <div className="flex-1 overflow-y-auto thin-scroll py-2">
@@ -121,7 +121,7 @@ export default function ThemeCoursePanel({ onSelectCourse, activeCourseId }: Pro
                     className="mt-2 w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
                     style={{ background: course.color }}
                   >
-                    {isActive ? "코스 지도에서 보는 중" : "지도에서 코스 보기"}
+                    {isActive ? "끝내기" : "지도에서 코스 보기"}
                   </button>
                 </div>
               )}

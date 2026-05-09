@@ -1,15 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const SEOUL_OPENAPI_BASE = "http://openapi.seoul.go.kr:8088";
-const NAVER_LOCAL_CLIENT_ID = process.env.NAVER_LOCAL_CLIENT_ID ?? "";
-const NAVER_LOCAL_CLIENT_SECRET = process.env.NAVER_LOCAL_CLIENT_SECRET ?? "";
+const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
+
+type Point = { lat: number; lng: number };
+type StationPoint = { id: string; name: string; lat: number; lng: number };
+type RailWay = { points: Point[] };
+type GraphEdge = { to: string; weight: number };
+type RailGraph = { nodes: Map<string, Point>; edges: Map<string, GraphEdge[]> };
 
 function normalizeStationName(v: string) {
-  return v.replace(/\(.+?\)/g, "").replace(/역$/, "").trim();
+  return v
+    .replace(/<[^>]+>/g, "")
+    .replace(/\(.+?\)/g, "")
+    .replace(/\s+\d+호선$/, "")
+    .replace(/\s+[가-힣]+선$/, "")
+    .replace(/역$/, "")
+    .trim();
 }
 
 function normalizeLineName(v: string) {
-  return v.replace(/\s/g, "").replace(/^0+(\d+호선)$/, "$1");
+  return v.replace(/\s/g, "").replace(/\(.+?\)/g, "").replace(/^0+(\d+호선)$/, "$1");
+}
+
+function lineNameCandidates(v: string) {
+  const normalized = normalizeLineName(v);
+  const candidates = [v, normalized];
+  const numberMatch = normalized.match(/^(\d+)호선$/);
+  if (numberMatch) candidates.push(numberMatch[1].padStart(2, "0") + "호선");
+  return [...new Set(candidates.filter(Boolean))];
 }
 
 function shortCode(v: string) {
@@ -17,28 +36,215 @@ function shortCode(v: string) {
   return digits.length >= 3 ? digits.slice(-3) : digits;
 }
 
-async function fetchStationCoord(stationName: string, lineName: string): Promise<{ lat: number; lng: number } | null> {
-  if (!NAVER_LOCAL_CLIENT_ID || !NAVER_LOCAL_CLIENT_SECRET) return null;
-  for (const query of [`${stationName}역 ${lineName}`, `${stationName}역`]) {
-    const url = `https://openapi.naver.com/v1/search/local.json?query=${encodeURIComponent(query)}&display=8&start=1&sort=comment`;
-    try {
-      const res = await fetch(url, {
-        headers: { "X-Naver-Client-Id": NAVER_LOCAL_CLIENT_ID, "X-Naver-Client-Secret": NAVER_LOCAL_CLIENT_SECRET },
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      const place = (data.items ?? []).find((item: Record<string, string>) => {
-        const name = item.title?.replace(/<[^>]+>/g, "").trim() ?? "";
-        return normalizeStationName(name) === stationName && (item.category?.includes("지하철") || item.category?.includes("역"));
-      });
-      if (place?.mapx && place?.mapy) {
-        return { lat: Number(place.mapy) / 1e7, lng: Number(place.mapx) / 1e7 };
-      }
-    } catch {
-      continue;
+function stationOrderCode(v: string) {
+  const digits = v.replace(/\D/g, "");
+  return parseInt(digits || "0", 10);
+}
+
+function distance(a: Point, b: Point) {
+  const dx = (a.lng - b.lng) * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180);
+  const dy = a.lat - b.lat;
+  return Math.sqrt(dx * dx + dy * dy) * 111_320;
+}
+
+function pointKey(point: Point) {
+  return `${point.lat.toFixed(7)},${point.lng.toFixed(7)}`;
+}
+
+function coordKey(lineName: string, stationName: string) {
+  return `${normalizeLineName(lineName)}:${normalizeStationName(stationName)}`;
+}
+
+async function fetchStationMasterCoords(masterKey: string) {
+  const res = await fetch(`${SEOUL_OPENAPI_BASE}/${masterKey}/json/subwayStationMaster/1/1000/`);
+  const data = await res.json();
+  const rows = data.subwayStationMaster?.row ?? [];
+  const coords = new Map<string, { lat: number; lng: number }>();
+
+  for (const row of rows as Record<string, string>[]) {
+    const line = normalizeLineName(row.ROUTE ?? "");
+    const name = normalizeStationName(row.BLDN_NM ?? "");
+    const lat = parseFloat(row.LAT ?? "");
+    const lng = parseFloat(row.LOT ?? "");
+    if (!line || !name || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    coords.set(coordKey(line, name), { lat, lng });
+  }
+
+  return coords;
+}
+
+function railNameMatches(tags: Record<string, string> | undefined, normalizedLine: string) {
+  if (!tags) return false;
+  const names = [tags.name, tags["name:ko"], tags.alt_name, tags["alt_name:ko"], tags.ref].filter(Boolean);
+  return names.some((name) => normalizeLineName(name) === normalizedLine);
+}
+
+function escapeOverpassRegex(v: string) {
+  return v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function makeRailQuery(lineName: string, points: Point[]) {
+  const margin = 0.015;
+  const minLat = Math.min(...points.map((p) => p.lat)) - margin;
+  const maxLat = Math.max(...points.map((p) => p.lat)) + margin;
+  const minLng = Math.min(...points.map((p) => p.lng)) - margin;
+  const maxLng = Math.max(...points.map((p) => p.lng)) + margin;
+  const bbox = `(${minLat},${minLng},${maxLat},${maxLng})`;
+  const lineRegex = escapeOverpassRegex(normalizeLineName(lineName));
+  return `[out:json][timeout:25];(` +
+    `way["railway"~"subway|light_rail|rail"]["name"~"${lineRegex}",i]${bbox};` +
+    `way["railway"~"subway|light_rail|rail"]["name:ko"~"${lineRegex}",i]${bbox};` +
+    `way["railway"~"subway|light_rail|rail"]["alt_name"~"${lineRegex}",i]${bbox};` +
+    `way["railway"~"subway|light_rail|rail"]["alt_name:ko"~"${lineRegex}",i]${bbox};` +
+    `);out tags geom;`;
+}
+
+async function fetchRailWays(lineName: string, points: Point[]): Promise<RailWay[]> {
+  if (points.length < 2) return [];
+  const normalizedLine = normalizeLineName(lineName);
+  const body = `data=${encodeURIComponent(makeRailQuery(lineName, points))}`;
+  const res = await fetch(OVERPASS_API_URL, {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "strangemap-local/1.0",
+    },
+    body,
+  });
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const elements = Array.isArray(data.elements) ? data.elements : [];
+  return elements
+    .filter((element: { tags?: Record<string, string>; geometry?: { lat: number; lon: number }[] }) => (
+      Array.isArray(element.geometry) && element.geometry.length >= 2 && railNameMatches(element.tags, normalizedLine)
+    ))
+    .map((element: { geometry: { lat: number; lon: number }[] }) => ({
+      points: element.geometry.map((p) => ({ lat: p.lat, lng: p.lon })),
+    }));
+}
+
+function buildRailGraph(ways: RailWay[]): RailGraph {
+  const nodes = new Map<string, Point>();
+  const edges = new Map<string, GraphEdge[]>();
+  const addEdge = (from: string, to: string, weight: number) => {
+    const list = edges.get(from) ?? [];
+    list.push({ to, weight });
+    edges.set(from, list);
+  };
+
+  for (const way of ways) {
+    for (let i = 0; i < way.points.length; i += 1) {
+      const point = way.points[i];
+      const key = pointKey(point);
+      nodes.set(key, point);
+      if (i === 0) continue;
+      const prev = way.points[i - 1];
+      const prevKey = pointKey(prev);
+      const weight = distance(prev, point);
+      addEdge(prevKey, key, weight);
+      addEdge(key, prevKey, weight);
     }
   }
-  return null;
+
+  const entries = [...nodes.entries()];
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i + 1; j < entries.length; j += 1) {
+      const [aKey, aPoint] = entries[i];
+      const [bKey, bPoint] = entries[j];
+      const weight = distance(aPoint, bPoint);
+      if (weight > 55) continue;
+      addEdge(aKey, bKey, weight);
+      addEdge(bKey, aKey, weight);
+    }
+  }
+
+  return { nodes, edges };
+}
+
+function nearestNode(graph: RailGraph, point: Point) {
+  let bestKey = "";
+  let bestDistance = Infinity;
+  for (const [key, node] of graph.nodes) {
+    const d = distance(point, node);
+    if (d < bestDistance) {
+      bestDistance = d;
+      bestKey = key;
+    }
+  }
+  return { key: bestKey, distance: bestDistance };
+}
+
+function shortestRailPath(graph: RailGraph, from: Point, to: Point): Point[] {
+  const start = nearestNode(graph, from);
+  const end = nearestNode(graph, to);
+  if (!start.key || !end.key || start.distance > 900 || end.distance > 900) return [];
+
+  const distances = new Map<string, number>([[start.key, 0]]);
+  const previous = new Map<string, string>();
+  const queue = new Set<string>([start.key]);
+
+  while (queue.size) {
+    let current = "";
+    let currentDistance = Infinity;
+    for (const key of queue) {
+      const d = distances.get(key) ?? Infinity;
+      if (d < currentDistance) {
+        current = key;
+        currentDistance = d;
+      }
+    }
+    if (!current || current === end.key) break;
+    queue.delete(current);
+
+    for (const edge of graph.edges.get(current) ?? []) {
+      const nextDistance = currentDistance + edge.weight;
+      if (nextDistance >= (distances.get(edge.to) ?? Infinity)) continue;
+      distances.set(edge.to, nextDistance);
+      previous.set(edge.to, current);
+      queue.add(edge.to);
+    }
+  }
+
+  if (start.key !== end.key && !previous.has(end.key)) return [];
+
+  const keys = [end.key];
+  while (keys[0] !== start.key) {
+    const prev = previous.get(keys[0]);
+    if (!prev) return [];
+    keys.unshift(prev);
+  }
+
+  const railPoints = keys.map((key) => graph.nodes.get(key)).filter(Boolean) as Point[];
+  const railDistance = railPoints.reduce((sum, point, i) => i === 0 ? 0 : sum + distance(railPoints[i - 1], point), 0);
+  const directDistance = distance(from, to);
+  if (directDistance > 0 && railDistance > directDistance * 5) return [];
+  return [from, ...railPoints, to];
+}
+
+function appendPoints(target: Point[], points: Point[]) {
+  for (const point of points) {
+    const last = target[target.length - 1];
+    if (last && distance(last, point) < 3) continue;
+    target.push(point);
+  }
+}
+
+async function buildRailPolyline(lineName: string, stations: StationPoint[]) {
+  if (stations.length < 2) return stations;
+  const ways = await fetchRailWays(lineName, stations);
+  const graph = buildRailGraph(ways);
+  if (graph.nodes.size < 2) return stations;
+
+  const points: Point[] = [];
+  for (let i = 1; i < stations.length; i += 1) {
+    const from = stations[i - 1];
+    const to = stations[i];
+    const railPath = shortestRailPath(graph, from, to);
+    appendPoints(points, railPath.length >= 2 ? railPath : [from, to]);
+  }
+  return points;
 }
 
 export async function GET(request: NextRequest) {
@@ -49,22 +255,32 @@ export async function GET(request: NextRequest) {
   const toName = normalizeStationName(p.get("toName")?.trim() ?? "");
   const lineName = p.get("lineName")?.trim() ?? "";
   const expectedCount = parseInt(p.get("railLinkCount") ?? "0", 10);
+  const fromLat = parseFloat(p.get("fromLat") ?? "");
+  const fromLng = parseFloat(p.get("fromLng") ?? "");
+  const toLat = parseFloat(p.get("toLat") ?? "");
+  const toLng = parseFloat(p.get("toLng") ?? "");
 
   if (!fromId || !toId || !lineName) {
     return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
   }
 
   const searchKey = process.env.SEOUL_SUBWAY_SEARCH_KEY ?? "";
+  const masterKey = process.env.SEOUL_SUBWAY_MASTER_KEY ?? "";
   if (!searchKey) return NextResponse.json({ status: "NO_KEY", points: [] });
+  if (!masterKey) return NextResponse.json({ status: "NO_MASTER_KEY", points: [] });
 
   try {
     const normalizedLine = normalizeLineName(lineName);
-    const res = await fetch(`${SEOUL_OPENAPI_BASE}/${searchKey}/json/SearchSTNBySubwayLineInfo/1/1000//${encodeURIComponent(lineName)}`);
-    const data = await res.json();
-    const rows: Record<string, string>[] = data.SearchSTNBySubwayLineInfo?.row ?? [];
+    const masterCoords = await fetchStationMasterCoords(masterKey);
+    let rows: Record<string, string>[] = [];
+    for (const candidate of lineNameCandidates(lineName)) {
+      const res = await fetch(`${SEOUL_OPENAPI_BASE}/${searchKey}/json/SearchSTNBySubwayLineInfo/1/1000//${encodeURIComponent(candidate)}`);
+      const data = await res.json();
+      rows = data.SearchSTNBySubwayLineInfo?.row ?? [];
+      if (rows.length) break;
+    }
 
-    const stations: { id: string; name: string; lat: number; lng: number }[] = [];
-    const coordPromises = rows
+    const stationRows = rows
       .filter((row) => {
         const rowLine = normalizeLineName(row.LINE_NUM ?? "");
         if (rowLine !== normalizedLine) return false;
@@ -72,34 +288,48 @@ export async function GET(request: NextRequest) {
         if (normalizedLine === "2호선" && code > 243) return false;
         return true;
       })
-      .map(async (row) => {
-        const name = normalizeStationName(row.STATION_NM ?? "");
-        const code = (row.STATION_CD ?? "").padStart(4, "0");
-        const coord = await fetchStationCoord(name, lineName);
-        if (coord) stations.push({ id: code, name, lat: coord.lat, lng: coord.lng });
-      });
-
-    await Promise.all(coordPromises);
-    stations.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+      .map((row) => ({
+        id: (row.STATION_CD ?? "").padStart(4, "0"),
+        order: stationOrderCode(row.FR_CODE ?? row.STATION_CD ?? ""),
+        name: normalizeStationName(row.STATION_NM ?? ""),
+      }))
+      .sort((a, b) => a.order - b.order);
 
     const fromShort = shortCode(fromId);
     const toShort = shortCode(toId);
-    let fromIdx = stations.findIndex((s) => shortCode(s.id) === fromShort);
-    let toIdx = stations.findIndex((s) => shortCode(s.id) === toShort);
-    if (fromIdx === -1) fromIdx = stations.findIndex((s) => s.name === fromName);
-    if (toIdx === -1) toIdx = stations.findIndex((s) => s.name === toName);
+    let fromIdx = stationRows.findIndex((s) => s.name === fromName);
+    let toIdx = stationRows.findIndex((s) => s.name === toName);
+    if (fromIdx === -1) fromIdx = stationRows.findIndex((s) => shortCode(s.id) === fromShort);
+    if (toIdx === -1) toIdx = stationRows.findIndex((s) => shortCode(s.id) === toShort);
 
     if (fromIdx === -1 || toIdx === -1) return NextResponse.json({ status: "OK", lineName, points: [] });
 
-    const forward = fromIdx <= toIdx ? stations.slice(fromIdx, toIdx + 1) : [...stations.slice(fromIdx), ...stations.slice(0, toIdx + 1)];
-    const backward = toIdx <= fromIdx ? stations.slice(toIdx, fromIdx + 1).reverse() : [...stations.slice(toIdx), ...stations.slice(0, fromIdx + 1)].reverse();
+    const forwardRows = fromIdx <= toIdx ? stationRows.slice(fromIdx, toIdx + 1) : [...stationRows.slice(fromIdx), ...stationRows.slice(0, toIdx + 1)];
+    const backwardRows = toIdx <= fromIdx ? stationRows.slice(toIdx, fromIdx + 1).reverse() : [...stationRows.slice(toIdx), ...stationRows.slice(0, fromIdx + 1)].reverse();
+    const selectedRows = expectedCount > 0
+      ? [forwardRows, backwardRows].sort((a, b) => Math.abs(a.length - 1 - expectedCount) - Math.abs(b.length - 1 - expectedCount))[0]
+      : [forwardRows, backwardRows].sort((a, b) => a.length - b.length)[0];
 
-    const candidates = [forward, backward];
-    const selected = expectedCount > 0
-      ? candidates.sort((a, b) => Math.abs(a.length - 1 - expectedCount) - Math.abs(b.length - 1 - expectedCount))[0]
-      : candidates.sort((a, b) => a.length - b.length)[0];
+    const stations: StationPoint[] = [];
+    for (const row of selectedRows) {
+      const name = normalizeStationName(row.name);
+      const coord = masterCoords.get(coordKey(normalizedLine, name));
+      if (coord) {
+        stations.push({ id: row.id, name, lat: coord.lat, lng: coord.lng });
+        continue;
+      }
+      if (name === fromName && Number.isFinite(fromLat) && Number.isFinite(fromLng)) {
+        stations.push({ id: row.id, name, lat: fromLat, lng: fromLng });
+        continue;
+      }
+      if (name === toName && Number.isFinite(toLat) && Number.isFinite(toLng)) {
+        stations.push({ id: row.id, name, lat: toLat, lng: toLng });
+      }
+    }
+    stations.sort((a, b) => selectedRows.findIndex((row) => row.id === a.id) - selectedRows.findIndex((row) => row.id === b.id));
 
-    return NextResponse.json({ status: "OK", lineName, points: selected });
+    const points = await buildRailPolyline(lineName, stations);
+    return NextResponse.json({ status: "OK", lineName, points, stations });
   } catch (e) {
     return NextResponse.json({ error: "SUBWAY_SEGMENT_SHAPE_ERROR", message: String(e) }, { status: 502 });
   }

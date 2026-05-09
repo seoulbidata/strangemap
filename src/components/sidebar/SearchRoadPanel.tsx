@@ -14,7 +14,7 @@ interface PlaceCandidate {
 }
 
 interface TransitPath {
-  mode: "subway" | "bus";
+  mode: "walk" | "subway" | "bus";
   fromId: string;
   fromName: string;
   fromLat: number | null;
@@ -30,6 +30,7 @@ interface TransitPath {
   railLinkCount: number;
   polyline?: { lat: number; lng: number }[];
   congestion?: CongestionInfo;
+  arrivals?: ArrivalInfo[];
 }
 
 interface TransitRoute {
@@ -44,6 +45,11 @@ interface CongestionInfo {
   score: number;
   label: string;
   color: string;
+}
+
+interface ArrivalInfo {
+  primary: string;
+  secondary?: string;
 }
 
 interface RealtimeInfo {
@@ -69,18 +75,149 @@ interface Props {
 const LINE_COLORS: Record<string, string> = {
   "1호선": "#0052A4", "2호선": "#00A84D", "3호선": "#EF7C1C", "4호선": "#00A5DE",
   "5호선": "#996CAC", "6호선": "#CD7C2F", "7호선": "#747F00", "8호선": "#E6186C",
-  "9호선": "#BDB092", "경의중앙선": "#77C4A3", "공항철도": "#0065B3",
+  "9호선": "#BDB092", "경의중앙선": "#77C4A3", "공항철도": "#0090D2",
   "경춘선": "#0C8E72", "수인분당선": "#F5A200", "신분당선": "#D4003B",
+  "우이신설선": "#B0CE18", "신림선": "#6789CA", "서해선": "#8FC31F",
+  "김포골드라인": "#A17800", "인천1호선": "#7CA8D5", "인천2호선": "#ED8B00",
+  "의정부경전철": "#FDA600", "용인경전철": "#509F22",
 };
 
-const BUS_TYPE_COLORS: Record<string, string> = {
-  "1": "#8b5cf6", "2": "#16a34a", "3": "#2563eb", "4": "#16a34a",
-  "5": "#f59e0b", "6": "#dc2626", "7": "#64748b", "8": "#dc2626",
+const BUS_COLORS = {
+  metropolitan: "#DC2626",
+  city: "#2563EB",
+  village: "#16A34A",
+};
+
+const SUBWAY_LINE_CODES: Record<string, string> = {
+  "1호선": "1001", "2호선": "1002", "3호선": "1003", "4호선": "1004",
+  "5호선": "1005", "6호선": "1006", "7호선": "1007", "8호선": "1008",
+  "9호선": "1009", "경의중앙선": "1063", "공항철도": "1065",
+  "경춘선": "1067", "수인분당선": "1075", "신분당선": "1077",
+  "우이신설선": "1092", "신림선": "1093",
 };
 
 /* ---- 유틸 ---- */
 function normalizeText(v: string) {
   return v.replace(/\s+/g, "").replace(/역$/, "").toLowerCase();
+}
+
+function normalizeLineName(v: string) {
+  return v.replace(/\s+/g, "").replace(/^수도권/, "").replace(/\(급행\)$/, "");
+}
+
+function formatRouteColor(color?: string) {
+  if (!color) return "";
+  const hex = color.replace(/^#/, "").trim();
+  return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : "";
+}
+
+function cleanStationName(v: string) {
+  return v.replace(/^지하철\d+호선/, "").replace(/\(.+?\)/g, "").replace(/역$/, "").trim();
+}
+
+function cleanBusRouteName(v: string) {
+  return v.includes(":") ? v.split(":").at(-1)!.trim() : v.trim();
+}
+
+async function fetchStepArrivals(step: TransitPath): Promise<ArrivalInfo[]> {
+  if (step.mode === "walk") return [];
+
+  try {
+    if (step.mode === "subway") {
+      const lineName = normalizeLineName(step.lineName);
+      const params = new URLSearchParams({
+        station: cleanStationName(step.fromName),
+        lineName,
+      });
+      const lineCode = SUBWAY_LINE_CODES[lineName];
+      if (lineCode) params.set("lineCode", lineCode);
+
+      const res = await fetch(`/api/subway/realtime?${params}`);
+      const data = await res.json();
+      return ((data.arrivals ?? []) as Record<string, unknown>[]).slice(0, 2).map((item) => ({
+        primary: String(item.arvlMsg2 ?? ""),
+        secondary: String(item.trainLineNm ?? item.arvlMsg3 ?? ""),
+      })).filter((item) => item.primary);
+    }
+
+    if (!step.fromId) return [];
+    const params = new URLSearchParams({
+      stopId: step.fromId,
+      routeName: cleanBusRouteName(step.lineName),
+    });
+    if (step.routeId) params.set("routeId", step.routeId);
+
+    const res = await fetch(`/api/bus/realtime?${params}`);
+    const data = await res.json();
+    const first = ((data.arrivals ?? []) as Record<string, unknown>[])[0];
+    if (!first) return [];
+
+    return [
+      { primary: String(first.arrmsg1 ?? ""), secondary: String(first.plainNo1 ?? "") },
+      { primary: String(first.arrmsg2 ?? ""), secondary: String(first.plainNo2 ?? "") },
+    ].filter((item) => item.primary);
+  } catch {
+    return [];
+  }
+}
+
+async function enrichRouteArrivals(route: TransitRoute): Promise<TransitRoute> {
+  const paths = await Promise.all(route.paths.map(async (step) => ({
+    ...step,
+    arrivals: await fetchStepArrivals(step),
+  })));
+  return { ...route, paths };
+}
+
+async function fetchStepPolyline(step: TransitPath): Promise<{ lat: number; lng: number }[]> {
+  if (step.mode === "walk" || !step.fromId || !step.toId) return step.polyline ?? [];
+
+  try {
+    const params = new URLSearchParams({
+      fromId: step.fromId,
+      toId: step.toId,
+    });
+
+    if (step.mode === "bus") {
+      if (!step.routeId) return step.polyline ?? [];
+      params.set("routeId", step.routeId);
+      const res = await fetch(`/api/bus/segment-shape?${params}`);
+      const data = await res.json();
+      return (data.points ?? []) as { lat: number; lng: number }[];
+    }
+
+    params.set("fromName", step.fromName);
+    params.set("toName", step.toName);
+    params.set("lineName", step.lineName);
+    params.set("railLinkCount", String(step.railLinkCount));
+    if (step.fromLat != null && step.fromLng != null) {
+      params.set("fromLat", String(step.fromLat));
+      params.set("fromLng", String(step.fromLng));
+    }
+    if (step.toLat != null && step.toLng != null) {
+      params.set("toLat", String(step.toLat));
+      params.set("toLng", String(step.toLng));
+    }
+    const res = await fetch(`/api/subway/segment-shape?${params}`);
+    const data = await res.json();
+    return (data.points ?? []) as { lat: number; lng: number }[];
+  } catch {
+    return step.polyline ?? [];
+  }
+}
+
+async function enrichRouteGeometry(route: TransitRoute): Promise<TransitRoute> {
+  const paths = await Promise.all(route.paths.map(async (step) => ({
+    ...step,
+    polyline: await fetchStepPolyline(step),
+  })));
+  return { ...route, paths };
+}
+
+function routeEndpointForMode(mode: "all" | "subway" | "bus" | "mixed") {
+  if (mode === "subway") return "/api/transit/subway-route";
+  if (mode === "bus") return "/api/transit/bus-route";
+  return "/api/transit/mixed-route";
 }
 
 function normalizeCandidates(items: Record<string, string>[], fallback: string): PlaceCandidate[] {
@@ -120,21 +257,26 @@ function scoreCandidates(items: PlaceCandidate[], query: string): PlaceCandidate
 }
 
 function getLineColor(step: TransitPath): string {
+  if (step.mode === "walk") return "#8a968e";
   if (step.mode === "bus") {
-    const inferredType = inferBusType(step.lineName);
-    return BUS_TYPE_COLORS[step.busRouteType || inferredType] ?? "#2563eb";
+    return getBusColor(step.lineName, step.busRouteType);
   }
-  return LINE_COLORS[step.lineName] ?? "#1d6a3a";
+  return LINE_COLORS[normalizeLineName(step.lineName)] ?? (formatRouteColor(step.routeColor) || "#1d6a3a");
 }
 
-function inferBusType(name: string): string {
-  if (/^M/i.test(name) || /^9\d{3}/.test(name)) return "6";
-  if (/^[가-힣]+ ?\d+/.test(name)) return "2";
-  if (/^\d{4}/.test(name)) return "4";
-  return "3";
+function getBusColor(name: string, type?: string): string {
+  const routeName = cleanBusRouteName(name).replace(/\s+/g, "");
+  if (type === "4" || type === "5" || type === "6" || /^M/i.test(routeName) || /^9\d{3}/.test(routeName) || /^2\d{3}/.test(routeName)) {
+    return BUS_COLORS.metropolitan;
+  }
+  if (/^[가-힣]+[0-9-]+$/.test(routeName) || type === "2" || type === "12") {
+    return BUS_COLORS.village;
+  }
+  return BUS_COLORS.city;
 }
 
 function estimateCongestion(step: TransitPath): CongestionInfo {
+  if (step.mode === "walk") return { score: 0, label: "도보", color: "#8a968e" };
   const h = new Date().getHours();
   const day = new Date().getDay();
   const isWeekday = day >= 1 && day <= 5;
@@ -169,7 +311,11 @@ function realtimeKey(step: TransitPath) {
 async function fetchBusRealtime(step: TransitPath): Promise<RealtimeInfo | null> {
   if (!step.fromId) return null;
   try {
-    const params = new URLSearchParams({ stopId: step.fromId, routeId: step.routeId, routeName: step.lineName });
+    const params = new URLSearchParams({
+      stopId: step.fromId,
+      routeId: step.routeId,
+      routeName: cleanBusRouteName(step.lineName),
+    });
     const res = await fetch(`/api/bus/realtime?${params}`);
     if (!res.ok) return null;
     const data = await res.json();
@@ -192,7 +338,13 @@ async function fetchBusRealtime(step: TransitPath): Promise<RealtimeInfo | null>
 async function fetchSubwayRealtime(step: TransitPath): Promise<RealtimeInfo | null> {
   if (!step.fromName) return null;
   try {
-    const params = new URLSearchParams({ station: step.fromName, lineName: step.lineName });
+    const lineName = normalizeLineName(step.lineName);
+    const params = new URLSearchParams({
+      station: cleanStationName(step.fromName),
+      lineName,
+    });
+    const lineCode = SUBWAY_LINE_CODES[lineName];
+    if (lineCode) params.set("lineCode", lineCode);
     const res = await fetch(`/api/subway/realtime?${params}`);
     if (!res.ok) return null;
     const data = await res.json();
@@ -223,6 +375,7 @@ async function fetchRealtimeForRoutes(routes: TransitRoute[]): Promise<Record<st
   const tasks: { key: string; step: TransitPath }[] = [];
   for (const route of routes) {
     for (const step of route.paths) {
+      if (step.mode === "walk") continue;
       const key = realtimeKey(step);
       if (!seen.has(key)) {
         seen.add(key);
@@ -246,11 +399,12 @@ async function fetchRealtimeForRoutes(routes: TransitRoute[]): Promise<Record<st
 }
 
 function countRouteTransfers(route: TransitRoute) {
-  return Math.max(0, route.paths.length - 1);
+  const transitSteps = route.paths.filter((p) => p.mode !== "walk");
+  return Math.max(0, transitSteps.length - 1);
 }
 
 function summarizeModes(route: TransitRoute) {
-  const modes = new Set(route.paths.map((p) => p.mode));
+  const modes = new Set(route.paths.filter((p) => p.mode !== "walk").map((p) => p.mode));
   if (modes.has("bus") && modes.has("subway")) return "버스+지하철";
   if (modes.has("subway")) return "지하철";
   if (modes.has("bus")) return "버스";
@@ -259,7 +413,7 @@ function summarizeModes(route: TransitRoute) {
 
 function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
   const scored = routes.map((r) => {
-    const seg = r.paths.map(estimateCongestion);
+    const seg = r.paths.filter((p) => p.mode !== "walk").map(estimateCongestion);
     const avg = seg.length ? Math.round(seg.reduce((a, b) => a + b.score, 0) / seg.length) : 50;
     return { ...r, congestion: scoreToLabel(avg) };
   });
@@ -312,7 +466,11 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
     const key = normalizeText(query);
     if (geocacheRef.current.has(key)) {
       const cached = geocacheRef.current.get(key)!;
-      kind === "origin" ? setOriginCandidates(cached) : setDestCandidates(cached);
+      if (kind === "origin") {
+        setOriginCandidates(cached);
+      } else {
+        setDestCandidates(cached);
+      }
       return;
     }
     setStatus("장소 검색 중…");
@@ -321,7 +479,11 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
       const data = await res.json();
       const candidates = scoreCandidates(normalizeCandidates(data.addresses ?? [], query), query);
       geocacheRef.current.set(key, candidates);
-      kind === "origin" ? setOriginCandidates(candidates) : setDestCandidates(candidates);
+      if (kind === "origin") {
+        setOriginCandidates(candidates);
+      } else {
+        setDestCandidates(candidates);
+      }
       setStatus(candidates.length ? "후보를 선택해 주세요." : "검색 결과가 없습니다.");
     } catch {
       setStatus("장소 검색 오류가 발생했습니다.");
@@ -345,6 +507,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
     if (routeMode === "all") return routes;
     return routes.filter((r) => {
       const modes = new Set(r.paths.map((p) => p.mode));
+      modes.delete("walk");
       if (routeMode === "subway") return modes.size === 1 && modes.has("subway");
       if (routeMode === "bus") return modes.size === 1 && modes.has("bus");
       if (routeMode === "mixed") return modes.has("bus") && modes.has("subway");
@@ -360,6 +523,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
     setLoading(true);
     setStatus("경로를 탐색하는 중…");
     setAlternatives([]);
+    setStepArrivals({});
     onRouteClear?.();
 
     try {
@@ -370,7 +534,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
         endY: String(dest.lat),
       });
 
-      const res = await fetch(`/api/transit/tmap?${params}`);
+      const res = await fetch(`${routeEndpointForMode(routeMode)}?${params}`);
       const data = await res.json();
       const allRoutes: TransitRoute[] = data.routes ?? [];
 
@@ -382,13 +546,17 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
 
       const filtered = filterByMode(allRoutes);
       const decorated = decorateAlternatives(filtered.length ? filtered : allRoutes);
+      setStatus("노선 동선을 불러오는 중…");
+      const routesWithGeometry = await Promise.all(decorated.map(enrichRouteGeometry));
+      setStatus("실시간 도착 정보를 확인하는 중…");
+      const routesWithArrivals = await Promise.all(routesWithGeometry.map(enrichRouteArrivals));
 
-      setAlternatives(decorated);
+      setAlternatives(routesWithArrivals);
       setSelectedIdx(0);
       setStatus(`${origin.label} → ${dest.label} 경로를 찾았습니다.`);
 
-      if (decorated[0]) {
-        onRouteFound?.({ origin, destination: dest, route: decorated[0] });
+      if (routesWithArrivals[0]) {
+        onRouteFound?.({ origin, destination: dest, route: routesWithArrivals[0] });
       }
 
       fetchRealtimeForRoutes(decorated).then(setStepArrivals);
@@ -512,11 +680,12 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
               return (
                 <StepItem
                   key={idx}
-                  icon={step.mode === "subway" ? "지하철" : "버스"}
+                  icon={step.mode === "walk" ? "도보" : step.mode === "subway" ? "지하철" : "버스"}
                   label={`${step.fromName} → ${step.toName}`}
                   detail={step.lineName}
                   color={getLineColor(step)}
-                  congestion={rt?.congestion ?? estimateCongestion(step)}
+                  congestion={step.mode === "walk" ? undefined : rt?.congestion ?? step.congestion ?? estimateCongestion(step)}
+                  arrivals={step.arrivals}
                   realtimeInfo={rt}
                 />
               );
@@ -590,12 +759,13 @@ function PlaceInput({
   );
 }
 
-function StepItem({ icon, label, detail, color, congestion, realtimeInfo }: {
+function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeInfo }: {
   icon: string;
   label: string;
   detail: string;
   color: string;
   congestion?: CongestionInfo;
+  arrivals?: ArrivalInfo[];
   realtimeInfo?: RealtimeInfo;
 }) {
   return (
@@ -629,6 +799,17 @@ function StepItem({ icon, label, detail, color, congestion, realtimeInfo }: {
                 </span>
               </div>
             )}
+          </div>
+        )}
+        {!realtimeInfo?.arrivalMsg && !!arrivals?.length && (
+          <div className="mt-1 space-y-0.5">
+            {arrivals.map((arrival, idx) => (
+              <div key={idx} className="flex items-center gap-1 text-[10px] text-[#1B3A6B]">
+                <span className="font-bold text-[#FE9C00]">도착</span>
+                <span className="truncate">{arrival.primary}</span>
+                {arrival.secondary && <span className="text-[#A8A29E] truncate">{arrival.secondary}</span>}
+              </div>
+            ))}
           </div>
         )}
         {congestion && <CongestionBar congestion={congestion} />}

@@ -52,6 +52,20 @@ function nearestIndex(points: { lat: number; lng: number }[], target: { lat: num
   return best;
 }
 
+function pathDistance(points: { lat: number; lng: number }[]): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    const lat = points[i].lat - points[i - 1].lat;
+    const lng = points[i].lng - points[i - 1].lng;
+    total += Math.sqrt(lat * lat + lng * lng);
+  }
+  return total;
+}
+
+function sliceCircular<T>(items: T[], startIdx: number, endIdx: number): T[] {
+  return startIdx <= endIdx ? items.slice(startIdx, endIdx + 1) : [...items.slice(startIdx), ...items.slice(0, endIdx + 1)];
+}
+
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const routeId = p.get("routeId")?.trim() ?? "";
@@ -76,14 +90,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ status: "OK", routeId, points: [] });
     }
 
-    const stationSlice = fromIdx <= toIdx ? stations.slice(fromIdx, toIdx + 1) : [...stations.slice(fromIdx), ...stations.slice(0, toIdx + 1)];
+    const stationSlice = sliceCircular(stations, fromIdx, toIdx);
 
     if (routePath.length >= 2 && stationSlice.length >= 2) {
       const startIdx = nearestIndex(routePath, stationSlice[0]);
       const endIdx = nearestIndex(routePath, stationSlice[stationSlice.length - 1]);
-      const pathSlice = startIdx <= endIdx ? routePath.slice(startIdx, endIdx + 1) : [...routePath.slice(startIdx), ...routePath.slice(0, endIdx + 1)];
+      const forwardSlice = startIdx <= endIdx
+        ? routePath.slice(startIdx, endIdx + 1)
+        : routePath.slice(endIdx, startIdx + 1).reverse();
+      const wrappedSlice = sliceCircular(routePath, startIdx, endIdx);
+      const stationDistance = pathDistance(stationSlice);
+      const forwardDistance = pathDistance(forwardSlice);
+      const wrappedDistance = pathDistance(wrappedSlice);
+      const pathSlice = wrappedDistance < forwardDistance ? wrappedSlice : forwardSlice;
+      const pathIsReasonable = stationDistance === 0 || pathDistance(pathSlice) <= stationDistance * 4;
       if (pathSlice.length >= 2) {
-        return NextResponse.json({ status: "OK", routeId, points: pathSlice });
+        return NextResponse.json({ status: "OK", routeId, points: pathIsReasonable ? pathSlice : stationSlice });
       }
     }
 

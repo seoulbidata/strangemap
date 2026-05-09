@@ -301,22 +301,66 @@ export default function MapView() {
     const LINE_COLORS: Record<string, string> = {
       "1호선": "#0052A4", "2호선": "#00A84D", "3호선": "#EF7C1C", "4호선": "#00A5DE",
       "5호선": "#996CAC", "6호선": "#CD7C2F", "7호선": "#747F00", "8호선": "#E6186C",
-      "9호선": "#BDB092", "경의중앙선": "#77C4A3", "공항철도": "#0065B3",
+      "9호선": "#BDB092", "경의중앙선": "#77C4A3", "공항철도": "#0090D2",
       "경춘선": "#0C8E72", "수인분당선": "#F5A200", "신분당선": "#D4003B",
+      "우이신설선": "#B0CE18", "신림선": "#6789CA", "서해선": "#8FC31F",
+      "김포골드라인": "#A17800", "인천1호선": "#7CA8D5", "인천2호선": "#ED8B00",
+      "의정부경전철": "#FDA600", "용인경전철": "#509F22",
+    };
+    const normalizeLineName = (v: string) =>
+      v.replace(/\s+/g, "").replace(/^수도권/, "").replace(/\(급행\)$/, "");
+    const formatRouteColor = (color?: string) => {
+      if (!color) return "";
+      const hex = color.replace(/^#/, "").trim();
+      return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : "";
+    };
+    const cleanBusRouteName = (name: string) =>
+      (name.includes(":") ? name.split(":").at(-1)! : name).replace(/\s+/g, "");
+    const getBusColor = (name: string, type?: string) => {
+      const routeName = cleanBusRouteName(name);
+      if (type === "4" || type === "5" || type === "6" || /^M/i.test(routeName) || /^9\d{3}/.test(routeName) || /^2\d{3}/.test(routeName)) {
+        return "#DC2626";
+      }
+      if (/^[가-힣]+[0-9-]+$/.test(routeName) || type === "2" || type === "12") {
+        return "#16A34A";
+      }
+      return "#2563EB";
+    };
+    const getRouteColor = (step: RouteDrawPayload["route"]["paths"][number]) => {
+      if (step.mode === "walk") return "#8a968e";
+      if (step.mode === "subway") {
+        return LINE_COLORS[normalizeLineName(step.lineName)] ?? (formatRouteColor(step.routeColor) || "#1d6a3a");
+      }
+      return getBusColor(step.lineName, step.busRouteType);
     };
 
     let prev = { lat: org.lat, lng: org.lng };
     for (const step of route.paths) {
-      if (!step.fromLat || !step.fromLng) continue;
+      if (step.fromLat == null || step.fromLng == null) continue;
       addLine([prev, { lat: step.fromLat, lng: step.fromLng }], "#8a968e", 3, 0.7);
-      const color = step.routeColor
-        ? `#${step.routeColor}`
-        : step.mode === "bus" ? "#2563eb" : (LINE_COLORS[step.lineName] ?? "#1d6a3a");
-      const pts: { lat: number; lng: number }[] = step.polyline && step.polyline.length >= 2
-        ? step.polyline
+      const color = getRouteColor(step);
+      const routeShape = step.polyline ?? [];
+      const hasRouteShape = routeShape.length >= 2;
+      const pts: { lat: number; lng: number }[] = hasRouteShape
+        ? routeShape
         : [{ lat: step.fromLat, lng: step.fromLng }, { lat: step.toLat!, lng: step.toLng! }];
-      addLine(pts, "#132018", 10, 0.18);
-      addLine(pts, color, step.mode === "subway" ? 7 : 8, 0.92);
+
+      if (step.mode === "walk") {
+        addLine(pts, color, 4, 0.75);
+        prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
+        continue;
+      }
+
+      if (step.mode === "subway") {
+        if (!hasRouteShape) {
+          prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
+          continue;
+        }
+        addLine(pts, color, 4, 0.62);
+      } else {
+        addLine(pts, "#132018", 10, 0.18);
+        addLine(pts, color, 8, 0.92);
+      }
       const markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;border:2px solid rgba(0,0,0,0.15);box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">${step.mode === "subway" ? "지하철" : "버스"} ${step.lineName}</div>`;
       addMarker(step.fromLat, step.fromLng, markerHtml);
       prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };

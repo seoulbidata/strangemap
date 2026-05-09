@@ -5,6 +5,7 @@ const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET ?? "";
 const NAVER_LOCAL_CLIENT_ID = process.env.NAVER_LOCAL_CLIENT_ID ?? "";
 const NAVER_LOCAL_CLIENT_SECRET = process.env.NAVER_LOCAL_CLIENT_SECRET ?? "";
 const SEOUL_SUBWAY_SEARCH_KEY = process.env.SEOUL_SUBWAY_SEARCH_KEY ?? "";
+const SEOUL_SUBWAY_MASTER_KEY = process.env.SEOUL_SUBWAY_MASTER_KEY ?? "";
 const SEOUL_TRANSIT_ROUTE_KEY = process.env.SEOUL_TRANSIT_ROUTE_KEY ?? "";
 const SEOUL_OPENAPI_BASE = "http://openapi.seoul.go.kr:8088";
 const SEOUL_TRANSIT_ROUTE_BASE = "http://ws.bus.go.kr/api/rest/pathinfo";
@@ -28,7 +29,21 @@ function cleanHtml(value: string): string {
 }
 
 function normalizeStationName(value: string): string {
-  return value.replace(/\(.+?\)/g, "").replace(/역$/, "").trim();
+  return value
+    .replace(/<[^>]+>/g, "")
+    .replace(/\(.+?\)/g, "")
+    .replace(/\s+\d+호선$/, "")
+    .replace(/\s+[가-힣]+선$/, "")
+    .replace(/역$/, "")
+    .trim();
+}
+
+function normalizeLineName(value: string): string {
+  return value.replace(/\s+/g, "").replace(/\(.+?\)/g, "").replace(/^0+(\d+호선)$/, "$1");
+}
+
+function subwayCoordKey(lineName: string, stationName: string) {
+  return `${normalizeLineName(lineName)}:${normalizeStationName(stationName)}`;
 }
 
 function naverLocalCoord(value: unknown): string {
@@ -41,6 +56,28 @@ function naverLocalCoord(value: unknown): string {
 
 function isStationQuery(query: string): boolean {
   return query.includes("역") || normalizeStationName(query).length <= 4;
+}
+
+async function fetchSubwayMasterCoords() {
+  if (!SEOUL_SUBWAY_MASTER_KEY) return new Map<string, { x: string; y: string }>();
+
+  const res = await fetch(`${SEOUL_OPENAPI_BASE}/${SEOUL_SUBWAY_MASTER_KEY}/json/subwayStationMaster/1/1000/`);
+  if (!res.ok) return new Map<string, { x: string; y: string }>();
+
+  const data = await res.json();
+  const rows: Record<string, string>[] = data.subwayStationMaster?.row ?? [];
+  const coords = new Map<string, { x: string; y: string }>();
+
+  for (const row of rows) {
+    const lineName = row.ROUTE ?? "";
+    const stationName = row.BLDN_NM ?? "";
+    const lat = row.LAT ?? "";
+    const lng = row.LOT ?? "";
+    if (!lineName || !stationName || !lat || !lng) continue;
+    coords.set(subwayCoordKey(lineName, stationName), { x: lng, y: lat });
+  }
+
+  return coords;
 }
 
 function dedupeAddresses(addresses: AddressItem[]): AddressItem[] {
@@ -121,7 +158,10 @@ async function fetchSubwayStationLocations(query: string): Promise<AddressItem[]
   const stationName = normalizeStationName(query);
   const url = `${SEOUL_OPENAPI_BASE}/${SEOUL_SUBWAY_SEARCH_KEY}/json/SearchInfoBySubwayNameService/1/20/${encodeURIComponent(stationName)}`;
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const [res, masterCoords] = await Promise.all([
+      fetch(url, { headers: { Accept: "application/json" } }),
+      fetchSubwayMasterCoords(),
+    ]);
     if (!res.ok) return [];
     const data = await res.json();
     const rows: Record<string, string>[] = data?.SearchInfoBySubwayNameService?.row ?? [];
@@ -130,16 +170,22 @@ async function fetchSubwayStationLocations(query: string): Promise<AddressItem[]
       const rowStation = normalizeStationName(row.STATION_NM ?? row.STTN_NM ?? "");
       if (rowStation !== stationName) continue;
       const lineName = row.LINE_NUM ?? "";
-      const places = await fetchNaverLocalPlaces(`${rowStation}역 ${lineName}`);
-      const stationPlace = places.find(
-        (p) =>
-          normalizeStationName(p.placeName ?? "") === rowStation &&
-          (p.category?.includes("지하철") || p.category?.includes("역") || p.placeName?.includes("역"))
-      );
-      if (!stationPlace) continue;
+      let stationCoord = masterCoords.get(subwayCoordKey(lineName, rowStation));
+
+      if (!stationCoord) {
+        const places = await fetchNaverLocalPlaces(`${rowStation}역 ${lineName}`);
+        const stationPlace = places.find(
+          (p) =>
+            normalizeStationName(p.placeName ?? "") === rowStation &&
+            (p.category?.includes("지하철") || p.category?.includes("역") || p.placeName?.includes("역"))
+        );
+        if (stationPlace) stationCoord = { x: stationPlace.x, y: stationPlace.y };
+      }
+
+      if (!stationCoord) continue;
       results.push({
-        x: stationPlace.x,
-        y: stationPlace.y,
+        x: stationCoord.x,
+        y: stationCoord.y,
         placeName: `${rowStation}역`,
         roadAddress: `${lineName} ${rowStation}역`,
         jibunAddress: `${lineName} ${rowStation}역`,

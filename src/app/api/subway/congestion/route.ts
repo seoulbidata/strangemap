@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const SEOUL_OPENAPI_BASE = "http://openapi.seoul.go.kr:8088";
+const CONFUSION_CACHE_TTL = 5 * 60 * 1000;
+let confusionCache: { rows: Record<string, string>[]; ts: number } | null = null;
 
 function normalizeStationName(v: string) {
   return v.replace(/\(.+?\)/g, "").replace(/역$/, "").trim();
@@ -8,6 +10,28 @@ function normalizeStationName(v: string) {
 
 function normalizeLineName(v: string) {
   return v.replace(/\s/g, "").replace(/^0+(\d+호선)$/, "$1");
+}
+
+function stationNumber(row: Record<string, string>): number {
+  const value = parseInt(row.STTN_NO ?? "", 10);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function inferDirection(rows: Record<string, string>[], stationName: string, toStationName: string, lineName: string) {
+  if (!toStationName) return "";
+
+  const from = rows.find((row) => normalizeStationName(row.DPTRE_STTN ?? "") === stationName);
+  const to = rows.find((row) => normalizeStationName(row.DPTRE_STTN ?? "") === toStationName);
+  if (!from || !to) return "";
+
+  const fromNo = stationNumber(from);
+  const toNo = stationNumber(to);
+  if (!fromNo || !toNo || fromNo === toNo) return "";
+
+  if (normalizeLineName(lineName) === "2호선") {
+    return toNo > fromNo ? "내선" : "외선";
+  }
+  return toNo > fromNo ? "상선" : "하선";
 }
 
 function congestionLabel(score: number): { label: string; color: string } {
@@ -33,10 +57,37 @@ function currentDayType(): string {
   return "평일";
 }
 
+async function fetchConfusionRows(confusionKey: string) {
+  if (confusionCache && Date.now() - confusionCache.ts < CONFUSION_CACHE_TTL) {
+    return confusionCache.rows;
+  }
+
+  const rows: Record<string, string>[] = [];
+  let start = 1;
+  let total: number | null = null;
+  while (total === null || start <= total) {
+    const end = start + 999;
+    const res = await fetch(`${SEOUL_OPENAPI_BASE}/${confusionKey}/json/subwConfusion/${start}/${end}/`);
+    const data = await res.json();
+    const body = data.subwConfusion ?? {};
+    const pageRows: Record<string, string>[] = body.row ?? [];
+    if (total === null) total = parseInt(body.list_total_count ?? "0", 10) || pageRows.length;
+    if (!pageRows.length) break;
+    rows.push(...pageRows);
+    if (end >= total) break;
+    start = end + 1;
+  }
+
+  confusionCache = { rows, ts: Date.now() };
+  return rows;
+}
+
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const stationName = normalizeStationName(p.get("station")?.trim() ?? "");
+  const toStationName = normalizeStationName(p.get("toStation")?.trim() ?? "");
   const lineName = p.get("lineName")?.trim() ?? "";
+  const requestedDirection = p.get("direction")?.trim() ?? "";
 
   if (!stationName) return NextResponse.json({ error: "Missing station" }, { status: 400 });
 
@@ -46,30 +97,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const rows: Record<string, string>[] = [];
-    let start = 1;
-    let total: number | null = null;
-    while (total === null || start <= total) {
-      const end = start + 999;
-      const res = await fetch(`${SEOUL_OPENAPI_BASE}/${confusionKey}/json/subwConfusion/${start}/${end}/`);
-      const data = await res.json();
-      const body = data.subwConfusion ?? {};
-      const pageRows: Record<string, string>[] = body.row ?? [];
-      if (total === null) total = parseInt(body.list_total_count ?? "0", 10) || pageRows.length;
-      if (!pageRows.length) break;
-      rows.push(...pageRows);
-      if (end >= total) break;
-      start = end + 1;
-    }
+    const rows = await fetchConfusionRows(confusionKey);
 
     const dayType = currentDayType();
     const [timeField, timeLabel] = currentTimeField();
     const normalizedLine = normalizeLineName(lineName);
+    const direction = requestedDirection || inferDirection(rows, stationName, toStationName, lineName);
 
     const matched = rows.filter((row) => {
       if (normalizeStationName(row.DPTRE_STTN ?? "") !== stationName) return false;
       if (normalizedLine && normalizeLineName(row.LINE ?? "") !== normalizedLine) return false;
       if ((row.DOW_SE ?? "") !== dayType) return false;
+      if (direction && (row.UP_DOWN_SE ?? "") !== direction) return false;
       return true;
     });
 
@@ -85,7 +124,9 @@ export async function GET(request: NextRequest) {
       status: "OK",
       source: "seoulSubwayConfusion",
       station: stationName,
+      toStation: toStationName,
       lineName,
+      direction,
       dayType,
       timeSlot: timeLabel,
       score,

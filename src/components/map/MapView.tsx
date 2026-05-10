@@ -8,6 +8,7 @@ import type { ThemeCourse } from "@/data/themeCourses";
 import GameHUD from "@/components/game/GameHUD";
 import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
+import CourseStopCard from "@/components/game/CourseStopCard";
 import AIInfoPanel from "@/components/game/AIInfoPanel";
 import Sidebar from "@/components/sidebar/Sidebar";
 import CultureSpeedDial from "@/components/map/CultureSpeedDial";
@@ -29,7 +30,6 @@ export default function MapView() {
   const cultureMarkersRef = useRef<any[]>([]);
   const questMarkersRef = useRef<any[]>([]);
   const courseMarkersRef = useRef<any[]>([]);
-  const coursePolylineRef = useRef<any>(null);
   const originMarkerRef = useRef<any>(null);
   const destMarkerRef = useRef<any>(null);
   const polylineRef = useRef<any>(null);
@@ -90,10 +90,6 @@ export default function MapView() {
   const clearCourseOverlay = useCallback(() => {
     courseMarkersRef.current.forEach((m) => m.setMap(null));
     courseMarkersRef.current = [];
-    if (coursePolylineRef.current) {
-      coursePolylineRef.current.setMap(null);
-      coursePolylineRef.current = null;
-    }
   }, []);
 
   // 문화행사 마커 — 카테고리 선택 시 커스텀 PNG 마커로 렌더링 (최대 100개)
@@ -184,7 +180,7 @@ export default function MapView() {
     if (cur) mapInstance.current?.panTo(new naver.maps.LatLng(cur.lat, cur.lng));
   }, [activeQuest, currentObjIndex, mapReady, clearQuestMarkers]);
 
-  // 테마 코스 마커 + 폴리라인
+  // 테마 코스 마커 + 방향 화살표
   useEffect(() => {
     if (!mapReady) return;
     clearCourseOverlay();
@@ -227,14 +223,6 @@ export default function MapView() {
       courseMarkersRef.current.push(marker);
     });
 
-    // 코스 폴리라인 (녹색 실선)
-    coursePolylineRef.current = new naver.maps.Polyline({
-      path,
-      map: mapInstance.current,
-      strokeColor: activeCourse.color,
-      strokeWeight: 3,
-      strokeOpacity: 0.7,
-    });
 
     // 지도 바운드 맞춤
     if (path.length > 1) {
@@ -493,7 +481,30 @@ export default function MapView() {
         )}
 
         {/* 장소 카드 */}
-        {selected && (
+        {selected && selected.category === "테마 코스" && activeCourse ? (
+          <CourseStopCard
+            course={activeCourse}
+            stop={activeCourse.stops[parseInt(selected.id.replace("course_", ""), 10)]}
+            stopIndex={parseInt(selected.id.replace("course_", ""), 10)}
+            onClose={() => setSelected(null)}
+            onPrev={() => {
+              const idx = parseInt(selected.id.replace("course_", ""), 10);
+              if (idx > 0) {
+                const s = activeCourse.stops[idx - 1];
+                setSelected({ id: `course_${idx - 1}`, name: s.name, category: "테마 코스", source: "nightview", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
+                mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
+              }
+            }}
+            onNext={() => {
+              const idx = parseInt(selected.id.replace("course_", ""), 10);
+              if (idx < activeCourse.stops.length - 1) {
+                const s = activeCourse.stops[idx + 1];
+                setSelected({ id: `course_${idx + 1}`, name: s.name, category: "테마 코스", source: "nightview", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
+                mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
+              }
+            }}
+          />
+        ) : selected ? (
           <PlaceCard
             poi={selected}
             isQuestTarget={isQuestTarget(selected)}
@@ -502,7 +513,7 @@ export default function MapView() {
             onSetOrigin={() => { setOrigin({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
             onSetDest={() => { setDest({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
           />
-        )}
+        ) : null}
 
         {/* AI 정보 패널 */}
         <AIInfoPanel poi={aiAskingPOI} onClose={() => setAiAskingPOI(null)} />

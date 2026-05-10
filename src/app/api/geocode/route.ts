@@ -153,9 +153,50 @@ async function fetchNaverLocalPlaces(query: string): Promise<AddressItem[]> {
   return results;
 }
 
+async function fetchSubwayStationMaster(stationName: string): Promise<AddressItem[]> {
+  if (!SEOUL_SUBWAY_MASTER_KEY) return [];
+  const url = `${SEOUL_OPENAPI_BASE}/${SEOUL_SUBWAY_MASTER_KEY}/json/subwayStationMaster/1/100/${encodeURIComponent(stationName)}`;
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const rows: Record<string, string>[] = data?.subwayStationMaster?.row ?? [];
+    const results: AddressItem[] = [];
+    for (const row of rows) {
+      const rowStation = normalizeStationName(row.STATION_NM ?? "");
+      if (rowStation !== stationName) continue;
+      // 서울시 subwayStationMaster 좌표 필드명 (복수 후보 대응)
+      const lng = row.XNTS_X ?? row.X_COORDINATE ?? row.CRDNT_X ?? row.X ?? "";
+      const lat = row.XNTS_Y ?? row.Y_COORDINATE ?? row.CRDNT_Y ?? row.Y ?? "";
+      if (!lng || !lat || !isFinite(parseFloat(lng)) || !isFinite(parseFloat(lat))) continue;
+      const lineName = row.LINE_NUM ?? "";
+      results.push({
+        x: lng,
+        y: lat,
+        placeName: `${rowStation}역`,
+        roadAddress: `${lineName} ${rowStation}역`,
+        jibunAddress: `${lineName} ${rowStation}역`,
+        category: "교통,수송>지하철,전철역",
+        stationCode: row.STATION_CD ?? row.FR_CODE ?? "",
+        lineName,
+        source: "seoulSubwayStation",
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 async function fetchSubwayStationLocations(query: string): Promise<AddressItem[]> {
-  if (!SEOUL_SUBWAY_SEARCH_KEY) return [];
   const stationName = normalizeStationName(query);
+
+  // 1순위: subwayStationMaster로 좌표 직접 획득
+  const masterResults = await fetchSubwayStationMaster(stationName);
+  if (masterResults.length) return masterResults;
+
+  // 2순위: SearchInfoBySubwayNameService + Naver local 좌표 fallback
+  if (!SEOUL_SUBWAY_SEARCH_KEY) return [];
   const url = `${SEOUL_OPENAPI_BASE}/${SEOUL_SUBWAY_SEARCH_KEY}/json/SearchInfoBySubwayNameService/1/20/${encodeURIComponent(stationName)}`;
   try {
     const [res, masterCoords] = await Promise.all([
@@ -263,6 +304,13 @@ export async function GET(request: NextRequest) {
   ]);
 
   allAddresses.push(...local, ...geocode, ...transit, ...nominatim);
+
+  // seoulSubwayStation을 dedupe 전에 앞으로 정렬해 우선순위 보장
+  allAddresses.sort((a, b) => {
+    if (a.source === "seoulSubwayStation" && b.source !== "seoulSubwayStation") return -1;
+    if (b.source === "seoulSubwayStation" && a.source !== "seoulSubwayStation") return 1;
+    return 0;
+  });
 
   return NextResponse.json({
     status: "OK",

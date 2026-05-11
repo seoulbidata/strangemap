@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
+import { callKananaWithFallback } from "@/lib/kanana";
 
-const KANANA_ENDPOINT = "https://kanana-o.a2s-endpoint.kr-central-2.kakaocloud.com/v1/chat/completions";
 const SYSTEM_MSG = "당신은 서울시의 가이드이자 서울시 내의 컨텐츠를 추천하는 전문가입니다. 제공된 장소와 정보 안에서만 사용자 상황에 맞는 활동을 추천하세요. JSON 배열로만 응답하고 다른 텍스트는 출력하지 마세요.";
 
 export interface Suggestion {
@@ -259,19 +259,12 @@ function parseAIResponse(text: string): Suggestion[] | null {
   }
 }
 
-async function callKanana(prompt: string, apiKey: string): Promise<Suggestion[] | null> {
-  const response = await fetch(KANANA_ENDPOINT, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "kanana-o",
-      messages: [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }],
-      max_tokens: 1500,
-    }),
-  });
-  if (!response.ok) { console.error("[Kanana:recommend] HTTP", response.status); return null; }
-  const data = await response.json();
-  const text: string = data.choices?.[0]?.message?.content ?? "";
+async function callKanana(prompt: string): Promise<Suggestion[] | null> {
+  const text = await callKananaWithFallback(
+    [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }],
+    1500
+  );
+  if (!text) return null;
   console.log("[Kanana:recommend] raw:", text.slice(0, 200));
   return parseAIResponse(text);
 }
@@ -355,10 +348,10 @@ export async function POST(req: NextRequest) {
   const kstCtx = getKSTContext();
   const prompt = buildPrompt(companion, ageGroup, time, purpose, region, congestion, candidates, events, kstCtx);
 
-  const kananaKey = process.env.KANANA_API_KEY;
+  const kananaKey = process.env.KANANA_API_KEY || process.env.KANANA_API_KEY_2;
   let suggestions: Suggestion[] | null = null;
   if (kananaKey) {
-    suggestions = await callKanana(prompt, kananaKey).catch(() => null);
+    suggestions = await callKanana(prompt).catch(() => null);
     console.log("[Kanana:recommend] result:", suggestions ? `${suggestions.length}개` : "null");
   }
   if (!suggestions) {

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AIPlaceInfo, AIEvent } from "@/types/quest";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
-
-const KANANA_ENDPOINT = "https://kanana-o.a2s-endpoint.kr-central-2.kakaocloud.com/v1/chat/completions";
-// const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
-// const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.0-flash"];
-// const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+import { callKananaWithFallback } from "@/lib/kanana";
 
 // Server-side cache: 30-min TTL
 const _serverCache = new Map<string, { data: AIPlaceInfo; ts: number }>();
@@ -312,15 +308,13 @@ async function callLMStudio(prompt: string): Promise<object | null> {
   return parseAIResponse(text);
 }
 
-async function callKanana(prompt: string, apiKey: string): Promise<object | null> {
-  const response = await fetch(KANANA_ENDPOINT, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "kanana-o", messages: [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }], max_tokens: 1100 }),
-  });
-  if (!response.ok) { console.error("[Kanana] HTTP", response.status); return null; }
-  const data = await response.json();
-  return parseAIResponse(data.choices?.[0]?.message?.content ?? "");
+async function callKanana(prompt: string): Promise<object | null> {
+  const text = await callKananaWithFallback(
+    [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }],
+    1100
+  );
+  if (!text) return null;
+  return parseAIResponse(text);
 }
 
 // async function callGemini(prompt: string, apiKey: string): Promise<object | null> {
@@ -389,7 +383,7 @@ export async function GET(req: NextRequest) {
 
   let parsed: object | null = null;
   if (kananaKey) {
-    parsed = await callKanana(prompt, kananaKey).catch(() => null);
+    parsed = await callKanana(prompt).catch(() => null);
     console.log("[Kanana] result:", parsed ? "OK" : "null");
   }
   if (!parsed) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import Image from "next/image";
 import type { POIItem } from "@/app/api/poi/route";
 import type { ThemeCourse } from "@/data/themeCourses";
@@ -24,6 +24,8 @@ interface Props {
   onRouteClear?: () => void;
   presetDest?: { label: string; lat: number; lng: number } | null;
   presetOrigin?: { label: string; lat: number; lng: number } | null;
+  activeTab: TabId | null;
+  onActiveTabChange: (tab: TabId | null) => void;
 }
 
 type TabId = "search" | "culture" | "night" | "ai" | "course" | "now" | "route";
@@ -50,13 +52,13 @@ export default function Sidebar({
   onRouteClear,
   presetDest,
   presetOrigin,
+  activeTab,
+  onActiveTabChange,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId | null>(null);
-
-  const toggle = (id: TabId) => setActiveTab((prev) => (prev === id ? null : id));
+  const toggle = (id: TabId) => onActiveTabChange(activeTab === id ? null : id);
 
   useEffect(() => {
-    if (presetDest || presetOrigin) setActiveTab("route");
+    if (presetDest || presetOrigin) onActiveTabChange("route");
   }, [presetDest, presetOrigin]);
 
   const xpPct = Math.min(100, Math.round((playerXp / playerXpToNext) * 100));

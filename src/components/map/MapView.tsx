@@ -5,7 +5,6 @@ import Script from "next/script";
 import type { POIItem } from "@/app/api/poi/route";
 import type { StoryQuest } from "@/types/quest";
 import type { ThemeCourse } from "@/data/themeCourses";
-import GameHUD from "@/components/game/GameHUD";
 import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
 import CourseStopCard from "@/components/game/CourseStopCard";
@@ -50,6 +49,7 @@ export default function MapView() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
   const [activeCultureCategory, setActiveCultureCategory] = useState<CultureCategory | null>(null);
   const [showNight, setShowNight] = useState(false);
+  const [sidebarActiveTab, setSidebarActiveTab] = useState<"search" | "culture" | "night" | "ai" | "course" | "now" | "route" | null>(null);
 
   function handleNaverLoad() {
     if (!mapRef.current || mapInstance.current) return;
@@ -479,25 +479,32 @@ export default function MapView() {
           onRouteClear={clearRouteOverlay}
           presetDest={presetDest}
           presetOrigin={presetOrigin}
+          activeTab={sidebarActiveTab}
+          onActiveTabChange={setSidebarActiveTab}
         />
 
-
-        {/* 우상단 레이어 토글 버튼 */}
-        <div className="absolute top-[88px] right-4 z-20 flex flex-col items-end gap-2 animate-fade-up">
+        {/* 사이드바 옆 상단 레이어 토글 버튼 */}
+        <div
+          className="absolute top-3 z-20 flex items-start gap-2"
+          style={{
+            left: sidebarActiveTab ? 72 + 320 + 8 : 72 + 8,
+            transition: "left 200ms ease-out",
+          }}
+        >
           <CultureSpeedDial
             activeCategory={activeCultureCategory}
             onSelectCategory={setActiveCultureCategory}
           />
           <button
             onClick={() => setShowNight((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all whitespace-nowrap ${
               showNight
                 ? "bg-[#D97706] text-white border-[#B45309]"
                 : "bg-white text-[#6B7280] border-[#FDECC8] hover:border-[#FE9C00] hover:text-[#FE9C00]"
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: showNight ? "#fff" : "#D97706", border: `2px solid ${showNight ? "rgba(255,255,255,0.5)" : "#B45309"}` }} />
-            야경명소
+            야경명소 위치
           </button>
         </div>
 

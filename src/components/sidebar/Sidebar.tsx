@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import type { POIItem } from "@/app/api/poi/route";
 import type { ThemeCourse } from "@/data/themeCourses";
@@ -22,6 +22,8 @@ interface Props {
   playerXpToNext: number;
   onRouteFound?: (payload: RouteDrawPayload) => void;
   onRouteClear?: () => void;
+  presetDest?: { label: string; lat: number; lng: number } | null;
+  presetOrigin?: { label: string; lat: number; lng: number } | null;
 }
 
 type TabId = "search" | "culture" | "night" | "ai" | "course" | "now" | "route";
@@ -46,15 +48,21 @@ export default function Sidebar({
   playerXpToNext,
   onRouteFound,
   onRouteClear,
+  presetDest,
+  presetOrigin,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
 
   const toggle = (id: TabId) => setActiveTab((prev) => (prev === id ? null : id));
 
+  useEffect(() => {
+    if (presetDest || presetOrigin) setActiveTab("route");
+  }, [presetDest, presetOrigin]);
+
   const xpPct = Math.min(100, Math.round((playerXp / playerXpToNext) * 100));
 
   return (
-    <div className="absolute left-0 top-0 bottom-0 z-20 flex pointer-events-none">
+    <div className="fixed left-0 top-0 bottom-0 z-20 flex pointer-events-none overflow-x-hidden">
       {/* 아이콘 스트립 */}
       <div className="w-[72px] bg-white border-r border-[#FDECC8] flex flex-col shadow-sm pointer-events-auto">
         {/* 로고 */}
@@ -125,7 +133,7 @@ export default function Sidebar({
             <NowRecommendPanel onSelectPOI={onSelectPOI} />
           )}
           {activeTab === "route" && (
-            <SearchRoadPanel onRouteFound={onRouteFound} onRouteClear={onRouteClear} />
+            <SearchRoadPanel onRouteFound={onRouteFound} onRouteClear={onRouteClear} presetDest={presetDest} presetOrigin={presetOrigin} />
           )}
         </div>
       )}

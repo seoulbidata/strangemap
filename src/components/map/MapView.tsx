@@ -45,6 +45,9 @@ export default function MapView() {
   const [playerStats] = useState({ level: 3, xp: 420, xpToNext: 600, badges: 2 });
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [dest, setDest] = useState<{ lat: number; lng: number } | null>(null);
+  const [presetDest, setPresetDest] = useState<{ label: string; lat: number; lng: number } | null>(null);
+  const [presetOrigin, setPresetOrigin] = useState<{ label: string; lat: number; lng: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
   const [activeCultureCategory, setActiveCultureCategory] = useState<CultureCategory | null>(null);
   const [showNight, setShowNight] = useState(false);
 
@@ -232,20 +235,6 @@ export default function MapView() {
     }
   }, [activeCourse, mapReady, clearCourseOverlay]);
 
-  // 경로 폴리라인
-  useEffect(() => {
-    if (!origin || !dest || !mapReady) return;
-    if (polylineRef.current) polylineRef.current.setMap(null);
-    const naver = window.naver;
-    polylineRef.current = new naver.maps.Polyline({
-      path: [new naver.maps.LatLng(origin.lat, origin.lng), new naver.maps.LatLng(dest.lat, dest.lng)],
-      map: mapInstance.current,
-      strokeColor: "#16A34A",
-      strokeWeight: 3,
-      strokeOpacity: 0.85,
-      strokeStyle: "shortdash",
-    });
-  }, [origin, dest, mapReady]);
 
   // 출발/목적지 마커
   useEffect(() => {
@@ -326,7 +315,7 @@ export default function MapView() {
       "의정부경전철": "#FDA600", "용인경전철": "#509F22",
     };
     const normalizeLineName = (v: string) =>
-      v.replace(/\s+/g, "").replace(/^수도권/, "").replace(/\(급행\)$/, "");
+      v.replace(/\s+/g, "").replace(/·/g, "").replace(/^수도권/, "").replace(/\(급행\)$/, "");
     const formatRouteColor = (color?: string) => {
       if (!color) return "";
       const hex = color.replace(/^#/, "").trim();
@@ -422,11 +411,51 @@ export default function MapView() {
     return !!cur && Math.abs(cur.lat - poi.lat) < 0.0005 && Math.abs(cur.lng - poi.lng) < 0.0005;
   };
 
+  // 우클릭 컨텍스트 메뉴
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current || !mapRef.current) return;
+    const mapDiv = mapRef.current;
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const projection = mapInstance.current.getProjection();
+      const coord = projection.fromPageXYToCoord(
+        new window.naver.maps.Point(e.pageX, e.pageY)
+      );
+      setContextMenu({ x: e.clientX, y: e.clientY, lat: coord.lat(), lng: coord.lng() });
+    };
+
+    mapDiv.addEventListener("contextmenu", handleContextMenu);
+    return () => mapDiv.removeEventListener("contextmenu", handleContextMenu);
+  }, [mapReady]);
+
+  function applyContextMenu(kind: "origin" | "dest", lat: number, lng: number) {
+    setContextMenu(null);
+    const fallbackLabel = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const coords = new window.naver.maps.LatLng(lat, lng);
+    window.naver.maps.Service.reverseGeocode(
+      { coords, orders: [window.naver.maps.Service.OrderType.ADDR] },
+      (_status: any, response: any) => {
+        const addr =
+          response?.v2?.address?.roadAddress ||
+          response?.v2?.address?.jibunAddress ||
+          fallbackLabel;
+        if (kind === "origin") {
+          setOrigin({ lat, lng });
+          setPresetOrigin({ label: addr, lat, lng });
+        } else {
+          setDest({ lat, lng });
+          setPresetDest({ label: addr, lat, lng });
+        }
+      }
+    );
+  }
+
   return (
     <>
       <Script
         id="naver-maps"
-        src={`https://openapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID}`}
+        src={`https://openapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID}&submodules=geocoder`}
         strategy="afterInteractive"
         onLoad={handleNaverLoad}
       />
@@ -448,6 +477,8 @@ export default function MapView() {
           playerXpToNext={playerStats.xpToNext}
           onRouteFound={handleRouteFound}
           onRouteClear={clearRouteOverlay}
+          presetDest={presetDest}
+          presetOrigin={presetOrigin}
         />
 
 
@@ -510,13 +541,37 @@ export default function MapView() {
             isQuestTarget={isQuestTarget(selected)}
             onClose={() => setSelected(null)}
             onAskAI={() => setAiAskingPOI(selected)}
-            onSetOrigin={() => { setOrigin({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
-            onSetDest={() => { setDest({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
+            onSetDest={() => { setPresetDest({ label: selected.name, lat: selected.lat, lng: selected.lng }); setDest({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
           />
         ) : null}
 
         {/* AI 정보 패널 */}
         <AIInfoPanel poi={aiAskingPOI} onClose={() => setAiAskingPOI(null)} />
+
+        {/* 우클릭 컨텍스트 메뉴 */}
+        {contextMenu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+            <div
+              className="fixed z-50 bg-white rounded-xl shadow-xl border border-[#E5E1D8] overflow-hidden"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+            >
+              <button
+                onClick={() => applyContextMenu("origin", contextMenu.lat, contextMenu.lng)}
+                className="w-full px-4 py-2.5 text-[13px] text-left text-[#1A1E2E] hover:bg-[#F0FDF4] hover:text-[#16A34A] transition-colors font-medium"
+              >
+                출발지로 설정
+              </button>
+              <div className="h-px bg-[#F0EDE8]" />
+              <button
+                onClick={() => applyContextMenu("dest", contextMenu.lat, contextMenu.lng)}
+                className="w-full px-4 py-2.5 text-[13px] text-left text-[#1A1E2E] hover:bg-[#FFF1F2] hover:text-[#DC2626] transition-colors font-medium"
+              >
+                목적지로 설정
+              </button>
+            </div>
+          </>
+        )}
 
         {/* 로딩 화면 */}
         {!mapReady && (

@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { AIPlaceInfo, AIEvent } from "@/types/quest";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 
-const LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234/v1/chat/completions";
-
-// const KANANA_ENDPOINT =
-//   "https://kanana-o.a2s-endpoint.kr-central-2.kakaocloud.com/v1/chat/completions";
+const KANANA_ENDPOINT = "https://kanana-o.a2s-endpoint.kr-central-2.kakaocloud.com/v1/chat/completions";
 // const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
 // const GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.0-flash"];
 // const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -142,17 +139,54 @@ function findNearbyPlaces(lat: number, lng: number, excludeName: string): string
 
 // ── Prompt builder ──────────────────────────────────────────────────────────
 
-function getKSTContext(): { now: string; weekday: string; period: string } {
+function getKSTContext(): { now: string; weekday: string; period: string; h: number; isWeekend: boolean } {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000); // UTC+9
   const h = now.getUTCHours();
   const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+  const dow = now.getUTCDay();
   const period =
     h < 6 ? "새벽" : h < 11 ? "오전" : h < 14 ? "점심" : h < 18 ? "오후" : h < 21 ? "저녁" : "밤";
   return {
     now: `${now.getUTCMonth() + 1}월 ${now.getUTCDate()}일 ${h}시`,
-    weekday: weekdays[now.getUTCDay()],
+    weekday: weekdays[dow],
     period,
+    h,
+    isWeekend: dow === 0 || dow === 6,
   };
+}
+
+function buildRightNow(congestion: string | null, period: string, weekday: string, isWeekend: boolean): string {
+  const level = congestion?.split(":")?.[0]?.trim() ?? null;
+  const timeCtx = `${weekday}요일 ${period}`;
+
+  if (!level || level === "정보없음") {
+    return `${timeCtx}이에요. 방문 전 운영 시간을 확인해보세요.`;
+  }
+  if (level === "여유") {
+    return `지금 (${timeCtx}) 한산해요. 여유롭게 즐기기 딱 좋은 타이밍입니다.`;
+  }
+  if (level === "보통") {
+    return `지금 (${timeCtx}) 적당한 혼잡도예요. 편하게 둘러볼 수 있어요.`;
+  }
+  if (level === "약간 붐빔") {
+    const avoidTip = isWeekend ? "평일 오전이 훨씬 여유로워요." : "이른 오전이나 저녁 시간대를 노려보세요.";
+    return `지금 (${timeCtx}) 약간 붐비는 편이에요. ${avoidTip}`;
+  }
+  if (level === "붐빔") {
+    return `지금 (${timeCtx}) 꽤 붐빕니다. 1~2시간 후나 이른 오전 방문을 추천해요.`;
+  }
+  if (level === "매우 붐빔") {
+    return `지금 (${timeCtx}) 매우 붐비는 상태예요. 가능하면 다른 시간대에 방문하는 걸 추천합니다.`;
+  }
+  return `${timeCtx} 기준으로 방문 가능한 시간대입니다.`;
+}
+
+function buildEventPick(events: AIEvent[]): string | undefined {
+  if (events.length === 0) return undefined;
+  const e = events[0];
+  const distStr = e._distKm ? `${e._distKm}km 거리의 ` : "";
+  const periodStr = e.period ? ` (${e.period})` : "";
+  return `${distStr}${e.title}${periodStr}와 함께 들러보면 더 알찬 하루가 될 거예요.`;
 }
  
 function buildPrompt(
@@ -162,28 +196,22 @@ function buildPrompt(
   subway: string,
   viewpoints: string[],
   congestion: string | null,
-  nearbyPlaces: string[],
-  realEvents: AIEvent[]
+  realEvents: AIEvent[],
+  type?: string
 ): string {
   const { now, weekday, period } = getKSTContext();
- 
-  // 컨텍스트 라인을 짧게 압축
+
   const ctx: string[] = [`현재: ${now} (${weekday}요일 ${period})`];
   if (operating_time) ctx.push(`운영: ${operating_time}`);
   if (fee) ctx.push(`요금: ${fee}`);
   if (subway) ctx.push(`교통: ${subway}`);
   if (congestion) ctx.push(`실시간 혼잡: ${congestion}`);
- 
+
   const viewpointBlock =
     viewpoints.length > 0
       ? `\n[공식 뷰포인트] ${viewpoints.slice(0, 3).join(" / ")}`
       : "";
- 
-  const nearbyBlock =
-    nearbyPlaces.length > 0
-      ? `\n[도보권 후보] ${nearbyPlaces.join(", ")}`
-      : "";
- 
+
   const eventBlock =
     realEvents.length > 0
       ? `\n[현재 진행 중인 인근 행사]\n${realEvents
@@ -192,46 +220,65 @@ function buildPrompt(
             (e, i) =>
               `${i + 1}. ${e.title}${e._distKm ? ` (${e._distKm}km)` : ""}${
                 e.period ? ` · ${e.period}` : ""
-              }`
+              }${e.desc ? ` · ${e.desc}` : ""}`
           )
           .join("\n")}`
       : "";
- 
+
   const hasViewpoint = viewpoints.length > 0;
-  const hasEvents = realEvents.length > 0;
- 
-  return `서울 "${place}" 소개. 아래 컨텍스트만 사용하고 추측 금지. JSON만 응답.
- 
+
+  const isCulture = type === "culture";
+
+  const summaryRule = isCulture
+    ? "- summary: 이 행사가 무엇인지 3~4문장으로 설명. 행사 성격, 주요 프로그램, 관람 대상을 포함. 감상·감정 표현 금지, 사실 중심으로."
+    : "- summary: 이 장소에 대한 정보, 분위기, 감상을 담아 3~4문장. \"여기 가면 ○○를 할 수 있다\"가 아니라 \"실제로 와보면 이런 느낌이다\"를 전달. 어떤 사람에게 특히 맞는지 포함.";
+
+  const highlightsRule = isCulture
+    ? "- highlights: 이 행사의 주요 프로그램·콘텐츠·볼거리 3~4개. 구체적으로 나열. 추상적 키워드 금지."
+    : "- highlights: 이 장소에서만 할 수 있는 구체적인 행동/경험. 추상적 키워드 금지.";
+
+  return `서울 "${place}"를 처음 방문하는 사람에게 소개해줘. 아래 컨텍스트만 사용하고 추측 금지. JSON만 응답.
+
 [컨텍스트]
-${ctx.join("\n")}${viewpointBlock}${nearbyBlock}${eventBlock}
- 
-[규칙]
-- 컨텍스트에 없는 사실(연도·역사·이름) 절대 추측 금지. 모르면 해당 필드 생략.
-- 톤: 서울 로컬이 친구에게 말하듯, 팸플릿 문체 금지.
-- right_now는 "현재" 시각·요일·혼잡도를 종합해 "지금 가도 되는지" 한 줄.
-- crowd_tip은 실시간 혼잡 데이터가 있으면 반드시 반영.
- 
+${ctx.join("\n")}${viewpointBlock}${eventBlock}
+
+[rule]
+- 컨텍스트에 없는 구체적 사실(연도·수치·고유명사) 절대 추측 금지. 모르면 해당 필드 생략.
+- 톤: 서울시에 오래 산 현지인이 친구에게 말하듯. 팸플릿·홍보 문체 금지.
+${summaryRule}
+${highlightsRule}
+- crowd_tip: 실시간 혼잡 데이터가 있으면 반드시 반영.
+
 [출력 형식 — 이 키만, 정확히]
 {
-  "summary": "여기에 가면 좋은 이유 3문장",
-  "right_now": "현재 시각 기준 지금 가기 좋은지 1문장",
-  "highlights": ["구체적 경험 2~4개"],
-  "tip": "실용 꿀팁 1문장",
-  "best_time": "최적 방문 타이밍 1문장",
-  "crowd_tip": "혼잡 회피 전략 1문장"${hasViewpoint ? ',\n  "viewpoint_guide": "뷰포인트 감상법 1문장"' : ""}${hasEvents ? ',\n  "event_pick": "위 행사 중 함께 가면 좋은 1개와 그 이유 1문장 (없으면 생략)"' : ""},
-  "nearby": ["도보 후보 중 1~2개만"],
+  "summary": "분위기·감성·핵심 경험 3~4문장",
+  "highlights": ["구체적 경험 3~4개"],
+  "tip": "현지인만 아는 실용 꿀팁 1문장",
+  "best_time": "최적 방문 타이밍은 언제인지 이유 1문장",
+  "crowd_tip": "혼잡 회피 전략 1문장"${hasViewpoint ? ',\n  "viewpoint_guide": "뷰포인트 감상법 1문장"' : ""},
   "vibe": ["분위기 키워드 2~3개"],
   "tags": ["성격 태그 4~6개"]
 }
- 
+
 [예시 응답]
-{"summary":"한강 야경 명소로 다리 위에서 강바람 맞으며 걷기 좋은 곳. 노을부터 야경까지 풍경이 계속 바뀐다.","right_now":"평일 오후라 한산할 때, 산책하기 좋다.","highlights":["다리 위 보행로 산책","한강 일몰 감상","야간 조명 포토스팟"],"tip":"중간 전망대 벤치에서 쉬면서 보는 게 제일 좋다.","best_time":"일몰 30분 전부터 1시간이 베스트.","crowd_tip":"주말 저녁은 붐비니 평일이나 일몰 직전이 여유롭다.","nearby":["여의도공원"],"vibe":["탁 트인","로맨틱"],"tags":["야경","한강","산책","포토스팟","무료"]}`;
+{"summary": "지상 17미터 위로 올라가면 꽉 막힌 차도 대신 예쁜 공중 정원이 쫙 펼쳐져. 발밑으로는 차들이 쌩쌩 달리는데, 내 주변은 식물들로 가득해서 기분이 엄청 묘하고 신기해. 해 질 녘에 파란색 조명이 켜질 때쯤 걸으면 분위기가 확 달라져서, 복잡한 도심 한복판에서 조용히 밤산책하고 싶은 사람한테 완전 딱이야.",
+  "highlights": [
+    "투명 유리 바닥 위에서 발밑으로 지나가는 차들 구경하기",
+    "문화역서울 284 옛날 지붕을 배경으로 레트로한 인증샷 남기기",
+    "내 이름 초성이랑 똑같은 이름표를 단 식물 찾아보기"
+  ],
+  "tip": "중간중간 있는 원형 화분 벤치에 앉아서 커피 한잔하면서 야경 보는 게 진짜 힐링이야.",
+  "best_time": "야간 조명이 파랗게 켜지고 주변 빌딩 불빛이 들어오는 저녁 7시 이후가 제일 예뻐.",
+  "crowd_tip": "주말 오후엔 사람이 은근히 많아서, 사진 제대로 찍으려면 평일 저녁이나 아예 늦은 밤에 가는 걸 추천해.",
+  "viewpoint_guide": "서울역 광장 쪽을 정면으로 내려다보는 난간 쪽이 차 궤적 사진 찍기 좋은 명당이야.",
+  "vibe": ["묘한", "도심속여유", "은하수같은"],
+  "tags": ["도심탐험", "야경명소", "산책로", "재생건축", "데이트"]}`;
 }
  
 // ── AI callers ──────────────────────────────────────────────────────────────
 
 const SYSTEM_MSG =
-  "당신은 서울시의 로컬 가이드입니다. 확실히 아는 사실만 담아, 처음 방문하는 사람에게 솔직하고 생생하게 장소를 소개해주세요. 반드시 JSON 형식으로만 응답하세요.";
+  "당신은 서울시 장소를 모두 알고 있는 로컬 가이드입니다. 확실히 아는 사실만 담아, 처음 방문하는 사람에게 솔직하고 생생하게 이 장소를 소개해주세요. 반드시 JSON 형식으로만 응답하세요.";
 
 function parseAIResponse(text: string): object | null {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -244,16 +291,14 @@ function parseAIResponse(text: string): object | null {
 }
 
 async function callLMStudio(prompt: string): Promise<object | null> {
-  const response = await fetch(LMSTUDIO_ENDPOINT, {
+  const response = await fetch("http://127.0.0.1:1234/v1/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "openai/gpt-oss-20b",
-      messages: [
-        { role: "system", content: SYSTEM_MSG },
-        { role: "user", content: prompt },
-      ],
+      model: "kanana-1.5-8b-instruct-2505",
+      prompt: `${SYSTEM_MSG}\n\n${prompt}\n\n답:\n`,
       max_tokens: 1100,
+      temperature: 0.7,
     }),
   });
 
@@ -262,21 +307,21 @@ async function callLMStudio(prompt: string): Promise<object | null> {
     return null;
   }
   const data = await response.json();
-  const text: string = data.choices?.[0]?.message?.content ?? "";
+  const text: string = data.choices?.[0]?.text ?? "";
   console.log("[LMStudio] response:", text.slice(0, 100));
   return parseAIResponse(text);
 }
 
-// async function callKanana(prompt: string, apiKey: string): Promise<object | null> {
-//   const response = await fetch(KANANA_ENDPOINT, {
-//     method: "POST",
-//     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-//     body: JSON.stringify({ model: "kanana-o", messages: [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }], max_tokens: 1100 }),
-//   });
-//   if (!response.ok) return null;
-//   const data = await response.json();
-//   return parseAIResponse(data.choices?.[0]?.message?.content ?? "");
-// }
+async function callKanana(prompt: string, apiKey: string): Promise<object | null> {
+  const response = await fetch(KANANA_ENDPOINT, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "kanana-o", messages: [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }], max_tokens: 1100 }),
+  });
+  if (!response.ok) { console.error("[Kanana] HTTP", response.status); return null; }
+  const data = await response.json();
+  return parseAIResponse(data.choices?.[0]?.message?.content ?? "");
+}
 
 // async function callGemini(prompt: string, apiKey: string): Promise<object | null> {
 //   for (const model of GEMINI_MODELS) {
@@ -317,17 +362,16 @@ export async function GET(req: NextRequest) {
   const lng = parseFloat(searchParams.get("lng") ?? "");
   const viewpointRaw = searchParams.get("viewpoint") ?? "";
   const viewpoints = viewpointRaw ? viewpointRaw.split("||").filter(Boolean) : [];
+  const type = searchParams.get("type") ?? "";
 
   // Server-side cache check
-  const cacheKey = `${place}||${operating_time}||${fee}||${subway}`;
+  const cacheKey = `${place}||${operating_time}||${fee}||${subway}||${type}`;
   const cached = _serverCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < SERVER_CACHE_TTL) {
     return NextResponse.json({ info: cached.data, cached: true });
   }
 
-  // const kananaKey = process.env.KANANA_API_KEY;
-  // const geminiKey = process.env.GEMINI_API_KEY;
-  // const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const kananaKey = process.env.KANANA_API_KEY;
 
   // Fetch real data in parallel
   const [congestion, realEvents] = await Promise.allSettled([
@@ -341,24 +385,31 @@ export async function GET(req: NextRequest) {
   const nearbyPlaces =
     !isNaN(lat) && !isNaN(lng) ? findNearbyPlaces(lat, lng, place) : [];
 
-  const prompt = buildPrompt(place, operating_time, fee, subway, viewpoints, congestion, nearbyPlaces, realEvents);
+  const prompt = buildPrompt(place, operating_time, fee, subway, viewpoints, congestion, realEvents, type);
 
   let parsed: object | null = null;
-  parsed = await callLMStudio(prompt).catch(() => null);
-  console.log("[AI] final parsed:", parsed ? "OK" : "null (mock fallback)");
-  // if (kananaKey) {
-  //   parsed = await callKanana(prompt, kananaKey).catch((e) => { console.error("[Kanana] error:", e); return null; });
-  //   console.log("[Kanana] result:", parsed ? "OK" : "null");
-  // }
-  // if (!parsed && geminiKey) parsed = await callGemini(prompt, geminiKey).catch(() => null);
-  // if (!parsed && anthropicKey) parsed = await callAnthropic(prompt, anthropicKey).catch(() => null);
+  if (kananaKey) {
+    parsed = await callKanana(prompt, kananaKey).catch(() => null);
+    console.log("[Kanana] result:", parsed ? "OK" : "null");
+  }
+  if (!parsed) {
+    parsed = await callLMStudio(prompt).catch(() => null);
+    console.log("[LMStudio] result:", parsed ? "OK" : "null (mock fallback)");
+  }
+
+  const { period, weekday, isWeekend } = getKSTContext();
+  const right_now = buildRightNow(congestion, period, weekday, isWeekend);
+  const event_pick = buildEventPick(realEvents);
 
   if (parsed) {
-    const aiPart = parsed as Omit<AIPlaceInfo, "placeName" | "events">;
+    const aiPart = parsed as Omit<AIPlaceInfo, "placeName" | "events" | "right_now" | "nearby" | "event_pick">;
     const info: AIPlaceInfo = {
       placeName: place,
       ...aiPart,
-      events: realEvents.length > 0 ? realEvents : (aiPart as AIPlaceInfo).events,
+      right_now,
+      nearby: nearbyPlaces.slice(0, 2),
+      ...(event_pick && { event_pick }),
+      events: realEvents.length > 0 ? realEvents : undefined,
     };
     _serverCache.set(cacheKey, { data: info, ts: Date.now() });
     return NextResponse.json({ info, _source: "ai" });
@@ -373,9 +424,11 @@ export async function GET(req: NextRequest) {
     tip: "일몰 직후 30분이 가장 아름다운 황금시간대입니다.",
     best_time: "늦가을~초겨울(10~12월) 맑은 날 저녁이 가장 좋습니다.",
     crowd_tip: "평일 저녁이 주말보다 훨씬 여유롭습니다.",
+    right_now,
+    nearby: nearbyPlaces.slice(0, 2),
+    ...(event_pick && { event_pick }),
     ...(viewpoints.length > 0 && { viewpoint_guide: viewpoints[0] }),
     ...(realEvents.length > 0 && { events: realEvents }),
-    nearby: nearbyPlaces.slice(0, 2),
     tags: ["야경", "서울", "포토스팟"],
   };
   return NextResponse.json({ info, _source: "mock" });

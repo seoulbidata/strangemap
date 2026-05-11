@@ -19,11 +19,12 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const LOADING_STEPS = [
-  "장소 기록을 살펴보는 중",
+  "장소를 살펴보는 중",
   "방문자 데이터 분석 중",
   "역사·문화 자료 탐색 중",
   "볼거리·추천 코스 정리 중",
   "안내 문구 작성 중",
+  "최적의 방문 정보 준비 중"
 ];
 
 function AILoadingState({ placeName }: { placeName: string }) {
@@ -114,7 +115,7 @@ function AILoadingState({ placeName }: { placeName: string }) {
       </div>
 
       <p className="text-center text-[10px] text-[#A8A29E]">
-        AI가 최적의 방문 정보를 준비하고 있어요
+        서울로가 최적의 방문 정보를 준비하고 있어요
       </p>
     </div>
   );
@@ -144,6 +145,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
     setLoading(true);
 
     const params = new URLSearchParams({ place: poi.name });
+    if (poi.source === "culture") params.set("type", "culture");
     if (poi.operating_time) params.set("operating_time", poi.operating_time);
     if (poi.fee) params.set("fee", poi.fee);
     if (poi.subway) params.set("subway", poi.subway);
@@ -306,7 +308,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {/* 주요 볼거리 */}
               <div>
                 <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-2">
-                  주요 볼거리
+                  행동 추천
                 </p>
                 <ul className="space-y-2">
                   {(info.highlights ?? []).map((h, i) => (
@@ -385,7 +387,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {info.event_pick && (
                 <div className="rounded-xl bg-[#FFFBEB] border border-[#FDE68A] p-3.5">
                   <p className="text-[10px] font-semibold text-[#92400E] uppercase tracking-wider mb-1.5">
-                    AI 행사 추천
+                    서울로의 행사 추천
                   </p>
                   <p className="text-[12px] text-[#78350F] leading-relaxed">{info.event_pick}</p>
                 </div>

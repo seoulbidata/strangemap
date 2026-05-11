@@ -13,6 +13,7 @@ export interface POIItem {
   lng: number;
   place: string;
   date?: string;
+  endDate?: string;
   fee: string;
   thumbnail?: string;
   link?: string;
@@ -54,6 +55,7 @@ export async function GET() {
       lng: parseFloat(r.LOT),
       place: r.PLACE,
       date: r.DATE,
+      endDate: r.END_DATE ? r.END_DATE.slice(0, 10) : undefined,
       fee: r.USE_FEE || "무료",
       thumbnail: r.MAIN_IMG,
       link: r.HMPG_ADDR,

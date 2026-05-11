@@ -6,12 +6,11 @@ interface Props {
   poi: POIItem;
   onClose: () => void;
   onAskAI: () => void;
-  onSetOrigin: () => void;
   onSetDest: () => void;
   isQuestTarget?: boolean;
 }
 
-export default function PlaceCard({ poi, onClose, onAskAI, onSetOrigin, onSetDest, isQuestTarget }: Props) {
+export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTarget }: Props) {
   const isNight = poi.source === "nightview";
 
   return (
@@ -90,27 +89,19 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetOrigin, onSetDes
             </div>
           </div>
 
-          {/* AI 정보 버튼 */}
-          <button
-            onClick={onAskAI}
-            className="mt-4 w-full rounded-xl py-2.5 text-sm font-semibold bg-[#FE9C00] text-white hover:bg-[#E08800] transition-colors"
-          >
-            서울로에 물어보기
-          </button>
-
-          {/* 경로 설정 버튼 */}
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          {/* 버튼 영역 */}
+          <div className="mt-4 flex flex-col items-center gap-2">
             <button
-              onClick={onSetOrigin}
-              className="text-[12px] py-2 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0] text-[#16A34A] font-medium hover:bg-[#DCFCE7] transition-colors"
+              onClick={onAskAI}
+              className="w-[300px] h-[40px] rounded-xl text-sm font-semibold bg-[#FE9C00] text-white hover:bg-[#E08800] transition-colors"
             >
-              출발지로 설정
+              서울로에 물어보기
             </button>
             <button
               onClick={onSetDest}
-              className="text-[12px] py-2 rounded-lg bg-[#FFF1F2] border border-[#FECDD3] text-[#DC2626] font-medium hover:bg-[#FFE4E6] transition-colors"
+              className="w-[300px] h-[40px] rounded-xl text-sm font-medium bg-[#FFF1F2] border border-[#FECDD3] text-[#DC2626] hover:bg-[#FFE4E6] transition-colors"
             >
-              목적지로 설정
+              목적지로 설정하기
             </button>
           </div>
         </div>

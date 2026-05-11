@@ -20,14 +20,28 @@ function normalizeStationName(v: string) {
 }
 
 function normalizeLineName(v: string) {
-  return v.replace(/\s/g, "").replace(/\(.+?\)/g, "").replace(/^0+(\d+호선)$/, "$1");
+  return v.replace(/[\s·•・]/g, "").replace(/\(.+?\)/g, "").replace(/^0+(\d+호선)$/, "$1");
 }
+
+// 서울 API는 통합 노선을 구성 노선명으로 분리 저장 (예: 경의중앙선 → 경의선+중앙선)
+const SEOUL_LINE_COMPONENTS: Record<string, string[]> = {
+  "경의중앙선": ["경의선", "중앙선"],
+  "수인분당선": ["수인선", "분당선"],
+};
+
+// 서울 API 분리 노선명 → 통합 노선명 역매핑
+const SEOUL_LINE_MERGED: Record<string, string> = Object.fromEntries(
+  Object.entries(SEOUL_LINE_COMPONENTS).flatMap(([merged, parts]) =>
+    parts.map((part) => [part, merged])
+  )
+);
 
 function lineNameCandidates(v: string) {
   const normalized = normalizeLineName(v);
   const candidates = [v, normalized];
   const numberMatch = normalized.match(/^(\d+)호선$/);
   if (numberMatch) candidates.push(numberMatch[1].padStart(2, "0") + "호선");
+  if (SEOUL_LINE_COMPONENTS[normalized]) candidates.push(...SEOUL_LINE_COMPONENTS[normalized]);
   return [...new Set(candidates.filter(Boolean))];
 }
 
@@ -68,6 +82,9 @@ async function fetchStationMasterCoords(masterKey: string) {
     const lng = parseFloat(row.LOT ?? "");
     if (!line || !name || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
     coords.set(coordKey(line, name), { lat, lng });
+    // 분리 저장된 노선(경의선, 중앙선 등)을 통합 노선명(경의중앙선)으로도 색인
+    const mergedLine = SEOUL_LINE_MERGED[line];
+    if (mergedLine) coords.set(coordKey(mergedLine, name), { lat, lng });
   }
 
   return coords;
@@ -90,7 +107,12 @@ function makeRailQuery(lineName: string, points: Point[]) {
   const minLng = Math.min(...points.map((p) => p.lng)) - margin;
   const maxLng = Math.max(...points.map((p) => p.lng)) + margin;
   const bbox = `(${minLat},${minLng},${maxLat},${maxLng})`;
-  const lineRegex = escapeOverpassRegex(normalizeLineName(lineName));
+  const normalized = normalizeLineName(lineName);
+  const OVERPASS_DOT_ALIASES: Record<string, string> = {
+    "경의중앙선": "경의.중앙선",
+    "수인분당선": "수인.분당선",
+  };
+  const lineRegex = OVERPASS_DOT_ALIASES[normalized] ?? escapeOverpassRegex(normalized);
   return `[out:json][timeout:25];(` +
     `way["railway"~"subway|light_rail|rail"]["name"~"${lineRegex}",i]${bbox};` +
     `way["railway"~"subway|light_rail|rail"]["name:ko"~"${lineRegex}",i]${bbox};` +
@@ -283,7 +305,9 @@ export async function GET(request: NextRequest) {
     const stationRows = rows
       .filter((row) => {
         const rowLine = normalizeLineName(row.LINE_NUM ?? "");
-        if (rowLine !== normalizedLine) return false;
+        // 분리 저장 노선(경의선, 중앙선)도 통합 노선명으로 변환 후 비교
+        const resolvedLine = SEOUL_LINE_MERGED[rowLine] ?? rowLine;
+        if (resolvedLine !== normalizedLine) return false;
         const code = parseInt(row.STATION_CD ?? "0", 10);
         if (normalizedLine === "2호선" && code > 243) return false;
         return true;
@@ -306,9 +330,16 @@ export async function GET(request: NextRequest) {
 
     const forwardRows = fromIdx <= toIdx ? stationRows.slice(fromIdx, toIdx + 1) : [...stationRows.slice(fromIdx), ...stationRows.slice(0, toIdx + 1)];
     const backwardRows = toIdx <= fromIdx ? stationRows.slice(toIdx, fromIdx + 1).reverse() : [...stationRows.slice(toIdx), ...stationRows.slice(0, fromIdx + 1)].reverse();
-    const selectedRows = expectedCount > 0
-      ? [forwardRows, backwardRows].sort((a, b) => Math.abs(a.length - 1 - expectedCount) - Math.abs(b.length - 1 - expectedCount))[0]
-      : [forwardRows, backwardRows].sort((a, b) => a.length - b.length)[0];
+
+    // 2호선처럼 순환하는 노선만 railLinkCount 기반으로 방향 선택
+    // 직선 노선(경의중앙선 등)은 fromIdx/toIdx 대소 비교로 직접 방향 결정
+    // (railLinkCount는 역 개수가 아닌 선로 구간 수라 역 개수와 단위가 달라 혼동 유발)
+    const CIRCULAR_LINES = new Set(["2호선"]);
+    const selectedRows = CIRCULAR_LINES.has(normalizedLine)
+      ? (expectedCount > 0
+          ? [forwardRows, backwardRows].sort((a, b) => Math.abs(a.length - 1 - expectedCount) - Math.abs(b.length - 1 - expectedCount))[0]
+          : [forwardRows, backwardRows].sort((a, b) => a.length - b.length)[0])
+      : (fromIdx <= toIdx ? forwardRows : backwardRows);
 
     const stations: StationPoint[] = [];
     for (const row of selectedRows) {

@@ -20,6 +20,12 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
       .filter((p) => {
         if (showFreeOnly) return p.fee === "무료" || p.fee === "" || !p.fee;
         return true;
+      })
+      .sort((a, b) => {
+        if (!a.endDate && !b.endDate) return 0;
+        if (!a.endDate) return 1;
+        if (!b.endDate) return -1;
+        return a.endDate.localeCompare(b.endDate);
       });
   }, [pois, activeCategory, showFreeOnly]);
 
@@ -90,15 +96,11 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
                       </span>
                       <p className="text-sm font-semibold text-[#1A1E2E] mt-1.5 leading-snug line-clamp-2">{poi.name}</p>
                     </div>
-                    <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 mt-5 ${
-                        poi.fee === "무료" || !poi.fee
-                          ? "bg-[#F0FDF4] text-[#16A34A]"
-                          : "bg-[#FFF7ED] text-[#EA580C]"
-                      }`}
-                    >
-                      {poi.fee || "무료"}
-                    </span>
+                    {(poi.fee === "무료" || !poi.fee) && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 mt-5 bg-[#F0FDF4] text-[#16A34A]">
+                        무료
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2 text-[11px] text-[#9CA3AF] space-y-0.5">
                     <p>{poi.place}</p>

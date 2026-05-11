@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 
-const LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234/v1/chat/completions";
+const KANANA_ENDPOINT = "https://kanana-o.a2s-endpoint.kr-central-2.kakaocloud.com/v1/chat/completions";
+const SYSTEM_MSG = "당신은 서울시의 가이드이자 서울시 내의 컨텐츠를 추천하는 전문가입니다. 제공된 장소와 정보 안에서만 사용자 상황에 맞는 활동을 추천하세요. JSON 배열로만 응답하고 다른 텍스트는 출력하지 마세요.";
 
 export interface Suggestion {
   title: string;
@@ -138,7 +139,10 @@ async function fetchSeoulEvents(): Promise<string[]> {
         return new Date(r.END_DATE.slice(0, 10)) >= today;
       })
       .slice(0, 10)
-      .map((r) => `${r.TITLE} (${r.PLACE ?? "서울"}, ${r.USE_FEE ?? "무료"})`);
+      .map((r) => {
+        const desc = r.PROGRAM || r.ETC_DESC || "";
+        return `${r.TITLE} (${r.PLACE ?? "서울"}, ${r.USE_FEE ?? "무료"})${desc ? ` - ${desc}` : ""}`;
+      });
   } catch {
     return [];
   }
@@ -255,21 +259,32 @@ function parseAIResponse(text: string): Suggestion[] | null {
   }
 }
 
+async function callKanana(prompt: string, apiKey: string): Promise<Suggestion[] | null> {
+  const response = await fetch(KANANA_ENDPOINT, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "kanana-o",
+      messages: [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }],
+      max_tokens: 1500,
+    }),
+  });
+  if (!response.ok) { console.error("[Kanana:recommend] HTTP", response.status); return null; }
+  const data = await response.json();
+  const text: string = data.choices?.[0]?.message?.content ?? "";
+  console.log("[Kanana:recommend] raw:", text.slice(0, 200));
+  return parseAIResponse(text);
+}
+
 async function callLMStudio(prompt: string): Promise<Suggestion[] | null> {
-  const response = await fetch(LMSTUDIO_ENDPOINT, {
+  const response = await fetch("http://127.0.0.1:1234/v1/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "openai/gpt-oss-20b",
-      messages: [
-        {
-          role: "system",
-          content:
-            "당신은 서울시의 가이드이자 서울시 내의 컨텐츠를 추천하는 전문가입니다. 제공된 장소와 정보 안에서만 사용자 상황에 맞는 활동을 추천하세요. JSON 배열로만 응답하고 다른 텍스트는 출력하지 마세요.",
-        },
-        { role: "user", content: prompt },
-      ],
+      model: "kanana-1.5-8b-instruct-2505",
+      prompt: `${SYSTEM_MSG}\n\n${prompt}\n\n답:\n`,
       max_tokens: 1500,
+      temperature: 0.7,
     }),
   });
 
@@ -278,7 +293,7 @@ async function callLMStudio(prompt: string): Promise<Suggestion[] | null> {
     return null;
   }
   const data = await response.json();
-  const text: string = data.choices?.[0]?.message?.content ?? "";
+  const text: string = data.choices?.[0]?.text ?? "";
   console.log("[LMStudio:recommend] raw:", text.slice(0, 200));
   return parseAIResponse(text);
 }
@@ -340,9 +355,16 @@ export async function POST(req: NextRequest) {
   const kstCtx = getKSTContext();
   const prompt = buildPrompt(companion, ageGroup, time, purpose, region, congestion, candidates, events, kstCtx);
 
+  const kananaKey = process.env.KANANA_API_KEY;
   let suggestions: Suggestion[] | null = null;
-  suggestions = await callLMStudio(prompt).catch(() => null);
-  console.log("[AI:recommend] result:", suggestions ? `${suggestions.length}개` : "null → mock fallback");
+  if (kananaKey) {
+    suggestions = await callKanana(prompt, kananaKey).catch(() => null);
+    console.log("[Kanana:recommend] result:", suggestions ? `${suggestions.length}개` : "null");
+  }
+  if (!suggestions) {
+    suggestions = await callLMStudio(prompt).catch(() => null);
+    console.log("[LMStudio:recommend] result:", suggestions ? `${suggestions.length}개` : "null → mock fallback");
+  }
 
   if (suggestions) {
     // 화이트리스트 검증: 응답 장소가 실제 후보 목록에 있는지 확인

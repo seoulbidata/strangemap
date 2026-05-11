@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 /* ---- 타입 ---- */
 interface PlaceCandidate {
@@ -69,6 +69,8 @@ export interface RouteDrawPayload {
 interface Props {
   onRouteFound?: (payload: RouteDrawPayload) => void;
   onRouteClear?: () => void;
+  presetDest?: { label: string; lat: number; lng: number } | null;
+  presetOrigin?: { label: string; lat: number; lng: number } | null;
 }
 
 /* ---- 상수 ---- */
@@ -524,7 +526,7 @@ function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
 }
 
 /* ---- 컴포넌트 ---- */
-export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
+export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest, presetOrigin }: Props) {
   const [originQuery, setOriginQuery] = useState("");
   const [destQuery, setDestQuery] = useState("");
   const [originCandidates, setOriginCandidates] = useState<PlaceCandidate[]>([]);
@@ -538,6 +540,22 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear }: Props) {
   const [loading, setLoading] = useState(false);
   const [stepArrivals, setStepArrivals] = useState<Record<string, RealtimeInfo>>({});
   const geocacheRef = useRef(new Map<string, PlaceCandidate[]>());
+
+  useEffect(() => {
+    if (!presetDest) return;
+    const candidate: PlaceCandidate = { label: presetDest.label, placeName: presetDest.label, address: "", category: "", source: "preset", lat: presetDest.lat, lng: presetDest.lng };
+    setDest(candidate);
+    setDestQuery(presetDest.label);
+    setDestCandidates([]);
+  }, [presetDest]);
+
+  useEffect(() => {
+    if (!presetOrigin) return;
+    const candidate: PlaceCandidate = { label: presetOrigin.label, placeName: presetOrigin.label, address: "", category: "", source: "preset", lat: presetOrigin.lat, lng: presetOrigin.lng };
+    setOrigin(candidate);
+    setOriginQuery(presetOrigin.label);
+    setOriginCandidates([]);
+  }, [presetOrigin]);
 
   const searchPlaces = useCallback(async (kind: "origin" | "dest", query: string) => {
     if (!query.trim()) return;

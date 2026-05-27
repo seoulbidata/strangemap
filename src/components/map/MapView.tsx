@@ -377,14 +377,21 @@ export default function MapView() {
         (prevStep.mode !== "walk") && 
         (prevStep.lineName !== step.lineName);
 
-      let markerLabel = `${step.mode === "subway" ? "지하철" : "버스"} ${step.lineName}`;
-      let borderStyle = `2px solid rgba(0,0,0,0.15)`;
+      let markerHtml = "";
       if (isTransfer) {
-        markerLabel = `🔄 환승 · ` + markerLabel;
-        borderStyle = `2.5px dashed #2563EB`;
+        markerHtml = `
+          <div style="background:#ffffff; color:#1e293b; font-size:10px; font-weight:800; padding:3px 7px; border-radius:10px; border:2.5px solid #2563eb; box-shadow:0 2px 6px rgba(0,0,0,0.15); font-family:system-ui,sans-serif; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+            <span style="background:#2563eb; color:#ffffff; font-size:9px; padding:1px 3.5px; border-radius:4px; font-weight:900; line-height:1; display:inline-flex; align-items:center; gap:1.5px;">
+              🔄 환승
+            </span>
+            <span>${step.lineName}</span>
+          </div>
+        `;
+      } else {
+        const markerLabel = `${step.mode === "subway" ? "지하철" : "버스"} ${step.lineName}`;
+        markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;border:2px solid rgba(0,0,0,0.15);box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">${markerLabel}</div>`;
       }
 
-      const markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;border:${borderStyle};box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">${markerLabel}</div>`;
       addMarker(step.fromLat, step.fromLng, markerHtml);
       prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
     }

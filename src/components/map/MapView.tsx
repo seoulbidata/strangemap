@@ -286,11 +286,20 @@ export default function MapView() {
       new naver.maps.LatLng(org.lat, org.lng),
     );
 
-    const addLine = (points: { lat: number; lng: number }[], color: string, weight: number, opacity: number) => {
+    const addLine = (points: { lat: number; lng: number }[], color: string, weight: number, opacity: number, style?: "solid" | "dash") => {
       if (points.length < 2) return;
       const path = points.map((p) => new naver.maps.LatLng(p.lat, p.lng));
       routePolylinesRef.current.push(
-        new naver.maps.Polyline({ map: mapInstance.current, path, strokeColor: color, strokeWeight: weight, strokeOpacity: opacity, strokeLineCap: "round", strokeLineJoin: "round" })
+        new naver.maps.Polyline({
+          map: mapInstance.current,
+          path,
+          strokeColor: color,
+          strokeWeight: weight,
+          strokeOpacity: opacity,
+          strokeLineCap: "round",
+          strokeLineJoin: "round",
+          strokeStyle: style ?? "solid"
+        })
       );
       path.forEach((p) => bounds.extend(p));
     };
@@ -345,7 +354,7 @@ export default function MapView() {
     for (let idx = 0; idx < route.paths.length; idx++) {
       const step = route.paths[idx];
       if (step.fromLat == null || step.fromLng == null) continue;
-      addLine([prev, { lat: step.fromLat, lng: step.fromLng }], "#8a968e", 3, 0.7);
+      addLine([prev, { lat: step.fromLat, lng: step.fromLng }], "#8a968e", 3, 0.7, "dash");
       const color = getRouteColor(step);
       const routeShape = step.polyline ?? [];
       const hasRouteShape = routeShape.length >= 2;
@@ -354,7 +363,9 @@ export default function MapView() {
         : [{ lat: step.fromLat, lng: step.fromLng }, { lat: step.toLat!, lng: step.toLng! }];
 
       if (step.mode === "walk") {
-        addLine(pts, color, 4, 0.75);
+        addLine(pts, color, 4, 0.75, "dash");
+        const markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;border:2px solid rgba(0,0,0,0.15);box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">🚶 도보</div>`;
+        addMarker(step.fromLat, step.fromLng, markerHtml);
         prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
         continue;
       }
@@ -377,7 +388,7 @@ export default function MapView() {
       addMarker(step.fromLat, step.fromLng, markerHtml);
       prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
     }
-    addLine([prev, { lat: dst.lat, lng: dst.lng }], "#8a968e", 3, 0.7);
+    addLine([prev, { lat: dst.lat, lng: dst.lng }], "#8a968e", 3, 0.7, "dash");
 
     addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">출발</div>`);
     addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">도착</div>`);

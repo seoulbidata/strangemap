@@ -549,7 +549,7 @@ function renderAlternativeLabel(label?: string) {
   if (label === "최적 및 최단 경로") {
     bgClass = "bg-[#FEF3C7] text-[#D97706] border-[#FDECC8]";
   } else if (label === "서울로의 추천경로") {
-    bgClass = "bg-[#EFF6FF] text-[#1D4ED8] border-[#DBEAFE]";
+    bgClass = "bg-[#FE9C00] text-white border-[#FE9C00] shadow-sm";
   } else if (label === "최단시간 경로") {
     bgClass = "bg-[#F3E8FF] text-[#7E22CE] border-[#E9D5FF]";
   } else if (label === "가장 쾌적한 경로") {

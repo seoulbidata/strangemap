@@ -1,6 +1,6 @@
 const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 
-type GenerateOpenRouterJsonTextOptions = {
+type GenerateGeminiJsonTextOptions = {
   prompt: string;
   systemInstruction: string;
   maxOutputTokens: number;
@@ -26,15 +26,14 @@ function convertSchemaToLowercase(schema: any): any {
 }
 
 /**
- * 구글 AI 스튜디오 Native Gemini 3.1 Flash Lite API를 직접 호출합니다.
- * 이전의 느리고 불안정한 OpenRouter 중개망을 완전히 배제하고 0.5초대 초고속 응답을 보장합니다.
+ * 구글 AI 스튜디오 Native Gemini 3.1 Flash Lite API를 직접 호출하여 0.5초대 초고속 응답을 보장합니다.
  */
-export async function generateOpenRouterJsonText({
+export async function generateGeminiJsonText({
   prompt,
   systemInstruction,
   maxOutputTokens,
   responseSchema,
-}: GenerateOpenRouterJsonTextOptions): Promise<string | null> {
+}: GenerateGeminiJsonTextOptions): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.error("[Gemini Native] Error: GEMINI_API_KEY가 설정되지 않았습니다.");

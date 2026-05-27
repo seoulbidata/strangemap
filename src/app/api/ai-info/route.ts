@@ -5,7 +5,7 @@ import { callKananaWithFallback } from "@/lib/kanana";
 import { incrementAIUsage } from "@/lib/aiUsage";
 import {
   extractJsonObjectText,
-  generateOpenRouterJsonText,
+  generateGeminiJsonText,
   parseJsonWithEscapedControlChars,
 } from "@/lib/gemini";
 
@@ -402,15 +402,15 @@ async function callKanana(prompt: string): Promise<object | null> {
 //   return null;
 // }
 
-async function callOpenRouter(prompt: string): Promise<object | null> {
-  const text = await generateOpenRouterJsonText({
+async function callGemini(prompt: string): Promise<object | null> {
+  const text = await generateGeminiJsonText({
     prompt,
     systemInstruction: SYSTEM_MSG,
     maxOutputTokens: 2500,
     responseSchema: PLACE_INFO_SCHEMA,
   });
   if (!text) return null;
-  console.log("[OpenRouter] response:", text.slice(0, 100));
+  console.log("[Gemini] response:", text.slice(0, 100));
   return parseAIResponse(text);
 }
 
@@ -463,7 +463,7 @@ export async function GET(req: NextRequest) {
   const prompt = buildPrompt(place, operating_time, fee, subway, viewpoints, congestion, realEvents, type);
 
   let parsed: object | null = null;
-  parsed = await callOpenRouter(prompt).catch(() => null);
+  parsed = await callGemini(prompt).catch(() => null);
   if (!parsed && kananaKey) {
     parsed = await callKanana(prompt).catch(() => null);
     console.log("[Kanana] result:", parsed ? "OK" : "null");

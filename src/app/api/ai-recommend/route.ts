@@ -4,7 +4,7 @@ import { callKananaWithFallback } from "@/lib/kanana";
 import { incrementAIUsage } from "@/lib/aiUsage";
 import {
   extractJsonArrayText,
-  generateOpenRouterJsonText,
+  generateGeminiJsonText,
   parseJsonWithEscapedControlChars,
 } from "@/lib/gemini";
 
@@ -311,15 +311,15 @@ async function callLMStudio(prompt: string): Promise<Suggestion[] | null> {
   return parseAIResponse(text);
 }
 
-async function callOpenRouter(prompt: string): Promise<Suggestion[] | null> {
-  const text = await generateOpenRouterJsonText({
+async function callGemini(prompt: string): Promise<Suggestion[] | null> {
+  const text = await generateGeminiJsonText({
     prompt,
     systemInstruction: SYSTEM_MSG,
     maxOutputTokens: 2500,
     responseSchema: SUGGESTION_SCHEMA,
   });
   if (!text) return null;
-  console.log("[OpenRouter:recommend] raw:", text.slice(0, 200));
+  console.log("[Gemini:recommend] raw:", text.slice(0, 200));
   return parseAIResponse(text);
 }
 
@@ -382,7 +382,7 @@ export async function POST(req: NextRequest) {
 
   const kananaKey = process.env.KANANA_API_KEY || process.env.KANANA_API_KEY_2;
   let suggestions: Suggestion[] | null = null;
-  suggestions = await callOpenRouter(prompt).catch(() => null);
+  suggestions = await callGemini(prompt).catch(() => null);
   if (!suggestions && kananaKey) {
     suggestions = await callKanana(prompt).catch(() => null);
     console.log("[Kanana:recommend] result:", suggestions ? `${suggestions.length}개` : "null");

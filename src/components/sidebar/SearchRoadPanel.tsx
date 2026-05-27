@@ -261,10 +261,13 @@ async function fetchStepPolyline(step: TransitPath): Promise<{ lat: number; lng:
 }
 
 async function enrichRouteGeometry(route: TransitRoute): Promise<TransitRoute> {
-  const paths = await Promise.all(route.paths.map(async (step) => ({
-    ...step,
-    polyline: await fetchStepPolyline(step),
-  })));
+  const paths = await Promise.all(route.paths.map(async (step) => {
+    const polyline = await fetchStepPolyline(step);
+    return {
+      ...step,
+      polyline,
+    };
+  }));
   return { ...route, paths };
 }
 

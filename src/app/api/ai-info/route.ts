@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AIPlaceInfo, AIEvent } from "@/types/quest";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
-import { callKananaWithFallback } from "@/lib/kanana";
 import { incrementAIUsage } from "@/lib/aiUsage";
 import {
   extractJsonObjectText,
@@ -355,53 +354,6 @@ function parseAIResponse(text: string): object | null {
   return parseJsonWithEscapedControlChars<object>(jsonText);
 }
 
-async function callLMStudio(prompt: string): Promise<object | null> {
-  const response = await fetch("http://127.0.0.1:1234/v1/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "kanana-1.5-8b-instruct-2505",
-      prompt: `${SYSTEM_MSG}\n\n${prompt}\n\n답:\n`,
-      max_tokens: 1100,
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    console.error("[LMStudio] HTTP", response.status);
-    return null;
-  }
-  const data = await response.json();
-  const text: string = data.choices?.[0]?.text ?? "";
-  console.log("[LMStudio] response:", text.slice(0, 100));
-  return parseAIResponse(text);
-}
-
-async function callKanana(prompt: string): Promise<object | null> {
-  const text = await callKananaWithFallback(
-    [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }],
-    1100
-  );
-  if (!text) return null;
-  return parseAIResponse(text);
-}
-
-// async function callGemini(prompt: string, apiKey: string): Promise<object | null> {
-//   for (const model of GEMINI_MODELS) {
-//     const endpoint = `${GEMINI_BASE}/${model}:generateContent`;
-//     const response = await fetch(endpoint, {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
-//       body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM_MSG }] }, contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 1100, responseMimeType: "application/json" } }),
-//     });
-//     if (!response.ok) { console.error(`[Gemini:${model}] HTTP`, response.status); continue; }
-//     const data = await response.json();
-//     const parsed = parseAIResponse(data.candidates?.[0]?.content?.parts?.[0]?.text ?? "");
-//     if (parsed) return parsed;
-//   }
-//   return null;
-// }
-
 async function callGemini(prompt: string): Promise<object | null> {
   const text = await generateGeminiJsonText({
     prompt,
@@ -446,8 +398,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ info: cached.data, cached: true });
   }
 
-  const kananaKey = process.env.KANANA_API_KEY;
-
   // Fetch real data in parallel
   const [congestion, realEvents] = await Promise.allSettled([
     fetchCongestionMessage(place, isNaN(lat) ? undefined : lat, isNaN(lng) ? undefined : lng),
@@ -462,16 +412,7 @@ export async function GET(req: NextRequest) {
 
   const prompt = buildPrompt(place, operating_time, fee, subway, viewpoints, congestion, realEvents, type);
 
-  let parsed: object | null = null;
-  parsed = await callGemini(prompt).catch(() => null);
-  if (!parsed && kananaKey) {
-    parsed = await callKanana(prompt).catch(() => null);
-    console.log("[Kanana] result:", parsed ? "OK" : "null");
-  }
-  if (!parsed) {
-    parsed = await callLMStudio(prompt).catch(() => null);
-    console.log("[LMStudio] result:", parsed ? "OK" : "null (mock fallback)");
-  }
+  const parsed = await callGemini(prompt).catch(() => null);
 
   const { period, weekday, isWeekend } = getKSTContext();
   const right_now = buildRightNow(congestion, period, weekday, isWeekend);

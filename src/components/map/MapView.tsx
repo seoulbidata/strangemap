@@ -11,29 +11,109 @@ import CourseStopCard from "@/components/game/CourseStopCard";
 import AIInfoPanel from "@/components/game/AIInfoPanel";
 import Sidebar from "@/components/sidebar/Sidebar";
 import CultureSpeedDial from "@/components/map/CultureSpeedDial";
+import MobileNavigation, { type MobileTabId } from "@/components/mobile/MobileNavigation";
+import MobilePanel from "@/components/mobile/MobilePanel";
+import MobileMapControls from "@/components/mobile/MobileMapControls";
 import type { RouteDrawPayload } from "@/components/sidebar/SearchRoadPanel";
 import { CATEGORY_MARKER, type CultureCategory } from "@/lib/cultureCategories";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 declare global {
-  interface Window { naver: any; }
+  interface Window { naver: NaverApi; }
 }
 
 const SEOUL_CENTER = { lat: 37.5665, lng: 126.978 };
 const DEFAULT_ZOOM = 12;
 
+type NaverLatLng = {
+  lat: () => number;
+  lng: () => number;
+};
+
+type NaverOverlay = {
+  setMap: (map: NaverMap | null) => void;
+};
+
+type NaverMarker = NaverOverlay & {
+  setPosition: (position: NaverLatLng) => void;
+};
+
+type NaverCircle = NaverOverlay & {
+  setCenter: (center: NaverLatLng) => void;
+  setRadius: (radius: number) => void;
+};
+
+type NaverLatLngBounds = {
+  extend: (position: NaverLatLng) => void;
+};
+
+type NaverProjection = {
+  fromPageXYToCoord: (point: NaverPoint) => NaverLatLng;
+};
+
+type NaverMap = {
+  panTo: (position: NaverLatLng) => void;
+  setZoom: (zoom: number) => void;
+  setOptions: (options: Record<string, unknown>) => void;
+  fitBounds: (bounds: NaverLatLngBounds, padding?: Record<string, number>) => void;
+  getProjection: () => NaverProjection;
+};
+
+type NaverPoint = { x: number; y: number };
+
+type NaverReverseGeocodeResponse = {
+  v2?: { address?: { roadAddress?: string; jibunAddress?: string } };
+};
+
+type NaverApi = {
+  maps: {
+    Map: new (element: HTMLElement, options: Record<string, unknown>) => NaverMap;
+    LatLng: new (lat: number, lng: number) => NaverLatLng;
+    Point: new (x: number, y: number) => NaverPoint;
+    Marker: new (options: Record<string, unknown>) => NaverMarker;
+    Polyline: new (options: Record<string, unknown>) => NaverOverlay;
+    Circle: new (options: Record<string, unknown>) => NaverCircle;
+    LatLngBounds: new (from: NaverLatLng, to: NaverLatLng) => NaverLatLngBounds;
+    Event: { addListener: (target: object, eventName: string, listener: () => void) => void };
+    Position: { RIGHT_BOTTOM: string };
+    Service: {
+      OrderType: { ADDR: string };
+      reverseGeocode: (
+        options: Record<string, unknown>,
+        callback: (status: unknown, response: NaverReverseGeocodeResponse) => void
+      ) => void;
+    };
+  };
+};
+
+type LocationStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable" | "error";
+
+interface UserLocation {
+  lat: number;
+  lng: number;
+  accuracy: number;
+  updatedAt: number;
+}
+
+function getReverseGeocodeAddress(response: NaverReverseGeocodeResponse, fallback: string): string {
+  return response.v2?.address?.roadAddress || response.v2?.address?.jibunAddress || fallback;
+}
+
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<any>(null);
+  const mapInstance = useRef<NaverMap | null>(null);
   const allPOIs = useRef<POIItem[]>([]);
-  const markersRef = useRef<any[]>([]);
-  const cultureMarkersRef = useRef<any[]>([]);
-  const questMarkersRef = useRef<any[]>([]);
-  const courseMarkersRef = useRef<any[]>([]);
-  const originMarkerRef = useRef<any>(null);
-  const destMarkerRef = useRef<any>(null);
-  const polylineRef = useRef<any>(null);
-  const routePolylinesRef = useRef<any[]>([]);
-  const routeMarkersRef = useRef<any[]>([]);
+  const markersRef = useRef<NaverOverlay[]>([]);
+  const cultureMarkersRef = useRef<NaverOverlay[]>([]);
+  const questMarkersRef = useRef<NaverOverlay[]>([]);
+  const courseMarkersRef = useRef<NaverOverlay[]>([]);
+  const originMarkerRef = useRef<NaverMarker | null>(null);
+  const destMarkerRef = useRef<NaverMarker | null>(null);
+  const userLocationMarkerRef = useRef<NaverMarker | null>(null);
+  const accuracyCircleRef = useRef<NaverCircle | null>(null);
+  const polylineRef = useRef<NaverOverlay | null>(null);
+  const routePolylinesRef = useRef<NaverOverlay[]>([]);
+  const routeMarkersRef = useRef<NaverOverlay[]>([]);
   const [poisData, setPoisData] = useState<POIItem[]>([]);
   const [selected, setSelected] = useState<POIItem | null>(null);
   const [aiAskingPOI, setAiAskingPOI] = useState<POIItem | null>(null);
@@ -41,7 +121,6 @@ export default function MapView() {
   const [currentObjIndex, setCurrentObjIndex] = useState(0);
   const [activeCourse, setActiveCourse] = useState<ThemeCourse | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [playerStats] = useState({ level: 3, xp: 420, xpToNext: 600, badges: 2 });
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [dest, setDest] = useState<{ lat: number; lng: number } | null>(null);
   const [presetDest, setPresetDest] = useState<{ label: string; lat: number; lng: number } | null>(null);
@@ -49,7 +128,25 @@ export default function MapView() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
   const [activeCultureCategory, setActiveCultureCategory] = useState<CultureCategory | null>(null);
   const [showNight, setShowNight] = useState(false);
-  const [sidebarActiveTab, setSidebarActiveTab] = useState<"search" | "culture" | "night" | "ai" | "course" | "now" | "route" | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
+  const [locationMessage, setLocationMessage] = useState("");
+  const [sidebarActiveTab, setSidebarActiveTab] = useState<MobileTabId | null>(null);
+  const isMobile = useMediaQuery("(max-width: 767px)");
+
+  const locationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerMessageTimeout = useCallback(() => {
+    if (locationTimeoutRef.current) {
+      clearTimeout(locationTimeoutRef.current);
+    }
+    locationTimeoutRef.current = setTimeout(() => {
+      setLocationMessage("");
+      setLocationStatus("idle");
+    }, 2000);
+  }, []);
+
+
 
   function handleNaverLoad() {
     if (!mapRef.current || mapInstance.current) return;
@@ -58,16 +155,20 @@ export default function MapView() {
       center: new window.naver.maps.LatLng(SEOUL_CENTER.lat, SEOUL_CENTER.lng),
       zoom: DEFAULT_ZOOM,
       mapTypeControl: false,
-      zoomControl: true,
-      zoomControlOptions: { position: window.naver.maps.Position.RIGHT_BOTTOM },
+      zoomControl: false,
       scaleControl: false,
-      logoControl: true,
+      logoControl: false,
       mapDataControl: false,
     });
 
     setMapReady(true);
     fetchAllPOIs();
   }
+
+  useEffect(() => {
+    if (!mapReady || !mapInstance.current) return;
+    mapInstance.current.setOptions({ zoomControl: false });
+  }, [mapReady]);
 
   async function fetchAllPOIs() {
     try {
@@ -190,7 +291,7 @@ export default function MapView() {
     if (!activeCourse) return;
 
     const naver = window.naver;
-    const path: any[] = [];
+    const path: NaverLatLng[] = [];
 
     activeCourse.stops.forEach((stop, i) => {
       const isFirst = i === 0;
@@ -231,9 +332,14 @@ export default function MapView() {
     if (path.length > 1) {
       const bounds = new naver.maps.LatLngBounds(path[0], path[0]);
       path.forEach((p) => bounds.extend(p));
-      mapInstance.current?.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 380 });
+      mapInstance.current?.fitBounds(
+        bounds,
+        isMobile
+          ? { top: 80, right: 32, bottom: 260, left: 32 }
+          : { top: 60, right: 60, bottom: 60, left: 380 }
+      );
     }
-  }, [activeCourse, mapReady, clearCourseOverlay]);
+  }, [activeCourse, mapReady, clearCourseOverlay, isMobile]);
 
 
   // 출발/목적지 마커
@@ -263,6 +369,54 @@ export default function MapView() {
       });
     }
   }, [origin, dest, mapReady]);
+
+  // 사용자 현재 위치 마커 + GPS 정확도 원
+  useEffect(() => {
+    if (!mapReady || !userLocation) return;
+    const naver = window.naver;
+    const center = new naver.maps.LatLng(userLocation.lat, userLocation.lng);
+
+    if (!userLocationMarkerRef.current) {
+      userLocationMarkerRef.current = new naver.maps.Marker({
+        position: center,
+        map: mapInstance.current,
+        zIndex: 120,
+        icon: {
+          content: `<div style="width:22px;height:22px;border-radius:50%;background:#DC2626;border:4px solid #fff;box-shadow:0 2px 10px rgba(220,38,38,0.45);position:relative;"><div style="position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:50%;background:#FCA5A5;transform:translate(-50%,-50%);"></div></div>`,
+          anchor: new naver.maps.Point(11, 11),
+        },
+      });
+    } else {
+      userLocationMarkerRef.current.setPosition(center);
+      userLocationMarkerRef.current.setMap(mapInstance.current);
+    }
+
+    const radius = Math.max(15, Math.min(userLocation.accuracy || 50, 1000));
+    if (!accuracyCircleRef.current) {
+      accuracyCircleRef.current = new naver.maps.Circle({
+        map: mapInstance.current,
+        center,
+        radius,
+        fillColor: "#DC2626",
+        fillOpacity: 0.12,
+        strokeColor: "#DC2626",
+        strokeOpacity: 0.3,
+        strokeWeight: 1,
+      });
+    } else {
+      accuracyCircleRef.current.setCenter(center);
+      accuracyCircleRef.current.setRadius(radius);
+      accuracyCircleRef.current.setMap(mapInstance.current);
+    }
+  }, [mapReady, userLocation]);
+
+  useEffect(() => {
+    return () => {
+      if (userLocationMarkerRef.current) userLocationMarkerRef.current.setMap(null);
+      if (accuracyCircleRef.current) accuracyCircleRef.current.setMap(null);
+      if (locationTimeoutRef.current) clearTimeout(locationTimeoutRef.current);
+    };
+  }, []);
 
   // 권역 오버레이: 필터 임계값과 동일한 직사각형으로 시각화
 
@@ -378,12 +532,19 @@ export default function MapView() {
     addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">도착</div>`);
 
     bounds.extend(new naver.maps.LatLng(dst.lat, dst.lng));
-    mapInstance.current.fitBounds(bounds, { top: 80, right: 80, bottom: 80, left: 460 });
-  }, [clearRouteOverlay]);
+    mapInstance.current.fitBounds(
+      bounds,
+      isMobile
+        ? { top: 80, right: 32, bottom: 300, left: 32 }
+        : { top: 80, right: 80, bottom: 80, left: 460 }
+    );
+    if (isMobile) setSidebarActiveTab(null);
+  }, [clearRouteOverlay, isMobile]);
 
   // 사이드바에서 POI 선택 → 지도 이동 + 카드 열기
   const handleSelectPOI = (poi: POIItem) => {
     setSelected(poi);
+    if (isMobile) setSidebarActiveTab(null);
     if (mapInstance.current) {
       mapInstance.current.panTo(new window.naver.maps.LatLng(poi.lat, poi.lng));
       mapInstance.current.setZoom(15);
@@ -393,7 +554,10 @@ export default function MapView() {
   // 테마 코스 선택
   const handleSelectCourse = (course: ThemeCourse) => {
     setActiveCourse((prev) => (prev?.id === course.id ? null : course));
+    if (isMobile) setSidebarActiveTab(null);
   };
+
+
 
   const handleFocusObjective = (i: number) => {
     if (!activeQuest) return;
@@ -411,14 +575,72 @@ export default function MapView() {
     return !!cur && Math.abs(cur.lat - poi.lat) < 0.0005 && Math.abs(cur.lng - poi.lng) < 0.0005;
   };
 
+  const requestUserLocation = useCallback(() => {
+    const map = mapInstance.current;
+    if (!mapReady || !map) return;
+    if (!("geolocation" in navigator)) {
+      setLocationStatus("unavailable");
+      setLocationMessage("이 브라우저에서는 위치 정보를 사용할 수 없습니다.");
+      triggerMessageTimeout();
+      return;
+    }
+
+    if (locationTimeoutRef.current) {
+      clearTimeout(locationTimeoutRef.current);
+    }
+    setLocationStatus("requesting");
+    setLocationMessage("현재 위치를 확인하는 중입니다.");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        const nextLocation = {
+          lat: latitude,
+          lng: longitude,
+          accuracy,
+          updatedAt: Date.now(),
+        };
+        const latlng = new window.naver.maps.LatLng(nextLocation.lat, nextLocation.lng);
+
+        setUserLocation(nextLocation);
+        setLocationStatus("granted");
+        setLocationMessage(`현재 위치를 표시했습니다. 오차 약 ${Math.round(accuracy)}m`);
+        triggerMessageTimeout();
+
+        map.panTo(latlng);
+        map.setZoom(16);
+      },
+      (error) => {
+        let msg = "위치 확인 시간이 초과되었습니다. 다시 시도해 주세요.";
+        if (error.code === error.PERMISSION_DENIED) {
+          setLocationStatus("denied");
+          msg = "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해 주세요.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          setLocationStatus("unavailable");
+          msg = "현재 위치를 가져올 수 없습니다. GPS 또는 네트워크 상태를 확인해 주세요.";
+        } else {
+          setLocationStatus("error");
+        }
+        setLocationMessage(msg);
+        triggerMessageTimeout();
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      }
+    );
+  }, [mapReady, triggerMessageTimeout]);
+
   // 우클릭 컨텍스트 메뉴
   useEffect(() => {
-    if (!mapReady || !mapInstance.current || !mapRef.current) return;
+    const map = mapInstance.current;
+    if (!mapReady || !map || !mapRef.current) return;
     const mapDiv = mapRef.current;
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      const projection = mapInstance.current.getProjection();
+      const projection = map.getProjection();
       const coord = projection.fromPageXYToCoord(
         new window.naver.maps.Point(e.pageX, e.pageY)
       );
@@ -435,11 +657,8 @@ export default function MapView() {
     const coords = new window.naver.maps.LatLng(lat, lng);
     window.naver.maps.Service.reverseGeocode(
       { coords, orders: [window.naver.maps.Service.OrderType.ADDR] },
-      (_status: any, response: any) => {
-        const addr =
-          response?.v2?.address?.roadAddress ||
-          response?.v2?.address?.jibunAddress ||
-          fallbackLabel;
+      (_status: unknown, response: NaverReverseGeocodeResponse) => {
+        const addr = getReverseGeocodeAddress(response, fallbackLabel);
         if (kind === "origin") {
           setOrigin({ lat, lng });
           setPresetOrigin({ label: addr, lat, lng });
@@ -467,27 +686,55 @@ export default function MapView() {
         </div>
 
         {/* 좌측 사이드바 */}
-        <Sidebar
+        <div className="hidden md:block">
+          <Sidebar
+            pois={poisData}
+            onSelectPOI={handleSelectPOI}
+            onSelectCourse={handleSelectCourse}
+            activeCourseId={activeCourse?.id ?? null}
+            onRouteFound={handleRouteFound}
+            onRouteClear={clearRouteOverlay}
+            presetDest={presetDest}
+            presetOrigin={presetOrigin}
+            activeTab={sidebarActiveTab}
+            onActiveTabChange={setSidebarActiveTab}
+          />
+        </div>
+
+        <MobilePanel
+          activeTab={sidebarActiveTab}
           pois={poisData}
+          onClose={() => setSidebarActiveTab(null)}
           onSelectPOI={handleSelectPOI}
           onSelectCourse={handleSelectCourse}
           activeCourseId={activeCourse?.id ?? null}
-          playerLevel={playerStats.level}
-          playerXp={playerStats.xp}
-          playerXpToNext={playerStats.xpToNext}
           onRouteFound={handleRouteFound}
           onRouteClear={clearRouteOverlay}
           presetDest={presetDest}
           presetOrigin={presetOrigin}
+        />
+
+        <MobileNavigation
           activeTab={sidebarActiveTab}
-          onActiveTabChange={setSidebarActiveTab}
+          onTabChange={setSidebarActiveTab}
+        />
+
+        <MobileMapControls
+          showNight={showNight}
+          activeCultureCategory={activeCultureCategory}
+          locationStatus={locationStatus}
+          onOpenTab={setSidebarActiveTab}
+          onToggleNight={() => setShowNight((v) => !v)}
+          onSelectCultureCategory={setActiveCultureCategory}
+          onRequestLocation={requestUserLocation}
         />
 
         {/* 사이드바 옆 상단 레이어 토글 버튼 */}
         <div
-          className="absolute top-3 z-20 flex items-start gap-2"
+          className="absolute top-3 z-20 flex items-start gap-2 max-md:hidden"
           style={{
-            left: sidebarActiveTab ? 72 + 320 + 8 : 72 + 8,
+            left: isMobile ? 12 : sidebarActiveTab ? 72 + 320 + 8 : 72 + 8,
+            right: isMobile ? 12 : undefined,
             transition: "left 200ms ease-out",
           }}
         >
@@ -503,10 +750,47 @@ export default function MapView() {
                 : "bg-white text-[#6B7280] border-[#FDECC8] hover:border-[#FE9C00] hover:text-[#FE9C00]"
             }`}
           >
-            <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: showNight ? "#fff" : "#D97706", border: `2px solid ${showNight ? "rgba(255,255,255,0.5)" : "#B45309"}` }} />
+            <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: showNight ? "#fff" : "#fae633", border: `2px solid ${showNight ? "rgba(228, 202, 83, 0.89)" : "#fde409"}` }} />
             야경명소 위치
           </button>
+          <button
+            onClick={requestUserLocation}
+            disabled={!mapReady || locationStatus === "requesting"}
+            title="현재 위치로 이동"
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all whitespace-nowrap disabled:opacity-60 ${
+              locationStatus === "granted"
+                ? "bg-[#DC2626] text-white border-[#B91C1C]"
+                : "bg-white text-[#1B3A6B] border-[#FDECC8] hover:border-[#DC2626] hover:text-[#DC2626]"
+            }`}
+          >
+            <span
+              className="w-3 h-3 rounded-full inline-block shrink-0"
+              style={{
+                background: locationStatus === "granted" ? "#fff" : "#DC2626",
+                border: `2px solid ${locationStatus === "granted" ? "rgba(255,255,255,0.55)" : "#FCA5A5"}`,
+              }}
+            />
+            {locationStatus === "requesting" ? "위치 확인 중" : "내 위치"}
+          </button>
         </div>
+
+        {locationMessage && locationStatus !== "idle" && (
+          <div
+            className={`absolute z-20 rounded-xl border px-3 py-2 text-xs font-medium shadow-md max-w-[320px] ${
+              locationStatus === "denied" || locationStatus === "unavailable" || locationStatus === "error"
+                ? "bg-white text-[#B91C1C] border-[#FECACA]"
+                : "bg-white text-[#1B3A6B] border-[#FECACA]"
+            }`}
+            style={{
+              left: isMobile ? 12 : sidebarActiveTab ? 72 + 320 + 8 : 72 + 8,
+              right: isMobile ? 12 : undefined,
+              top: isMobile ? 108 : 60,
+              transition: "left 200ms ease-out",
+            }}
+          >
+            {locationMessage}
+          </div>
+        )}
 
         {/* 활성 퀘스트 트래커 */}
         {activeQuest && (

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
-import { callKananaWithFallback } from "@/lib/kanana";
 import { incrementAIUsage } from "@/lib/aiUsage";
 import {
   extractJsonArrayText,
@@ -279,38 +278,6 @@ function parseAIResponse(text: string): Suggestion[] | null {
   return parsed.slice(0, 3) as Suggestion[];
 }
 
-async function callKanana(prompt: string): Promise<Suggestion[] | null> {
-  const text = await callKananaWithFallback(
-    [{ role: "system", content: SYSTEM_MSG }, { role: "user", content: prompt }],
-    1500
-  );
-  if (!text) return null;
-  console.log("[Kanana:recommend] raw:", text.slice(0, 200));
-  return parseAIResponse(text);
-}
-
-async function callLMStudio(prompt: string): Promise<Suggestion[] | null> {
-  const response = await fetch("http://127.0.0.1:1234/v1/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "kanana-1.5-8b-instruct-2505",
-      prompt: `${SYSTEM_MSG}\n\n${prompt}\n\n답:\n`,
-      max_tokens: 1500,
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    console.error("[LMStudio] HTTP", response.status);
-    return null;
-  }
-  const data = await response.json();
-  const text: string = data.choices?.[0]?.text ?? "";
-  console.log("[LMStudio:recommend] raw:", text.slice(0, 200));
-  return parseAIResponse(text);
-}
-
 async function callGemini(prompt: string): Promise<Suggestion[] | null> {
   const text = await generateGeminiJsonText({
     prompt,
@@ -380,17 +347,7 @@ export async function POST(req: NextRequest) {
   const kstCtx = getKSTContext();
   const prompt = buildPrompt(companion, ageGroup, time, purpose, region, congestion, candidates, events, kstCtx);
 
-  const kananaKey = process.env.KANANA_API_KEY || process.env.KANANA_API_KEY_2;
-  let suggestions: Suggestion[] | null = null;
-  suggestions = await callGemini(prompt).catch(() => null);
-  if (!suggestions && kananaKey) {
-    suggestions = await callKanana(prompt).catch(() => null);
-    console.log("[Kanana:recommend] result:", suggestions ? `${suggestions.length}개` : "null");
-  }
-  if (!suggestions) {
-    suggestions = await callLMStudio(prompt).catch(() => null);
-    console.log("[LMStudio:recommend] result:", suggestions ? `${suggestions.length}개` : "null → mock fallback");
-  }
+  const suggestions = await callGemini(prompt).catch(() => null);
 
   if (suggestions) {
     // 로컬 사용량 카운트 증가

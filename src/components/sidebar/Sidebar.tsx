@@ -17,9 +17,6 @@ interface Props {
   onSelectPOI: (poi: POIItem) => void;
   onSelectCourse: (course: ThemeCourse) => void;
   activeCourseId: string | null;
-  playerLevel: number;
-  playerXp: number;
-  playerXpToNext: number;
   onRouteFound?: (payload: RouteDrawPayload) => void;
   onRouteClear?: () => void;
   presetDest?: { label: string; lat: number; lng: number } | null;
@@ -45,9 +42,6 @@ export default function Sidebar({
   onSelectPOI,
   onSelectCourse,
   activeCourseId,
-  playerLevel,
-  playerXp,
-  playerXpToNext,
   onRouteFound,
   onRouteClear,
   presetDest,
@@ -59,9 +53,7 @@ export default function Sidebar({
 
   useEffect(() => {
     if (presetDest || presetOrigin) onActiveTabChange("route");
-  }, [presetDest, presetOrigin]);
-
-  const xpPct = Math.min(100, Math.round((playerXp / playerXpToNext) * 100));
+  }, [onActiveTabChange, presetDest, presetOrigin]);
 
   return (
     <div className="fixed left-0 top-0 bottom-0 z-20 flex pointer-events-none overflow-x-hidden">
@@ -96,23 +88,6 @@ export default function Sidebar({
           })}
         </div>
 
-        {/* 플레이어 레벨 (하단) */}
-        <div className="shrink-0 border-t border-[#FDECC8] py-3 flex flex-col items-center gap-1.5">
-          <div className="w-10 h-10 rounded-xl bg-[#FE9C00] flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-[7px] font-display text-white/70 leading-none">Lv</div>
-              <div className="text-sm font-display font-bold text-white leading-tight">{playerLevel}</div>
-            </div>
-          </div>
-          {/* XP 바 */}
-          <div className="w-10 h-1.5 bg-[#FDECC8] rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${xpPct}%`, background: "linear-gradient(to right, #FE9C00, #D97706)" }}
-            />
-          </div>
-          <span className="text-[8px] font-display text-[#A8A29E]">{playerXp}XP</span>
-        </div>
       </div>
 
       {/* 패널 */}
@@ -142,4 +117,3 @@ export default function Sidebar({
     </div>
   );
 }
-

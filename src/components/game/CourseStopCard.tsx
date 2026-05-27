@@ -16,7 +16,7 @@ export default function CourseStopCard({ course, stop, stopIndex, onClose, onPre
   const total = course.stops.length;
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[380px] max-w-[92vw] z-20 animate-fade-up">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[380px] max-w-[92vw] z-20 animate-fade-up max-md:bottom-[92px] max-md:w-[calc(100vw-40px)] max-md:max-w-[360px]">
       <div className="bg-white rounded-2xl overflow-hidden shadow-xl border border-[#E5E1D8]">
         {/* 상단 컬러 바 */}
         <div className="h-1 w-full" style={{ background: course.color }} />

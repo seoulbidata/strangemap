@@ -180,8 +180,8 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
   if (!poi) return null;
 
   return (
-    <aside className="absolute top-0 bottom-0 right-0 w-[420px] max-w-[94vw] z-40 animate-fade-up">
-      <div className="h-full bg-white border-l border-[#E5E1D8] flex flex-col shadow-xl">
+    <aside className="absolute top-0 bottom-0 right-0 w-[420px] max-w-[94vw] z-40 animate-fade-up max-md:fixed max-md:inset-0 max-md:w-screen max-md:max-w-none">
+      <div className="h-full bg-white border-l border-[#E5E1D8] flex flex-col shadow-xl max-md:border-l-0">
         {/* 헤더 */}
         <div className="px-5 pt-5 pb-4 border-b border-[#E5E1D8]">
           <div className="flex items-start justify-between gap-3">

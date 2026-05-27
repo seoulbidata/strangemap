@@ -21,25 +21,25 @@ type CongestionType = "여유" | "보통" | "상관없음";
 // 카테고리별 파스텔 선택 색상 (bg, text, border)
 const CHIP_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   companion: { bg: "#B8D0E8", text: "#2C5F82", border: "#9BBDD9" },
-  ageGroup:  { bg: "#C8BFE8", text: "#4A3575", border: "#B4A9D9" },
-  time:      { bg: "#F5D5A8", text: "#7A4A10", border: "#E8C285" },
-  purpose:   { bg: "#B8DCCC", text: "#1E5E40", border: "#98CCAD" },
-  place:     { bg: "#B8DBD9", text: "#1E5252", border: "#96C8C6" },
-  congestion:{ bg: "#F0C0C8", text: "#7A2535", border: "#E0A0A8" },
+  ageGroup: { bg: "#C8BFE8", text: "#4A3575", border: "#B4A9D9" },
+  time: { bg: "#F5D5A8", text: "#7A4A10", border: "#E8C285" },
+  purpose: { bg: "#B8DCCC", text: "#1E5E40", border: "#98CCAD" },
+  place: { bg: "#B8DBD9", text: "#1E5252", border: "#96C8C6" },
+  congestion: { bg: "#F0C0C8", text: "#7A2535", border: "#E0A0A8" },
 };
 
 export default function AIQuestPanel() {
-  const [companion, setCompanion]   = useState<CompanionType>("친구");
-  const [ageGroup, setAgeGroup]     = useState<AgeGroupType>("20-30대");
-  const [time, setTime]             = useState<TimeType>("오후");
-  const [purpose, setPurpose]       = useState<PurposeType>("관광");
-  const [region, setRegion]         = useState<RegionType>("상관없음");
+  const [companion, setCompanion] = useState<CompanionType>("친구");
+  const [ageGroup, setAgeGroup] = useState<AgeGroupType>("20-30대");
+  const [time, setTime] = useState<TimeType>("오후");
+  const [purpose, setPurpose] = useState<PurposeType>("관광");
+  const [region, setRegion] = useState<RegionType>("상관없음");
   const [congestion, setCongestion] = useState<CongestionType>("상관없음");
 
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-  const [source, setSource]           = useState<"ai" | "mock" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<"ai" | "mock" | null>(null);
 
   const handleRecommend = async () => {
     setLoading(true);
@@ -149,7 +149,6 @@ export default function AIQuestPanel() {
               </>
             ) : (
               <>
-                <AIIcon className="w-4 h-4" />
                 서울로 추천 받기
               </>
             )}

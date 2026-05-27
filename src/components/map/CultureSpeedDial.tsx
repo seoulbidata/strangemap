@@ -39,22 +39,41 @@ export default function CultureSpeedDial({ activeCategory, onSelectCategory }: P
     onSelectCategory(activeCategory === cat ? null : cat);
   }
 
+  const activeColor = activeCategory ? CATEGORY_COLOR[activeCategory].active : "#2563EB";
+  const mainBtnStyle = activeCategory
+    ? {
+        backgroundColor: activeColor,
+        borderColor: activeColor,
+        color: "#ffffff",
+      }
+    : isOpen
+    ? {
+        backgroundColor: "#2563EB",
+        borderColor: "#1D4ED8",
+        color: "#ffffff",
+      }
+    : {
+        backgroundColor: "#ffffff",
+        borderColor: "#FDECC8",
+        color: "#6B7280",
+      };
+
+  const spanBg = activeCategory || isOpen ? "#ffffff" : "#2563EB";
+  const spanBorder = activeCategory || isOpen ? "rgba(255,255,255,0.5)" : "#1D4ED8";
+
   return (
     <div ref={ref} className="relative">
       {/* 메인 버튼 */}
       <button
         onClick={handleMainClick}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all whitespace-nowrap ${
-          isOpen || activeCategory
-            ? "bg-[#2563EB] text-white border-[#1D4ED8]"
-            : "bg-white text-[#6B7280] border-[#FDECC8] hover:border-[#2563EB] hover:text-[#2563EB]"
-        }`}
+        style={mainBtnStyle}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all whitespace-nowrap"
       >
         <span
           className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
           style={{
-            background: isOpen || activeCategory ? "#fff" : "#2563EB",
-            border: `2px solid ${isOpen || activeCategory ? "rgba(255,255,255,0.5)" : "#1D4ED8"}`,
+            background: spanBg,
+            border: `2px solid ${spanBorder}`,
           }}
         />
         {activeCategory ? CATEGORY_LABEL[activeCategory] : "문화행사 위치"}

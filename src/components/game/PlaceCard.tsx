@@ -14,7 +14,7 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
   const isNight = poi.source === "nightview";
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[420px] max-w-[92vw] z-20 animate-fade-up">
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[420px] max-w-[92vw] z-20 animate-fade-up max-md:bottom-[92px] max-md:w-[calc(100vw-40px)] max-md:max-w-[360px]">
       <div className={`bg-white rounded-2xl overflow-hidden shadow-xl border ${isQuestTarget ? "border-[#2563EB]" : "border-[#E5E1D8]"}`}>
         {/* 썸네일 */}
         {poi.thumbnail && (
@@ -93,13 +93,13 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
           <div className="mt-4 flex flex-col items-center gap-2">
             <button
               onClick={onAskAI}
-              className="w-[300px] h-[40px] rounded-xl text-sm font-semibold bg-[#FE9C00] text-white hover:bg-[#E08800] transition-colors"
+              className="w-[300px] max-w-full h-[40px] rounded-xl text-sm font-semibold bg-[#FE9C00] text-white hover:bg-[#E08800] transition-colors"
             >
               서울로에 물어보기
             </button>
             <button
               onClick={onSetDest}
-              className="w-[300px] h-[40px] rounded-xl text-sm font-medium bg-[#FFF1F2] border border-[#FECDD3] text-[#DC2626] hover:bg-[#FFE4E6] transition-colors"
+              className="w-[300px] max-w-full h-[40px] rounded-xl text-sm font-medium bg-[#FFF1F2] border border-[#FECDD3] text-[#DC2626] hover:bg-[#FFE4E6] transition-colors"
             >
               목적지로 설정하기
             </button>

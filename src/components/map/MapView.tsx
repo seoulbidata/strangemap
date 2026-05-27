@@ -363,10 +363,9 @@ export default function MapView() {
           prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
           continue;
         }
-        addLine(pts, color, 4, 0.62);
+        addLine(pts, color, 4, 0.8);
       } else {
-        addLine(pts, "#132018", 10, 0.18);
-        addLine(pts, color, 8, 0.92);
+        addLine(pts, color, 4, 0.8);
       }
       const markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;border:2px solid rgba(0,0,0,0.15);box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">${step.mode === "subway" ? "지하철" : "버스"} ${step.lineName}</div>`;
       addMarker(step.fromLat, step.fromLng, markerHtml);

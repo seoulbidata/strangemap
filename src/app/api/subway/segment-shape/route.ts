@@ -114,10 +114,22 @@ async function fetchStationMasterCoords(masterKey: string) {
   return coords;
 }
 
+const OSM_LINE_COMPONENTS: Record<string, string[]> = {
+  "경의중앙선": ["경의선", "중앙선", "경원선"],
+  "수인분당선": ["수인선", "분당선"],
+};
+
 function railNameMatches(tags: Record<string, string> | undefined, normalizedLine: string) {
   if (!tags) return false;
   const names = [tags.name, tags["name:ko"], tags.alt_name, tags["alt_name:ko"], tags.ref].filter(Boolean);
-  return names.some((name) => normalizeLineName(name) === normalizedLine);
+  
+  const allowedNames = [normalizedLine];
+  if (OSM_LINE_COMPONENTS[normalizedLine]) {
+    allowedNames.push(...OSM_LINE_COMPONENTS[normalizedLine]);
+  }
+  
+  const normalizedAllowed = allowedNames.map(n => normalizeLineName(n));
+  return names.some((name) => normalizedAllowed.includes(normalizeLineName(name)));
 }
 
 function escapeOverpassRegex(v: string) {
@@ -132,11 +144,19 @@ function makeRailQuery(lineName: string, points: Point[]) {
   const maxLng = Math.max(...points.map((p) => p.lng)) + margin;
   const bbox = `(${minLat},${minLng},${maxLat},${maxLng})`;
   const normalized = normalizeLineName(lineName);
+  
+  const components = [normalized];
+  if (OSM_LINE_COMPONENTS[normalized]) {
+    components.push(...OSM_LINE_COMPONENTS[normalized]);
+  }
+  
   const OVERPASS_DOT_ALIASES: Record<string, string> = {
     "경의중앙선": "경의.중앙선",
     "수인분당선": "수인.분당선",
   };
-  const lineRegex = OVERPASS_DOT_ALIASES[normalized] ?? escapeOverpassRegex(normalized);
+  const escapedComponents = components.map(c => OVERPASS_DOT_ALIASES[c] ?? escapeOverpassRegex(c));
+  const lineRegex = `(${escapedComponents.join("|")})`;
+  
   return `[out:json][timeout:25];(` +
     `way["railway"~"subway|light_rail|rail"]["name"~"${lineRegex}",i]${bbox};` +
     `way["railway"~"subway|light_rail|rail"]["name:ko"~"${lineRegex}",i]${bbox};` +

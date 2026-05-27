@@ -21,6 +21,7 @@ export async function callKananaWithFallback(
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: "kanana-o", messages, max_tokens: maxTokens }),
+        signal: AbortSignal.timeout(6000), // 6초 타임아웃
       });
       if (response.status === 429) {
         console.warn("[Kanana] rate limit on key, trying next...");

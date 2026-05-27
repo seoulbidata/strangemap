@@ -1,8 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { callKananaWithFallback } from "@/lib/kanana";
+import { incrementAIUsage } from "@/lib/aiUsage";
+import {
+  extractJsonArrayText,
+  generateOpenRouterJsonText,
+  parseJsonWithEscapedControlChars,
+} from "@/lib/gemini";
 
 const SYSTEM_MSG = "당신은 서울시의 가이드이자 서울시 내의 컨텐츠를 추천하는 전문가입니다. 제공된 장소와 정보 안에서만 사용자 상황에 맞는 활동을 추천하세요. JSON 배열로만 응답하고 다른 텍스트는 출력하지 마세요.";
+
+const SUGGESTION_SCHEMA = {
+  type: "ARRAY",
+  items: {
+    type: "OBJECT",
+    properties: {
+      title: { type: "STRING" },
+      place: { type: "STRING" },
+      duration: { type: "STRING" },
+      description: { type: "STRING" },
+      reason: { type: "STRING" },
+      tags: { type: "ARRAY", items: { type: "STRING" } },
+    },
+    required: ["title", "place", "duration", "description", "reason", "tags"],
+  },
+};
 
 export interface Suggestion {
   title: string;
@@ -226,9 +248,11 @@ ${candidateLines}
 - 위 장소 목록에서만 골라서 추천. 목록에 없는 장소명은 사용 금지.
 - place 필드에는 목록의 장소명을 그대로 사용해.
 - 사용자 상황(누구랑·나이대·시간대·목적)에 딱 맞는 장소 위주로 선택.
-- 팸플릿 문체 금지, 친구가 말하듯 자연스럽게.
-- description은 2~3문장, reason은 이 조합에 특히 맞는 이유 1문장.
-- tags는 핵심 키워드 3~4개.
+- 팸플릿이나 기계적인 문체는 엄격히 금지하며, 그 동네를 잘 아는 친근한 서울 토박이 친구가 조근조근 말해주는 듯 다정한 어조로 작성해줘.
+- title: 단순한 장소명 나열이 아닌, 사용자가 클릭하고 싶게 만드는 호기심 자극형 감성 제목(예: "해 질 녘 골목길을 따라 걷는 힐링 산책")으로 참신하게 지어줘.
+- description: 친근하고 다정한 친구 말투로 장소의 매력과 현장 분위기를 딱 2~3문장으로 생생하게 작성해줘. 단순히 사실만 나열하지 말고 핵심 감성 묘사를 가미해 충분히 매력적이면서도 너무 장황하지 않도록 명료하고 알차게 채워줘.
+- reason: 현재 상황(시간대·동행인·목적)에 이 장소가 왜 찰떡궁합인지 다정하고 설득력 있게 딱 1문장으로 적어줘.
+- tags: 핵심 키워드 3~4개.
 
 [출력 형식 — 다른 텍스트 없이 JSON 배열만]
 [
@@ -236,8 +260,8 @@ ${candidateLines}
     "title": "활동 제목",
     "place": "장소명 (목록 그대로)",
     "duration": "약 X시간",
-    "description": "활동 설명 2~3문장",
-    "reason": "이 상황에 특히 좋은 이유 1문장",
+    "description": "활동 설명 딱 2~3문장 (너무 장황하지 않고 생생하게)",
+    "reason": "이 상황에 특히 좋은 이유 딱 1문장",
     "tags": ["태그1", "태그2", "태그3"]
   },
   { ... },
@@ -248,15 +272,11 @@ ${candidateLines}
 // ── AI 호출 ──────────────────────────────────────────────────────────────────
 
 function parseAIResponse(text: string): Suggestion[] | null {
-  const arrMatch = text.match(/\[[\s\S]*\]/);
-  if (!arrMatch) return null;
-  try {
-    const parsed = JSON.parse(arrMatch[0]);
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    return parsed.slice(0, 3) as Suggestion[];
-  } catch {
-    return null;
-  }
+  const arrText = extractJsonArrayText(text);
+  if (!arrText) return null;
+  const parsed = parseJsonWithEscapedControlChars<unknown>(arrText);
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
+  return parsed.slice(0, 3) as Suggestion[];
 }
 
 async function callKanana(prompt: string): Promise<Suggestion[] | null> {
@@ -288,6 +308,18 @@ async function callLMStudio(prompt: string): Promise<Suggestion[] | null> {
   const data = await response.json();
   const text: string = data.choices?.[0]?.text ?? "";
   console.log("[LMStudio:recommend] raw:", text.slice(0, 200));
+  return parseAIResponse(text);
+}
+
+async function callOpenRouter(prompt: string): Promise<Suggestion[] | null> {
+  const text = await generateOpenRouterJsonText({
+    prompt,
+    systemInstruction: SYSTEM_MSG,
+    maxOutputTokens: 2500,
+    responseSchema: SUGGESTION_SCHEMA,
+  });
+  if (!text) return null;
+  console.log("[OpenRouter:recommend] raw:", text.slice(0, 200));
   return parseAIResponse(text);
 }
 
@@ -350,7 +382,8 @@ export async function POST(req: NextRequest) {
 
   const kananaKey = process.env.KANANA_API_KEY || process.env.KANANA_API_KEY_2;
   let suggestions: Suggestion[] | null = null;
-  if (kananaKey) {
+  suggestions = await callOpenRouter(prompt).catch(() => null);
+  if (!suggestions && kananaKey) {
     suggestions = await callKanana(prompt).catch(() => null);
     console.log("[Kanana:recommend] result:", suggestions ? `${suggestions.length}개` : "null");
   }
@@ -360,6 +393,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (suggestions) {
+    // 로컬 사용량 카운트 증가
+    incrementAIUsage();
+
     // 화이트리스트 검증: 응답 장소가 실제 후보 목록에 있는지 확인
     const validNames = new Set(candidates.map((c) => c.displayName));
     const validated = suggestions.filter((s) =>

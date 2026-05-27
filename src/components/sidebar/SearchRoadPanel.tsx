@@ -522,11 +522,9 @@ function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
   // 2. 최단 시간 경로 선정
   const fastest = scored.reduce((a, b) => a.time < b.time ? a : b, scored[0]);
 
-  // 3. 라벨 부여
-  if (recommended === fastest) {
-    pick(recommended, "최적 및 최단 경로");
-  } else {
-    pick(recommended, "서울로의 추천경로");
+  // 3. 라벨 부여 (최고 밸런스 추천 경로를 언제나 "서울로의 추천경로"로 최우선 보장)
+  pick(recommended, "서울로의 추천경로");
+  if (fastest !== recommended) {
     pick(fastest, "최단시간 경로");
   }
 
@@ -824,7 +822,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
             {currentRoute.paths.map((step, idx) => {
               const rt = stepArrivals[realtimeKey(step)];
               const stopLabel = step.railLinkCount > 0
-                ? ` · ${step.railLinkCount}개 ${step.mode === "subway" ? "역" : "정류장"} 이동`
+                ? ` · ${step.railLinkCount}개 ${step.mode === "subway" ? "역" : "정류장"} 이동 후 도착`
                 : "";
               const detailText = `${step.lineName}${stopLabel}`;
               return (

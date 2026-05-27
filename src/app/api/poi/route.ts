@@ -59,6 +59,7 @@ export async function GET() {
       fee: r.USE_FEE || "무료",
       thumbnail: r.MAIN_IMG,
       link: r.HMPG_ADDR,
+      operating_time: r.PRO_TIME || undefined,
     }));
 
   const nightviewPath = path.join(process.cwd(), "public/data/nightview.json");

@@ -120,6 +120,7 @@ async function fetchRealEvents(
         (r.STRTDATE && r.END_DATE
           ? `${r.STRTDATE.slice(0, 10)} ~ ${r.END_DATE.slice(0, 10)}`
           : ""),
+      time: r.PRO_TIME || undefined,
       link: r.HMPG_ADDR || undefined,
       fee: r.USE_FEE || "무료",
       _distKm: Math.round(dist * 10) / 10,

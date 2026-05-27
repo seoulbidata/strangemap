@@ -61,6 +61,7 @@ export interface AIEvent {
   title: string;
   desc: string;
   period: string;
+  time?: string;
   link?: string;
   fee?: string;
   _distKm?: number;

@@ -234,6 +234,9 @@ async function fetchStepPolyline(step: TransitPath): Promise<{ lat: number; lng:
       params.set("routeId", step.routeId);
       const res = await fetch(`/api/bus/segment-shape?${params}`);
       const data = await res.json();
+      if (data && typeof data.stopCount === "number") {
+        step.railLinkCount = data.stopCount;
+      }
       return (data.points ?? []) as { lat: number; lng: number }[];
     }
 
@@ -783,12 +786,16 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
             )}
             {currentRoute.paths.map((step, idx) => {
               const rt = stepArrivals[realtimeKey(step)];
+              const stopLabel = step.railLinkCount > 0
+                ? ` · ${step.railLinkCount}개 ${step.mode === "subway" ? "역" : "정류장"} 이동`
+                : "";
+              const detailText = `${step.lineName}${stopLabel}`;
               return (
                 <StepItem
                   key={idx}
                   icon={step.mode === "walk" ? "도보" : step.mode === "subway" ? "지하철" : "버스"}
                   label={`${step.fromName} → ${step.toName}`}
-                  detail={step.lineName}
+                  detail={detailText}
                   color={getLineColor(step)}
                   congestion={step.mode === "walk" ? undefined : rt?.congestion ?? step.congestion ?? estimateCongestion(step)}
                   arrivals={step.arrivals}

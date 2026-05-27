@@ -87,10 +87,11 @@ export async function GET(request: NextRequest) {
     const toIdx = stations.findIndex((s) => s.id === toId);
 
     if (fromIdx === -1 || toIdx === -1) {
-      return NextResponse.json({ status: "OK", routeId, points: [] });
+      return NextResponse.json({ status: "OK", routeId, stopCount: 0, points: [] });
     }
 
     const stationSlice = sliceCircular(stations, fromIdx, toIdx);
+    const stopCount = Math.max(0, stationSlice.length - 1);
 
     if (routePath.length >= 2 && stationSlice.length >= 2) {
       const startIdx = nearestIndex(routePath, stationSlice[0]);
@@ -105,11 +106,11 @@ export async function GET(request: NextRequest) {
       const pathSlice = wrappedDistance < forwardDistance ? wrappedSlice : forwardSlice;
       const pathIsReasonable = stationDistance === 0 || pathDistance(pathSlice) <= stationDistance * 4;
       if (pathSlice.length >= 2) {
-        return NextResponse.json({ status: "OK", routeId, points: pathIsReasonable ? pathSlice : stationSlice });
+        return NextResponse.json({ status: "OK", routeId, stopCount, points: pathIsReasonable ? pathSlice : stationSlice });
       }
     }
 
-    return NextResponse.json({ status: "OK", routeId, points: stationSlice });
+    return NextResponse.json({ status: "OK", routeId, stopCount, points: stationSlice });
   } catch (e) {
     return NextResponse.json({ error: "BUS_SEGMENT_SHAPE_ERROR", message: String(e) }, { status: 502 });
   }

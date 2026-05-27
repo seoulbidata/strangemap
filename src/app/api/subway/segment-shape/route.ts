@@ -117,6 +117,8 @@ async function fetchStationMasterCoords(masterKey: string) {
 const OSM_LINE_COMPONENTS: Record<string, string[]> = {
   "경의중앙선": ["경의선", "중앙선", "경원선"],
   "수인분당선": ["수인선", "분당선"],
+  "경춘선": ["경춘선", "중앙선"],
+  "서해선": ["서해선", "경의선"],
 };
 
 function railNameMatches(tags: Record<string, string> | undefined, normalizedLine: string) {

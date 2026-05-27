@@ -232,6 +232,16 @@ async function fetchStepPolyline(step: TransitPath): Promise<{ lat: number; lng:
     if (step.mode === "bus") {
       if (!step.routeId) return step.polyline ?? [];
       params.set("routeId", step.routeId);
+      params.set("fromName", step.fromName);
+      params.set("toName", step.toName);
+      if (step.fromLat != null && step.fromLng != null) {
+        params.set("fromLat", String(step.fromLat));
+        params.set("fromLng", String(step.fromLng));
+      }
+      if (step.toLat != null && step.toLng != null) {
+        params.set("toLat", String(step.toLat));
+        params.set("toLng", String(step.toLng));
+      }
       const res = await fetch(`/api/bus/segment-shape?${params}`);
       const data = await res.json();
       if (data && typeof data.stopCount === "number") {

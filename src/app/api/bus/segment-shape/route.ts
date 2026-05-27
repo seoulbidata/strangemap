@@ -66,11 +66,22 @@ function sliceCircular<T>(items: T[], startIdx: number, endIdx: number): T[] {
   return startIdx <= endIdx ? items.slice(startIdx, endIdx + 1) : [...items.slice(startIdx), ...items.slice(0, endIdx + 1)];
 }
 
+function normalizeStationName(v: string) {
+  return v
+    .replace(/\(.+?\)/g, "")
+    .replace(/역$/, "")
+    .replace(/정류장$/, "")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const routeId = p.get("routeId")?.trim() ?? "";
   const fromId = p.get("fromId")?.trim() ?? "";
   const toId = p.get("toId")?.trim() ?? "";
+  const fromName = p.get("fromName")?.trim() ?? "";
+  const toName = p.get("toName")?.trim() ?? "";
 
   if (!routeId || !fromId || !toId) {
     return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
@@ -83,8 +94,15 @@ export async function GET(request: NextRequest) {
       fetchBusRoutePath(routeId),
     ]);
 
-    const fromIdx = stations.findIndex((s) => s.id === fromId);
-    const toIdx = stations.findIndex((s) => s.id === toId);
+    let fromIdx = stations.findIndex((s) => s.id === fromId);
+    let toIdx = stations.findIndex((s) => s.id === toId);
+
+    if (fromIdx === -1 && fromName) {
+      fromIdx = stations.findIndex((s) => normalizeStationName(s.name) === normalizeStationName(fromName));
+    }
+    if (toIdx === -1 && toName) {
+      toIdx = stations.findIndex((s) => normalizeStationName(s.name) === normalizeStationName(toName));
+    }
 
     if (fromIdx === -1 || toIdx === -1) {
       return NextResponse.json({ status: "OK", routeId, stopCount: 0, points: [] });

@@ -45,6 +45,18 @@ export default function MobilePanel({
   const [isDragging, setIsDragging] = useState(false);
   const startTouchY = useRef(0);
   const startTranslateY = useRef(0);
+  const [viewportHeight, setViewportHeight] = useState(800);
+
+  // Track viewport height on mobile browsers to handle dynamic address bars
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setViewportHeight(window.innerHeight);
+    const handleResize = () => {
+      setViewportHeight(window.innerHeight);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Keep track of the last active tab to prevent contents from vanishing during slide-down animation
   useEffect(() => {
@@ -60,9 +72,8 @@ export default function MobilePanel({
 
   // Calculate pixel translation based on snap state
   const getSnapTranslation = useCallback((state: SnapState) => {
-    if (typeof window === "undefined") return 800;
-    const H = window.innerHeight;
-    const maxH = H * 0.88; // Maximum height (88vh)
+    const H = viewportHeight;
+    const maxH = H * 0.88; // Maximum height
     
     if (state === "closed") return maxH;
     if (state === "max") return 0;
@@ -70,12 +81,16 @@ export default function MobilePanel({
     // medium state height
     const mediumH = displayTab === "search" ? H * 0.50 : H * 0.70;
     return maxH - mediumH;
-  }, [displayTab]);
+  }, [displayTab, viewportHeight]);
 
   if (!displayTab) return null;
 
   // Touch Event Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
+    // If the touch target is a button or inside a button (like the close icon), do not drag.
+    if ((e.target as HTMLElement).closest("button")) {
+      return;
+    }
     const touch = e.touches[0];
     startTouchY.current = touch.clientY;
     startTranslateY.current = getSnapTranslation(snap);
@@ -89,10 +104,7 @@ export default function MobilePanel({
     const deltaY = touch.clientY - startTouchY.current;
     
     const newTranslate = startTranslateY.current + deltaY;
-    
-    if (typeof window === "undefined") return;
-    const H = window.innerHeight;
-    const maxH = H * 0.88;
+    const maxH = viewportHeight * 0.88;
     
     // Constrain drag between 0 (max snap) and maxH (closed snap)
     const constrained = Math.max(0, Math.min(newTranslate, maxH));
@@ -100,8 +112,9 @@ export default function MobilePanel({
   };
 
   const handleTouchEnd = () => {
+    if (!isDragging) return;
     setIsDragging(false);
-    if (typeof window === "undefined") return;
+    
     const currentTranslate = startTranslateY.current + dragY;
     
     // Snap to the closest point
@@ -151,10 +164,11 @@ export default function MobilePanel({
 
   return (
     <div
-      className={`fixed left-0 right-0 bottom-0 z-30 h-[88vh] rounded-t-[32px] border-t border-[#FDECC8] bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.12)] md:hidden flex flex-col ${
+      className={`fixed left-0 right-0 bottom-0 z-30 rounded-t-[32px] border-t border-[#FDECC8] bg-white shadow-[0_-10px_30px_rgba(0,0,0,0.12)] md:hidden flex flex-col ${
         isPointerEventsActive ? "pointer-events-auto" : "pointer-events-none"
       }`}
       style={{
+        height: `${viewportHeight * 0.88}px`,
         transform: `translateY(${currentTranslation}px)`,
         transition: isDragging ? "none" : "transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)",
       }}

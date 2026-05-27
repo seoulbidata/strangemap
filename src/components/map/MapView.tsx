@@ -219,10 +219,13 @@ export default function MapView() {
           anchor: new naver.maps.Point(13, 13),
         },
       });
-      naver.maps.Event.addListener(marker, "click", () => setSelected(poi));
+      naver.maps.Event.addListener(marker, "click", () => {
+        setSelected(poi);
+        if (isMobile) setSidebarActiveTab(null);
+      });
       cultureMarkersRef.current.push(marker);
     });
-  }, [activeCultureCategory, mapReady]);
+  }, [activeCultureCategory, mapReady, isMobile]);
 
   // 야경명소 마커 — showNight 토글에 반응
   useEffect(() => {
@@ -243,10 +246,13 @@ export default function MapView() {
             anchor: new naver.maps.Point(8, 8),
           },
         });
-        naver.maps.Event.addListener(marker, "click", () => setSelected(poi));
+        naver.maps.Event.addListener(marker, "click", () => {
+          setSelected(poi);
+          if (isMobile) setSidebarActiveTab(null);
+        });
         markersRef.current.push(marker);
       });
-  }, [showNight, mapReady, clearMarkers]);
+  }, [showNight, mapReady, clearMarkers, isMobile]);
 
   // 퀘스트 마커
   useEffect(() => {
@@ -274,15 +280,16 @@ export default function MapView() {
         },
       });
 
-      naver.maps.Event.addListener(marker, "click", () =>
-        setSelected({ id: obj.poiId, name: obj.poiName, category: "퀘스트 지점", source: "nightview", lat: obj.lat, lng: obj.lng, place: obj.hint, fee: "" } as POIItem)
-      );
+      naver.maps.Event.addListener(marker, "click", () => {
+        setSelected({ id: obj.poiId, name: obj.poiName, category: "퀘스트 지점", source: "nightview", lat: obj.lat, lng: obj.lng, place: obj.hint, fee: "" } as POIItem);
+        if (isMobile) setSidebarActiveTab(null);
+      });
       questMarkersRef.current.push(marker);
     });
 
     const cur = activeQuest.objectives[currentObjIndex];
     if (cur) mapInstance.current?.panTo(new naver.maps.LatLng(cur.lat, cur.lng));
-  }, [activeQuest, currentObjIndex, mapReady, clearQuestMarkers]);
+  }, [activeQuest, currentObjIndex, mapReady, clearQuestMarkers, isMobile]);
 
   // 테마 코스 마커 + 방향 화살표
   useEffect(() => {
@@ -321,9 +328,10 @@ export default function MapView() {
         },
       });
 
-      naver.maps.Event.addListener(marker, "click", () =>
-        setSelected({ id: `course_${i}`, name: stop.name, category: "테마 코스", source: "nightview", lat: stop.lat, lng: stop.lng, place: stop.description, fee: stop.duration } as POIItem)
-      );
+      naver.maps.Event.addListener(marker, "click", () => {
+        setSelected({ id: `course_${i}`, name: stop.name, category: "테마 코스", source: "nightview", lat: stop.lat, lng: stop.lng, place: stop.description, fee: stop.duration } as POIItem);
+        if (isMobile) setSidebarActiveTab(null);
+      });
       courseMarkersRef.current.push(marker);
     });
 

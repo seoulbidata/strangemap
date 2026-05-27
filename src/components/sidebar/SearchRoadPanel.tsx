@@ -532,16 +532,27 @@ function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
     return bScore > aScore || (bScore === aScore && b.time < a.time) ? b : a;
   }, scored[0]);
 
+  // 3순위까지 라벨 부여 (최고 밸런스 추천 경로를 언제나 "서울로의 추천경로"로 최우선 보장)
+  pick(recommended, "서울로의 추천경로");
+
   // 2. 최단 시간 경로 선정
   const fastest = scored.reduce((a, b) => a.time < b.time ? a : b, scored[0]);
-
-  // 3. 라벨 부여 (최고 밸런스 추천 경로를 언제나 "서울로의 추천경로"로 최우선 보장)
-  pick(recommended, "서울로의 추천경로");
   if (fastest !== recommended) {
     pick(fastest, "최단시간 경로");
+  } else {
+    // 추천 경로와 최단 시간 경로가 같을 경우, 남은 경로 중 다음으로 가장 빠른 대안 경로를 선정하여 "빠른 대안 경로"로 표시
+    const nextFastest = scored
+      .filter((r) => r !== recommended)
+      .reduce((a: TransitRoute | null, b) => {
+        if (!a) return b;
+        return b.time < a.time ? b : a;
+      }, null);
+    if (nextFastest) {
+      pick(nextFastest, "빠른 대안 경로");
+    }
   }
 
-  // 4. 가장 쾌적한 경로: 이미 선택된 추천/최단 경로 제외, 혼잡도가 가장 낮은 경로 선정
+  // 4. 가장 쾌적한 경로: 이미 선택된 추천/대안 경로 제외, 혼잡도가 가장 낮은 경로 선정
   const smoothest = scored.filter((r) => !selected.includes(r)).reduce((a: TransitRoute | null, b) => {
     if (!a) return b;
     const aCong = a.congestion?.score ?? 50;
@@ -551,6 +562,17 @@ function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
 
   if (smoothest) {
     pick(smoothest, "가장 쾌적한 경로");
+  }
+
+  // 5. 만약 3개의 대안 경로가 아직 다 채워지지 않았는데 추가 경로 후보가 있다면, 남은 경로들을 순서대로 "대안 경로"로 채워서 3개를 보장
+  if (selected.length < 3) {
+    const remaining = scored
+      .filter((r) => !selected.includes(r))
+      .sort((a, b) => recommendationScore(b) - recommendationScore(a));
+    for (const r of remaining) {
+      if (selected.length >= 3) break;
+      pick(r, "대안 경로");
+    }
   }
 
   return selected;
@@ -563,10 +585,12 @@ function renderAlternativeLabel(label?: string) {
     bgClass = "bg-[#FEF3C7] text-[#D97706] border-[#FDECC8]";
   } else if (label === "서울로의 추천경로") {
     bgClass = "bg-[#FE9C00] text-white border-[#FE9C00] shadow-sm";
-  } else if (label === "최단시간 경로") {
+  } else if (label === "최단시간 경로" || label === "빠른 대안 경로") {
     bgClass = "bg-[#F3E8FF] text-[#7E22CE] border-[#E9D5FF]";
   } else if (label === "가장 쾌적한 경로") {
     bgClass = "bg-[#D1FAE5] text-[#047857] border-[#A7F3D0]";
+  } else if (label === "대안 경로") {
+    bgClass = "bg-[#EFF6FF] text-[#1B3A6B] border-[#EFF6FF]";
   }
 
   return (

@@ -493,6 +493,18 @@ function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
     return { ...r, congestion: scoreToLabel(avg) };
   });
 
+  if (scored.length === 0) return [];
+
+  const minTime = Math.min(...scored.map((r) => r.time));
+  const maxTime = Math.max(...scored.map((r) => r.time));
+  const recommendationScore = (route: TransitRoute) => {
+    const congestionScore = 100 - (route.congestion?.score ?? 50);
+    const timeScore = maxTime === minTime ? 100 : ((maxTime - route.time) / (maxTime - minTime)) * 100;
+    const transfers = countRouteTransfers(route);
+    // 5:5 비율 반영 및 환승 1회당 10점 페널티 적용
+    return congestionScore * 0.5 + timeScore * 0.5 - transfers * 10;
+  };
+
   const selected: TransitRoute[] = [];
   const pick = (r: TransitRoute | undefined, label: string) => {
     if (!r || selected.includes(r)) return;
@@ -500,32 +512,57 @@ function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
     selected.push(r);
   };
 
-  const fastest = scored.reduce((a, b) => a.time < b.time ? a : b, scored[0]);
-  pick(fastest, "최단시간 경로");
-
-  const smoothest = scored.filter((r) => r !== fastest).reduce((a: TransitRoute | null, b) => {
-    if (!a) return b;
-    return (b.congestion!.score < a.congestion!.score || (b.congestion!.score === a.congestion!.score && b.time < a.time)) ? b : a;
-  }, null);
-  if (smoothest) pick(smoothest, "가장 원활한 경로");
-
-  const minTime = Math.min(...scored.map((r) => r.time));
-  const maxTime = Math.max(...scored.map((r) => r.time));
-  const recommendationScore = (route: TransitRoute) => {
-    const congestionScore = 100 - (route.congestion?.score ?? 50);
-    const timeScore = maxTime === minTime ? 100 : ((maxTime - route.time) / (maxTime - minTime)) * 100;
-    return congestionScore * 0.7 + timeScore * 0.3;
-  };
-
-  const recommended = scored.filter((r) => !selected.includes(r)).reduce((a: TransitRoute | null, b) => {
-    if (!a) return b;
+  // 1. 추천 경로: 5:5 밸런스 점수가 가장 높은 경로를 1순위로 선정 (Score-First)
+  const recommended = scored.reduce((a, b) => {
     const aScore = recommendationScore(a);
     const bScore = recommendationScore(b);
     return bScore > aScore || (bScore === aScore && b.time < a.time) ? b : a;
+  }, scored[0]);
+
+  // 2. 최단 시간 경로 선정
+  const fastest = scored.reduce((a, b) => a.time < b.time ? a : b, scored[0]);
+
+  // 3. 라벨 부여
+  if (recommended === fastest) {
+    pick(recommended, "최적 및 최단 경로");
+  } else {
+    pick(recommended, "서울로의 추천경로");
+    pick(fastest, "최단시간 경로");
+  }
+
+  // 4. 가장 쾌적한 경로: 이미 선택된 추천/최단 경로 제외, 혼잡도가 가장 낮은 경로 선정
+  const smoothest = scored.filter((r) => !selected.includes(r)).reduce((a: TransitRoute | null, b) => {
+    if (!a) return b;
+    const aCong = a.congestion?.score ?? 50;
+    const bCong = b.congestion?.score ?? 50;
+    return (bCong < aCong || (bCong === aCong && b.time < a.time)) ? b : a;
   }, null);
-  if (recommended) pick(recommended, "서울로의 추천경로");
+
+  if (smoothest) {
+    pick(smoothest, "가장 쾌적한 경로");
+  }
 
   return selected;
+}
+
+function renderAlternativeLabel(label?: string) {
+  if (!label) return null;
+  let bgClass = "bg-[#EFF6FF] text-[#1B3A6B] border-[#EFF6FF]";
+  if (label === "최적 및 최단 경로") {
+    bgClass = "bg-[#FEF3C7] text-[#D97706] border-[#FDECC8]";
+  } else if (label === "서울로의 추천경로") {
+    bgClass = "bg-[#EFF6FF] text-[#1D4ED8] border-[#DBEAFE]";
+  } else if (label === "최단시간 경로") {
+    bgClass = "bg-[#F3E8FF] text-[#7E22CE] border-[#E9D5FF]";
+  } else if (label === "가장 쾌적한 경로") {
+    bgClass = "bg-[#D1FAE5] text-[#047857] border-[#A7F3D0]";
+  }
+
+  return (
+    <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md border ${bgClass}`}>
+      {label}
+    </span>
+  );
 }
 
 /* ---- 컴포넌트 ---- */
@@ -762,7 +799,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
                 className={`w-full text-left rounded-xl p-2.5 border transition-all ${idx === selectedIdx ? "border-[#1B3A6B] bg-[#EFF6FF]" : "border-[#FDECC8] bg-white hover:bg-[#FFF8E7]"}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#1B3A6B]">{alt.alternativeLabel}</span>
+                  {renderAlternativeLabel(alt.alternativeLabel)}
                   <span className="text-[11px] text-[#A8A29E]">{alt.time}분</span>
                 </div>
                 <div className="text-[10px] text-[#A8A29E] mt-0.5">

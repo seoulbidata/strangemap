@@ -363,17 +363,35 @@ function getBusColor(name: string, type?: string): string {
   return BUS_COLORS.city;
 }
 
+/** routeId/lineName 기반 결정적 해시 → 노선마다 고정적인 편차를 부여 */
+function routeHash(step: TransitPath): number {
+  const seed = (step.routeId || step.lineName || step.fromName || "x").slice(0, 12);
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h * 31 + seed.charCodeAt(i)) & 0x7fffffff;
+  }
+  return h;
+}
+
 function estimateCongestion(step: TransitPath): CongestionInfo {
   if (step.mode === "walk") return { score: 0, label: "도보", color: "#8a968e" };
   const h = new Date().getHours();
   const day = new Date().getDay();
   const isWeekday = day >= 1 && day <= 5;
   const isRush = isWeekday && ((h >= 7 && h <= 9) || (h >= 17 && h <= 20));
-  let score = step.mode === "subway" ? 46 : 40;
-  if (isRush) score += 24;
+
+  // 노선별 편차: 해시로 -14 ~ +14 사이의 고정 오프셋 부여 (같은 노선은 항상 같은 값)
+  const variance = (routeHash(step) % 29) - 14;
+
+  let score = step.mode === "subway" ? 44 : 38;
+  if (isRush) score += step.mode === "subway" ? 20 : 16;
   if (/2호선|9호선|신분당선|1호선/.test(step.lineName)) score += 8;
-  if (/강남|잠실|홍대입구|서울역|시청|고속터미널|사당|신도림|여의도|왕십리/.test([step.lineName, step.fromName, step.toName].join(" "))) score += 10;
-  return scoreToLabel(Math.min(score, 100));
+  if (/강남|잠실|홍대입구|서울역|시청|고속터미널|사당|신도림|여의도|왕십리/.test(
+    [step.lineName, step.fromName, step.toName].join(" ")
+  )) score += 10;
+
+  score += variance;
+  return scoreToLabel(Math.max(5, Math.min(score, 100)));
 }
 
 function scoreToLabel(score: number): CongestionInfo {

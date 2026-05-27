@@ -94,14 +94,39 @@ export async function GET(request: NextRequest) {
       fetchBusRoutePath(routeId),
     ]);
 
-    let fromIdx = stations.findIndex((s) => s.id === fromId);
-    let toIdx = stations.findIndex((s) => s.id === toId);
+    // 모든 매칭되는 인덱스를 찾아서 정방향(fromIdx < toIdx)으로 가장 가깝게 연결되는 쌍을 검색
+    const fromIndices: number[] = [];
+    const toIndices: number[] = [];
+    stations.forEach((s, idx) => {
+      if (s.id === fromId || (fromName && normalizeStationName(s.name) === normalizeStationName(fromName))) {
+        fromIndices.push(idx);
+      }
+      if (s.id === toId || (toName && normalizeStationName(s.name) === normalizeStationName(toName))) {
+        toIndices.push(idx);
+      }
+    });
 
-    if (fromIdx === -1 && fromName) {
-      fromIdx = stations.findIndex((s) => normalizeStationName(s.name) === normalizeStationName(fromName));
+    let fromIdx = -1;
+    let toIdx = -1;
+    let minDiff = Infinity;
+
+    for (const f of fromIndices) {
+      for (const t of toIndices) {
+        if (f < t) {
+          const diff = t - f;
+          if (diff < minDiff) {
+            minDiff = diff;
+            fromIdx = f;
+            toIdx = t;
+          }
+        }
+      }
     }
-    if (toIdx === -1 && toName) {
-      toIdx = stations.findIndex((s) => normalizeStationName(s.name) === normalizeStationName(toName));
+
+    // 만약 정방향 매칭에 실패한 경우 기존의 단순 findIndex 방식으로 Fallback
+    if (fromIdx === -1 || toIdx === -1) {
+      fromIdx = stations.findIndex((s) => s.id === fromId || (fromName && normalizeStationName(s.name) === normalizeStationName(fromName)));
+      toIdx = stations.findIndex((s) => s.id === toId || (toName && normalizeStationName(s.name) === normalizeStationName(toName)));
     }
 
     if (fromIdx === -1 || toIdx === -1) {

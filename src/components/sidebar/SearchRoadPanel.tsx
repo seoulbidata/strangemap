@@ -828,17 +828,38 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
                 ? ` · ${step.railLinkCount}개 ${step.mode === "subway" ? "역" : "정류장"} 이동 후 도착`
                 : "";
               const detailText = `${step.lineName}${stopLabel}`;
+              const prevStep = idx > 0 ? currentRoute.paths[idx - 1] : null;
+              const isTransfer = prevStep && 
+                (prevStep.mode !== "walk" && step.mode !== "walk") && 
+                (prevStep.lineName !== step.lineName);
+
+              const fromStation = prevStep && (
+                prevStep.toName.endsWith("역") || prevStep.toName.endsWith("정류장")
+                  ? prevStep.toName
+                  : prevStep.toName + (prevStep.mode === "subway" ? "역" : " 정류장")
+              );
+
               return (
-                <StepItem
-                  key={idx}
-                  icon={step.mode === "walk" ? "도보" : step.mode === "subway" ? "지하철" : "버스"}
-                  label={`${step.fromName} → ${step.toName}`}
-                  detail={detailText}
-                  color={getLineColor(step)}
-                  congestion={step.mode === "walk" ? undefined : rt?.congestion ?? step.congestion ?? estimateCongestion(step)}
-                  arrivals={step.arrivals}
-                  realtimeInfo={rt}
-                />
+                <div key={idx} className="space-y-1.5">
+                  {isTransfer && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] animate-fade-in">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
+                      <span className="text-[10px] font-bold text-[#1E40AF]">
+                        {fromStation}에서 {step.lineName}(으)로 환승
+                      </span>
+                      <span className="ml-auto text-[8px] text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-1 rounded font-bold">환승</span>
+                    </div>
+                  )}
+                  <StepItem
+                    icon={step.mode === "walk" ? "도보" : step.mode === "subway" ? "지하철" : "버스"}
+                    label={`${step.fromName} → ${step.toName}`}
+                    detail={detailText}
+                    color={getLineColor(step)}
+                    congestion={step.mode === "walk" ? undefined : rt?.congestion ?? step.congestion ?? estimateCongestion(step)}
+                    arrivals={step.arrivals}
+                    realtimeInfo={rt}
+                  />
+                </div>
               );
             })}
             {dest && (

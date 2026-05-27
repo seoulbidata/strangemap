@@ -342,7 +342,8 @@ export default function MapView() {
     };
 
     let prev = { lat: org.lat, lng: org.lng };
-    for (const step of route.paths) {
+    for (let idx = 0; idx < route.paths.length; idx++) {
+      const step = route.paths[idx];
       if (step.fromLat == null || step.fromLng == null) continue;
       addLine([prev, { lat: step.fromLat, lng: step.fromLng }], "#8a968e", 3, 0.7);
       const color = getRouteColor(step);
@@ -359,7 +360,20 @@ export default function MapView() {
       }
 
       addLine(pts, color, 4, 0.8);
-      const markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;border:2px solid rgba(0,0,0,0.15);box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">${step.mode === "subway" ? "지하철" : "버스"} ${step.lineName}</div>`;
+
+      const prevStep = idx > 0 ? route.paths[idx - 1] : null;
+      const isTransfer = prevStep && 
+        (prevStep.mode !== "walk") && 
+        (prevStep.lineName !== step.lineName);
+
+      let markerLabel = `${step.mode === "subway" ? "지하철" : "버스"} ${step.lineName}`;
+      let borderStyle = `2px solid rgba(0,0,0,0.15)`;
+      if (isTransfer) {
+        markerLabel = `🔄 환승 · ` + markerLabel;
+        borderStyle = `2.5px dashed #2563EB`;
+      }
+
+      const markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:8px;border:${borderStyle};box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">${markerLabel}</div>`;
       addMarker(step.fromLat, step.fromLng, markerHtml);
       prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
     }

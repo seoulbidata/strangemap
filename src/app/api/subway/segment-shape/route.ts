@@ -50,8 +50,32 @@ function shortCode(v: string) {
   return digits.length >= 3 ? digits.slice(-3) : digits;
 }
 
-function stationOrderCode(v: string) {
-  const digits = v.replace(/\D/g, "");
+function stationOrderCode(lineName: string, frCode: string, stationCd: string) {
+  const normalizedLine = normalizeLineName(lineName);
+  
+  if (normalizedLine === "경의중앙선") {
+    const digits = frCode.replace(/\D/g, "");
+    const codeVal = parseInt(digits || "0", 10);
+    
+    if (frCode.startsWith("K") && codeVal >= 312 && codeVal <= 337) {
+      // 경의선 구간 (문산 K335 ~ 공덕 K312): 서쪽에서 동쪽으로 갈수록 숫자가 작아짐
+      return 1000 - codeVal; // K337 (663) -> K312 (688)
+    }
+    if (frCode.startsWith("P") && (codeVal === 312 || codeVal === 313)) {
+      // 경의선 서울역 지선 (가좌 K315 -> 신촌 P312 -> 서울 P313)
+      return codeVal === 312 ? 686 : 687;
+    }
+    if (frCode === "K826" || frCode.replace(/\D/g, "") === "826") {
+      // 효창공원앞 (K826): 공덕 K312와 용산 K110 사이
+      return 689;
+    }
+    if (frCode.startsWith("K") && codeVal >= 110 && codeVal <= 138) {
+      // 중앙선 구간 (용산 K110 ~ 지평 K138): 서쪽에서 동쪽으로 갈수록 숫자가 커짐
+      return 690 + (codeVal - 110); // K110 (690) -> K138 (718)
+    }
+  }
+
+  const digits = (frCode || stationCd || "").replace(/\D/g, "");
   return parseInt(digits || "0", 10);
 }
 
@@ -314,7 +338,7 @@ export async function GET(request: NextRequest) {
       })
       .map((row) => ({
         id: (row.STATION_CD ?? "").padStart(4, "0"),
-        order: stationOrderCode(row.FR_CODE ?? row.STATION_CD ?? ""),
+        order: stationOrderCode(lineName, row.FR_CODE ?? "", row.STATION_CD ?? ""),
         name: normalizeStationName(row.STATION_NM ?? ""),
       }))
       .sort((a, b) => a.order - b.order);

@@ -76,6 +76,58 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): num
 
 const NEARBY_RADIUS_KM = 3;
 
+function isEventPassed(endDateStr: string, proTimeStr?: string): boolean {
+  if (!endDateStr) return false;
+
+  const now = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstTime = new Date(now.getTime() + kstOffset);
+
+  const currentYear = kstTime.getUTCFullYear();
+  const currentMonth = kstTime.getUTCMonth() + 1;
+  const currentDate = kstTime.getUTCDate();
+  const currentHour = kstTime.getUTCHours();
+  const currentMin = kstTime.getUTCMinutes();
+
+  const datePart = endDateStr.slice(0, 10);
+  const [endYear, endMonth, endDay] = datePart.split("-").map(Number);
+
+  if (!endYear || !endMonth || !endDay) return false;
+
+  if (endYear < currentYear) return true;
+  if (endYear > currentYear) return false;
+  if (endMonth < currentMonth) return true;
+  if (endMonth > currentMonth) return false;
+  if (endDay < currentDate) return true;
+  if (endDay > currentDate) return false;
+
+  if (endDay === currentDate) {
+    if (!proTimeStr) return false;
+
+    const timeMatches = [...proTimeStr.matchAll(/(\d{1,2}):(\d{2})/g)];
+    let endHour = 23;
+    let endMin = 59;
+
+    if (timeMatches.length > 0) {
+      const lastMatch = timeMatches[timeMatches.length - 1];
+      endHour = parseInt(lastMatch[1], 10);
+      endMin = parseInt(lastMatch[2], 10);
+    } else {
+      const hourMatches = [...proTimeStr.matchAll(/(\d{1,2})\s*시/g)];
+      if (hourMatches.length > 0) {
+        const lastMatch = hourMatches[hourMatches.length - 1];
+        endHour = parseInt(lastMatch[1], 10);
+        endMin = 0;
+      }
+    }
+
+    if (currentHour > endHour) return true;
+    if (currentHour === endHour && currentMin > endMin) return true;
+  }
+
+  return false;
+}
+
 async function fetchRealEvents(
   lat: number | undefined,
   lng: number | undefined,
@@ -90,16 +142,10 @@ async function fetchRealEvents(
     const data = await res.json();
     const rows: Record<string, string>[] = data?.culturalEventInfo?.row ?? [];
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const withDist = rows
       .filter((r) => {
         if (!r.LAT || !r.LOT || parseFloat(r.LAT) === 0) return false;
-        if (r.END_DATE) {
-          const end = new Date(r.END_DATE.slice(0, 10));
-          if (end < today) return false;
-        }
+        if (isEventPassed(r.END_DATE, r.PRO_TIME)) return false;
         return true;
       })
       .map((r) => ({

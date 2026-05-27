@@ -686,23 +686,67 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
     });
   };
 
-  const searchRoute = async () => {
-    if (!origin || !dest) {
-      setStatus("출발지와 목적지를 모두 선택해 주세요.");
-      return;
+  /** 텍스트만 입력되어 있고 후보를 직접 선택하지 않은 경우, 자동 지오코딩으로 첫 번째 결과를 사용 */
+  const autoResolvePlace = async (kind: "origin" | "dest", query: string): Promise<PlaceCandidate | null> => {
+    const q = query.trim();
+    if (!q) return null;
+    const key = normalizeText(q);
+    const cached = geocacheRef.current.get(key);
+    if (cached && cached.length > 0) {
+      const top = cached[0];
+      if (kind === "origin") { setOrigin(top); setOriginQuery(top.label); setOriginCandidates([]); }
+      else { setDest(top); setDestQuery(top.label); setDestCandidates([]); }
+      return top;
     }
+    try {
+      const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      const candidates = scoreCandidates(normalizeCandidates(data.addresses ?? [], q), q);
+      geocacheRef.current.set(key, candidates);
+      if (candidates.length > 0) {
+        const top = candidates[0];
+        if (kind === "origin") { setOrigin(top); setOriginQuery(top.label); setOriginCandidates([]); }
+        else { setDest(top); setDestQuery(top.label); setDestCandidates([]); }
+        return top;
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
+
+  const searchRoute = async () => {
     setLoading(true);
-    setStatus("경로를 탐색하는 중…");
+    setStatus("출발·도착지 확인 중…");
     setAlternatives([]);
     setStepArrivals({});
     onRouteClear?.();
 
+    // 직접 후보를 선택하지 않았더라도 텍스트가 있으면 자동 지오코딩
+    let resolvedOrigin: PlaceCandidate | null = origin;
+    let resolvedDest: PlaceCandidate | null = dest;
+
+    if (!resolvedOrigin && originQuery.trim()) {
+      setStatus("출발지 검색 중…");
+      resolvedOrigin = await autoResolvePlace("origin", originQuery);
+    }
+    if (!resolvedDest && destQuery.trim()) {
+      setStatus("목적지 검색 중…");
+      resolvedDest = await autoResolvePlace("dest", destQuery);
+    }
+
+    if (!resolvedOrigin || !resolvedDest) {
+      setStatus("출발지와 목적지를 모두 입력해 주세요.");
+      setLoading(false);
+      return;
+    }
+
+    setStatus("경로를 탐색하는 중…");
+
     try {
       const params = new URLSearchParams({
-        startX: String(origin.lng),
-        startY: String(origin.lat),
-        endX: String(dest.lng),
-        endY: String(dest.lat),
+        startX: String(resolvedOrigin.lng),
+        startY: String(resolvedOrigin.lat),
+        endX: String(resolvedDest.lng),
+        endY: String(resolvedDest.lat),
       });
 
       const routeResults = await Promise.allSettled(
@@ -734,10 +778,10 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
 
       setAlternatives(routesWithArrivals);
       setSelectedIdx(0);
-      setStatus(`${origin.label} → ${dest.label} 경로를 찾았습니다.`);
+      setStatus(`${resolvedOrigin.label} → ${resolvedDest.label} 경로를 찾았습니다.`);
 
       if (routesWithArrivals[0]) {
-        onRouteFound?.({ origin, destination: dest, route: routesWithArrivals[0] });
+        onRouteFound?.({ origin: resolvedOrigin, destination: resolvedDest, route: routesWithArrivals[0] });
       }
 
       fetchRealtimeForRoutes(decorated).then(setStepArrivals);
@@ -812,7 +856,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
         {/* 검색 버튼 */}
         <button
           onClick={searchRoute}
-          disabled={loading || !origin || !dest}
+          disabled={loading || (!origin && !originQuery.trim()) || (!dest && !destQuery.trim())}
           className="w-full py-2.5 rounded-xl text-sm font-bold bg-[#1B3A6B] text-white disabled:opacity-40 hover:bg-[#2563EB] transition-colors"
         >
           {loading ? "탐색 중…" : "길찾기 실행"}

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import type { AIPlaceInfo, AIEvent } from "@/types/quest";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { callKananaWithFallback } from "@/lib/kanana";
+import { incrementAIUsage } from "@/lib/aiUsage";
+import {
+  extractJsonObjectText,
+  generateGeminiJsonText,
+  parseJsonWithEscapedControlChars,
+} from "@/lib/gemini";
 
 // Server-side cache: 30-min TTL
 const _serverCache = new Map<string, { data: AIPlaceInfo; ts: number }>();
@@ -70,6 +76,58 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): num
 
 const NEARBY_RADIUS_KM = 3;
 
+function isEventPassed(endDateStr: string, proTimeStr?: string): boolean {
+  if (!endDateStr) return false;
+
+  const now = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstTime = new Date(now.getTime() + kstOffset);
+
+  const currentYear = kstTime.getUTCFullYear();
+  const currentMonth = kstTime.getUTCMonth() + 1;
+  const currentDate = kstTime.getUTCDate();
+  const currentHour = kstTime.getUTCHours();
+  const currentMin = kstTime.getUTCMinutes();
+
+  const datePart = endDateStr.slice(0, 10);
+  const [endYear, endMonth, endDay] = datePart.split("-").map(Number);
+
+  if (!endYear || !endMonth || !endDay) return false;
+
+  if (endYear < currentYear) return true;
+  if (endYear > currentYear) return false;
+  if (endMonth < currentMonth) return true;
+  if (endMonth > currentMonth) return false;
+  if (endDay < currentDate) return true;
+  if (endDay > currentDate) return false;
+
+  if (endDay === currentDate) {
+    if (!proTimeStr) return false;
+
+    const timeMatches = [...proTimeStr.matchAll(/(\d{1,2}):(\d{2})/g)];
+    let endHour = 23;
+    let endMin = 59;
+
+    if (timeMatches.length > 0) {
+      const lastMatch = timeMatches[timeMatches.length - 1];
+      endHour = parseInt(lastMatch[1], 10);
+      endMin = parseInt(lastMatch[2], 10);
+    } else {
+      const hourMatches = [...proTimeStr.matchAll(/(\d{1,2})\s*시/g)];
+      if (hourMatches.length > 0) {
+        const lastMatch = hourMatches[hourMatches.length - 1];
+        endHour = parseInt(lastMatch[1], 10);
+        endMin = 0;
+      }
+    }
+
+    if (currentHour > endHour) return true;
+    if (currentHour === endHour && currentMin > endMin) return true;
+  }
+
+  return false;
+}
+
 async function fetchRealEvents(
   lat: number | undefined,
   lng: number | undefined,
@@ -84,16 +142,10 @@ async function fetchRealEvents(
     const data = await res.json();
     const rows: Record<string, string>[] = data?.culturalEventInfo?.row ?? [];
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const withDist = rows
       .filter((r) => {
         if (!r.LAT || !r.LOT || parseFloat(r.LAT) === 0) return false;
-        if (r.END_DATE) {
-          const end = new Date(r.END_DATE.slice(0, 10));
-          if (end < today) return false;
-        }
+        if (isEventPassed(r.END_DATE, r.PRO_TIME)) return false;
         return true;
       })
       .map((r) => ({
@@ -114,6 +166,7 @@ async function fetchRealEvents(
         (r.STRTDATE && r.END_DATE
           ? `${r.STRTDATE.slice(0, 10)} ~ ${r.END_DATE.slice(0, 10)}`
           : ""),
+      time: r.PRO_TIME || undefined,
       link: r.HMPG_ADDR || undefined,
       fee: r.USE_FEE || "무료",
       _distKm: Math.round(dist * 10) / 10,
@@ -226,12 +279,12 @@ function buildPrompt(
   const isCulture = type === "culture";
 
   const summaryRule = isCulture
-    ? "- summary: 이 행사가 무엇인지 3~4문장으로 설명. 행사 성격, 주요 프로그램, 관람 대상을 포함. 감상·감정 표현 금지, 사실 중심으로."
-    : "- summary: 이 장소에 대한 정보, 분위기, 감상을 담아 3~4문장. \"여기 가면 ○○를 할 수 있다\"가 아니라 \"실제로 와보면 이런 느낌이다\"를 전달. 어떤 사람에게 특히 맞는지 포함.";
+    ? "- summary: 이 행사가 무엇인지 딱 3문장으로 설명해줘. 행사의 핵심 성격, 주요 프로그램, 주된 관람 대상을 명확하게 담고, 다정하게 대화하듯 알차게 작성해줘."
+    : "- summary: 이 장소의 분위기와 감성, 핵심 경험을 다정하게 대화하듯 딱 3문장으로 생생하게 작성해줘. 단순히 사실만 요약하기보다 특유의 오감과 매력이 잘 전달되도록 너무 장황하지도 밋밋하지도 않은 딱 중간 정도로 작성해줘.";
 
   const highlightsRule = isCulture
-    ? "- highlights: 이 행사의 주요 프로그램·콘텐츠·볼거리 3~4개. 구체적으로 나열. 추상적 키워드 금지."
-    : "- highlights: 이 장소에서만 할 수 있는 구체적인 행동/경험. 추상적 키워드 금지.";
+    ? "- highlights: 이 행사의 핵심 볼거리/체험 요소 3가지를 적어줘. 식상하지 않고 가보고 싶게 만들도록 각각 1문장 내로 구체적으로 서술해줘."
+    : "- highlights: 이 장소에서만 만끽할 수 있는 구체적이고 이색적인 추천 경험 3가지를 적어줘. 식상한 단어 대신 구체적인 행동을 묘사해 각각 1문장 내로 상세하게 서술해줘.";
 
   return `서울 "${place}"를 처음 방문하는 사람에게 소개해줘. 아래 컨텍스트만 사용하고 추측 금지. JSON만 응답.
 
@@ -240,18 +293,21 @@ ${ctx.join("\n")}${viewpointBlock}${eventBlock}
 
 [rule]
 - 컨텍스트에 없는 구체적 사실(연도·수치·고유명사) 절대 추측 금지. 모르면 해당 필드 생략.
-- 톤: 서울시에 오래 산 현지인이 친구에게 말하듯. 팸플릿·홍보 문체 금지.
+- 컨텍스트에 제공된 모든 핵심 고유명사(예: 행사 주최측 명칭, 강연자/출연진 이름, 정확한 강연/공연 주제, 연계 전시나 프로그램의 구체적 명칭, 요금 정보 등)를 절대로 누락하지 말고, 설명 문장 속에 다정하고 자연스럽게 전부 녹여내어 서술해줘.
+- 톤: 서울에 오래 거주한 베테랑 로컬 가이드가 친구에게 다정하게 수다 떨듯 친근한 구어체로 설명해줘. 팸플릿이나 기계적인 홍보 문체는 절대 금지해.
 ${summaryRule}
 ${highlightsRule}
-- crowd_tip: 실시간 혼잡 데이터가 있으면 반드시 반영.
+- tip: 단순한 안내가 아닌, 동네 주민들만 아는 아주 실용적이고 비밀스러운 꿀팁을 명료하게 딱 1문장으로 적어줘.
+- best_time: 최적의 방문 시간대와 계절을 추천하고, 그 낭만적인 이유를 명료하게 딱 1문장으로 적어줘.
+- crowd_tip: 실시간 혼잡 데이터를 자연스럽게 반영하여, 복잡함을 피하는 구체적인 방문 요령을 다정하게 딱 1문장으로 제시해줘.
 
 [출력 형식 — 이 키만, 정확히]
 {
-  "summary": "분위기·감성·핵심 경험 3~4문장",
-  "highlights": ["구체적 경험 3~4개"],
-  "tip": "현지인만 아는 실용 꿀팁 1문장",
-  "best_time": "최적 방문 타이밍은 언제인지 이유 1문장",
-  "crowd_tip": "혼잡 회피 전략 1문장"${hasViewpoint ? ',\n  "viewpoint_guide": "뷰포인트 감상법 1문장"' : ""},
+  "summary": "분위기·감성·핵심 경험 딱 3문장 (알차게)",
+  "highlights": ["구체적이고 이색적인 행동 3개 (각각 딱 1문장)"],
+  "tip": "로컬만 아는 비밀 꿀팁 딱 1문장",
+  "best_time": "최적 방문 시간과 낭만적인 이유 딱 1문장",
+  "crowd_tip": "혼잡 회피 요령 및 실시간 혼잡 조언 딱 1문장"${hasViewpoint ? ',\n  "viewpoint_guide": "뷰포인트 감상 비결 딱 1문장"' : ""},
   "vibe": ["분위기 키워드 2~3개"],
   "tags": ["성격 태그 4~6개"]
 }
@@ -275,15 +331,28 @@ ${highlightsRule}
 
 const SYSTEM_MSG =
   "당신은 서울시 장소를 모두 알고 있는 로컬 가이드입니다. 확실히 아는 사실만 담아, 처음 방문하는 사람에게 솔직하고 생생하게 이 장소를 소개해주세요. 반드시 JSON 형식으로만 응답하세요.";
+const PLACE_INFO_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    summary: { type: "STRING" },
+    right_now: { type: "STRING" },
+    highlights: { type: "ARRAY", items: { type: "STRING" } },
+    tip: { type: "STRING" },
+    best_time: { type: "STRING" },
+    crowd_tip: { type: "STRING" },
+    viewpoint_guide: { type: "STRING" },
+    event_pick: { type: "STRING" },
+    nearby: { type: "ARRAY", items: { type: "STRING" } },
+    vibe: { type: "ARRAY", items: { type: "STRING" } },
+    tags: { type: "ARRAY", items: { type: "STRING" } },
+  },
+  required: ["summary", "right_now", "highlights", "tip", "best_time", "crowd_tip", "nearby", "vibe", "tags"],
+};
 
 function parseAIResponse(text: string): object | null {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-  try {
-    return JSON.parse(jsonMatch[0]);
-  } catch {
-    return null;
-  }
+  const jsonText = extractJsonObjectText(text);
+  if (!jsonText) return null;
+  return parseJsonWithEscapedControlChars<object>(jsonText);
 }
 
 async function callLMStudio(prompt: string): Promise<object | null> {
@@ -332,6 +401,18 @@ async function callKanana(prompt: string): Promise<object | null> {
 //   }
 //   return null;
 // }
+
+async function callGemini(prompt: string): Promise<object | null> {
+  const text = await generateGeminiJsonText({
+    prompt,
+    systemInstruction: SYSTEM_MSG,
+    maxOutputTokens: 2500,
+    responseSchema: PLACE_INFO_SCHEMA,
+  });
+  if (!text) return null;
+  console.log("[Gemini] response:", text.slice(0, 100));
+  return parseAIResponse(text);
+}
 
 // async function callAnthropic(prompt: string, apiKey: string): Promise<object | null> {
 //   const response = await fetch(ANTHROPIC_ENDPOINT, {
@@ -382,7 +463,8 @@ export async function GET(req: NextRequest) {
   const prompt = buildPrompt(place, operating_time, fee, subway, viewpoints, congestion, realEvents, type);
 
   let parsed: object | null = null;
-  if (kananaKey) {
+  parsed = await callGemini(prompt).catch(() => null);
+  if (!parsed && kananaKey) {
     parsed = await callKanana(prompt).catch(() => null);
     console.log("[Kanana] result:", parsed ? "OK" : "null");
   }
@@ -396,6 +478,9 @@ export async function GET(req: NextRequest) {
   const event_pick = buildEventPick(realEvents);
 
   if (parsed) {
+    // 로컬 사용량 카운트 증가
+    incrementAIUsage();
+
     const aiPart = parsed as Omit<AIPlaceInfo, "placeName" | "events" | "right_now" | "nearby" | "event_pick">;
     const info: AIPlaceInfo = {
       placeName: place,

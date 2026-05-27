@@ -412,12 +412,19 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
                         style={{ animationDelay: `${600 + i * 100}ms`, animationFillMode: "both" }}
                       >
                         <div className="flex items-start justify-between gap-2 mb-1">
-                          <p className="text-[12px] font-semibold text-[#1A1E2E] leading-snug">
+                          <p className="text-[12px] font-semibold text-[#1A1E2E] leading-snug flex-1">
                             {ev.title}
                           </p>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] shrink-0 whitespace-nowrap">
-                            {ev.period}
-                          </span>
+                          <div className="flex flex-col items-end gap-1 shrink-0 text-right">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] whitespace-nowrap">
+                              {ev.period}
+                            </span>
+                            {ev.time && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#1D4ED8] whitespace-nowrap font-medium">
+                                {ev.time}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {ev.desc && (
                           <p className="text-[11px] text-[#6B7280] leading-relaxed">{ev.desc}</p>

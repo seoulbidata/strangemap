@@ -25,6 +25,58 @@ export interface POIItem {
   viewpoint?: string[];
 }
 
+function isEventPassed(endDateStr: string, proTimeStr?: string): boolean {
+  if (!endDateStr) return false;
+
+  const now = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstTime = new Date(now.getTime() + kstOffset);
+
+  const currentYear = kstTime.getUTCFullYear();
+  const currentMonth = kstTime.getUTCMonth() + 1;
+  const currentDate = kstTime.getUTCDate();
+  const currentHour = kstTime.getUTCHours();
+  const currentMin = kstTime.getUTCMinutes();
+
+  const datePart = endDateStr.slice(0, 10);
+  const [endYear, endMonth, endDay] = datePart.split("-").map(Number);
+
+  if (!endYear || !endMonth || !endDay) return false;
+
+  if (endYear < currentYear) return true;
+  if (endYear > currentYear) return false;
+  if (endMonth < currentMonth) return true;
+  if (endMonth > currentMonth) return false;
+  if (endDay < currentDate) return true;
+  if (endDay > currentDate) return false;
+
+  if (endDay === currentDate) {
+    if (!proTimeStr) return false;
+
+    const timeMatches = [...proTimeStr.matchAll(/(\d{1,2}):(\d{2})/g)];
+    let endHour = 23;
+    let endMin = 59;
+
+    if (timeMatches.length > 0) {
+      const lastMatch = timeMatches[timeMatches.length - 1];
+      endHour = parseInt(lastMatch[1], 10);
+      endMin = parseInt(lastMatch[2], 10);
+    } else {
+      const hourMatches = [...proTimeStr.matchAll(/(\d{1,2})\s*시/g)];
+      if (hourMatches.length > 0) {
+        const lastMatch = hourMatches[hourMatches.length - 1];
+        endHour = parseInt(lastMatch[1], 10);
+        endMin = 0;
+      }
+    }
+
+    if (currentHour > endHour) return true;
+    if (currentHour === endHour && currentMin > endMin) return true;
+  }
+
+  return false;
+}
+
 export async function GET() {
   const apiKey = process.env.SEOUL_API_KEY;
   const url = `http://openapi.seoul.go.kr:8088/${apiKey}/json/culturalEventInfo/1/500/`;
@@ -33,16 +85,10 @@ export async function GET() {
   const data = await res.json();
   const rows = data?.culturalEventInfo?.row ?? [];
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   const culturePOIs: POIItem[] = rows
     .filter((r: any) => {
       if (!r.LAT || !r.LOT || parseFloat(r.LAT) === 0) return false;
-      if (r.END_DATE) {
-        const endDate = new Date(r.END_DATE.slice(0, 10));
-        if (endDate < today) return false;
-      }
+      if (isEventPassed(r.END_DATE, r.PRO_TIME)) return false;
       return true;
     })
     .map((r: any) => ({
@@ -59,6 +105,7 @@ export async function GET() {
       fee: r.USE_FEE || "무료",
       thumbnail: r.MAIN_IMG,
       link: r.HMPG_ADDR,
+      operating_time: r.PRO_TIME || undefined,
     }));
 
   const nightviewPath = path.join(process.cwd(), "public/data/nightview.json");

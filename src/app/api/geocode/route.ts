@@ -39,7 +39,11 @@ function normalizeStationName(value: string): string {
 }
 
 function normalizeLineName(value: string): string {
-  return value.replace(/\s+/g, "").replace(/\(.+?\)/g, "").replace(/^0+(\d+호선)$/, "$1");
+  return value
+    .replace(/^(수도권|지하철)\s*/, "")
+    .replace(/\s+/g, "")
+    .replace(/\(.+?\)/g, "")
+    .replace(/^0+(\d+호선)$/, "$1");
 }
 
 function subwayCoordKey(lineName: string, stationName: string) {

@@ -28,7 +28,11 @@ function normalizeStationName(v: string) {
 }
 
 function normalizeLineName(v: string) {
-  return v.replace(/[\s·•・]/g, "").replace(/\(.+?\)/g, "").replace(/^0+(\d+호선)$/, "$1");
+  return v
+    .replace(/^(수도권|지하철)\s*/, "")
+    .replace(/[\s·•・]/g, "")
+    .replace(/\(.+?\)/g, "")
+    .replace(/^0+(\d+호선)$/, "$1");
 }
 
 // 서울 API는 통합 노선을 구성 노선명으로 분리 저장
@@ -75,6 +79,7 @@ function lineNameCandidates(v: string) {
   const numberMatch = normalized.match(/^(\d+)호선$/);
   if (numberMatch) candidates.push(numberMatch[1].padStart(2, "0") + "호선");
   if (SEOUL_LINE_COMPONENTS[normalized]) candidates.push(...SEOUL_LINE_COMPONENTS[normalized]);
+  if (SEOUL_LINE_MERGED[normalized]) candidates.push(...SEOUL_LINE_MERGED[normalized]);
   return [...new Set(candidates.filter(Boolean))];
 }
 
@@ -638,7 +643,7 @@ export async function GET(request: NextRequest) {
     if (!stationRows) {
       let rows: Record<string, string>[] = [];
       for (const candidate of lineNameCandidates(lineName)) {
-        const res = await fetch(`${SEOUL_OPENAPI_BASE}/${searchKey}/json/SearchSTNBySubwayLineInfo/1/1000//${encodeURIComponent(candidate)}`);
+        const res = await fetch(`${SEOUL_OPENAPI_BASE}/${searchKey}/json/SearchSTNBySubwayLineInfo/1/1000/%20/%20/${encodeURIComponent(candidate)}`);
         const data = await res.json();
         rows = data.SearchSTNBySubwayLineInfo?.row ?? [];
         if (rows.length) break;
@@ -647,8 +652,11 @@ export async function GET(request: NextRequest) {
       stationRows = rows
         .filter((row) => {
           const rowLine = normalizeLineName(row.LINE_NUM ?? "");
-          // 분리 저장 노선도 통합 노선명으로 변환 후 비교
-          const resolvedLines = SEOUL_LINE_MERGED[rowLine] ?? [rowLine];
+          const resolvedLines = [
+            rowLine,
+            ...(SEOUL_LINE_MERGED[rowLine] ?? []),
+            ...(SEOUL_LINE_COMPONENTS[rowLine] ?? [])
+          ];
           if (!resolvedLines.includes(normalizedLine)) return false;
           const code = parseInt(row.STATION_CD ?? "0", 10);
           if (normalizedLine === "2호선" && code > 243) return false;

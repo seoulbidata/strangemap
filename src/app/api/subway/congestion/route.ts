@@ -9,7 +9,10 @@ function normalizeStationName(v: string) {
 }
 
 function normalizeLineName(v: string) {
-  return v.replace(/\s/g, "").replace(/^0+(\d+호선)$/, "$1");
+  return v
+    .replace(/^(수도권|지하철)\s*/, "")
+    .replace(/\s/g, "")
+    .replace(/^0+(\d+호선)$/, "$1");
 }
 
 function stationNumber(row: Record<string, string>): number {

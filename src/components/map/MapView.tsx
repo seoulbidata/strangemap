@@ -495,7 +495,7 @@ export default function MapView() {
       "의정부경전철": "#FDA600", "용인경전철": "#509F22",
     };
     const normalizeLineName = (v: string) =>
-      v.replace(/\s+/g, "").replace(/·/g, "").replace(/^수도권/, "").replace(/\(급행\)$/, "");
+      v.replace(/\s+/g, "").replace(/·/g, "").replace(/^(수도권|지하철)/, "").replace(/\(급행\)$/, "");
     const formatRouteColor = (color?: string) => {
       if (!color) return "";
       const hex = color.replace(/^#/, "").trim();
@@ -571,12 +571,79 @@ export default function MapView() {
       return pts[Math.min(Math.max(2, Math.floor(pts.length * 0.12)), pts.length - 1)] ?? base;
     };
 
+    const walkSegmentsToFetch: { from: { lat: number; lng: number }; to: { lat: number; lng: number } }[] = [];
+    
+    // 1. 첫 번째 도보 (출발지 -> 첫 대중교통 승차지)
+    const firstStep = route.paths[0];
+    if (firstStep && firstStep.fromLat != null && firstStep.fromLng != null) {
+      walkSegmentsToFetch.push({ from: { lat: org.lat, lng: org.lng }, to: { lat: firstStep.fromLat, lng: firstStep.fromLng } });
+    }
+    
+    // 2. 환승 도보 (하차지 -> 다음 승차지)
+    for (let idx = 1; idx < route.paths.length; idx++) {
+      const prevStep = route.paths[idx - 1];
+      const nextStep = route.paths[idx];
+      if (prevStep && nextStep && prevStep.toLat != null && prevStep.toLng != null && nextStep.fromLat != null && nextStep.fromLng != null) {
+        walkSegmentsToFetch.push({
+          from: { lat: prevStep.toLat, lng: prevStep.toLng },
+          to: { lat: nextStep.fromLat, lng: nextStep.fromLng }
+        });
+      }
+    }
+    
+    // 3. 마지막 도보 (마지막 하차지 -> 목적지)
+    const lastStep = route.paths[route.paths.length - 1];
+    if (lastStep && lastStep.toLat != null && lastStep.toLng != null) {
+      walkSegmentsToFetch.push({ from: { lat: lastStep.toLat, lng: lastStep.toLng }, to: { lat: dst.lat, lng: dst.lng } });
+    }
+
+    const fetchWalkPoints = async (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+      const directDist = distanceMeters(from, to);
+      if (directDist < 30) return [from, to];
+      try {
+        const params = new URLSearchParams({
+          fromLat: String(from.lat),
+          fromLng: String(from.lng),
+          toLat: String(to.lat),
+          toLng: String(to.lng)
+        });
+        const res = await fetch(`/api/transit/walk?${params}`);
+        if (!res.ok) throw new Error("Walk fetch failed");
+        const data = await res.json();
+        if (Array.isArray(data.points) && data.points.length >= 2) {
+          return data.points;
+        }
+      } catch (e) {
+        console.warn("OSRM walk routing failed, using straight fallback:", e);
+      }
+      return [from, to];
+    };
+
+    // 모든 도보 노선의 실제 도로 선형 좌표를 병렬로 로드
+    const fetchedWalkPoints = await Promise.all(
+      walkSegmentsToFetch.map(seg => fetchWalkPoints(seg.from, seg.to))
+    );
+
     let prev = { lat: org.lat, lng: org.lng };
     let transitStepCount = 0;
     for (let idx = 0; idx < route.paths.length; idx++) {
       const step = route.paths[idx];
       if (step.fromLat == null || step.fromLng == null) continue;
-      addLine([prev, { lat: step.fromLat, lng: step.fromLng }], "#8a968e", 3, 0.7, "dash");
+
+      // 단순 직선 대신 OSRM으로 추출한 보행자용 실제 골목 도로 선형 매핑
+      const walkPoints = fetchedWalkPoints[idx] ?? [prev, { lat: step.fromLat, lng: step.fromLng }];
+      addLine(walkPoints, "#8a968e", 3, 0.7, "dash");
+
+      // 도보 이동 뱃지 추가 (도보 거리 40m 초과 시 중앙에 띄움)
+      const midPoint = walkPoints[Math.floor(walkPoints.length / 2)];
+      if (midPoint && distanceMeters(prev, { lat: step.fromLat, lng: step.fromLng }) > 40) {
+        addMarker(midPoint.lat, midPoint.lng, markerHtml("도보 이동", "#8a968e"), {
+          anchorX: 28,
+          anchorY: 14,
+          zIndex: 110,
+        });
+      }
+
       const color = getRouteColor(step);
       const routeShape = step.polyline ?? [];
       const hasRouteShape = routeShape.length >= 2;
@@ -611,9 +678,38 @@ export default function MapView() {
         anchorY: isTransfer ? 40 : 32,
         zIndex: isTransfer ? 170 : 135,
       });
+
+
+      // 하차 마커 추가 (각 대중교통 하차 지점에 하차 뱃지 띄움)
+      if (step.toLat != null && step.toLng != null) {
+        const isLastTransit = idx === route.paths.length - 1;
+        const formattedToName = step.toName.endsWith("역") || step.toName.endsWith("정류장") || step.toName.endsWith("정류소")
+          ? step.toName
+          : step.toName + (step.mode === "subway" ? "역" : " 정류장");
+        const alightingLabel = isLastTransit ? `${formattedToName} 하차` : `${formattedToName} 하차 (환승)`;
+        addMarker(step.toLat, step.toLng, markerHtml(alightingLabel, "#4B5563"), {
+          anchorX: 30,
+          anchorY: 14,
+          zIndex: 140,
+        });
+      }
+
       prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
     }
-    addLine([prev, { lat: dst.lat, lng: dst.lng }], "#8a968e", 3, 0.7, "dash");
+    
+    // 마지막 하차지 -> 목적지 구간 보행자 실제 골목 도로 선형 매핑
+    const finalWalkPoints = fetchedWalkPoints[fetchedWalkPoints.length - 1] ?? [prev, { lat: dst.lat, lng: dst.lng }];
+    addLine(finalWalkPoints, "#8a968e", 3, 0.7, "dash");
+
+    // 최종 도보 이동 뱃지 추가
+    const finalMidPoint = finalWalkPoints[Math.floor(finalWalkPoints.length / 2)];
+    if (finalMidPoint && distanceMeters(prev, { lat: dst.lat, lng: dst.lng }) > 40) {
+      addMarker(finalMidPoint.lat, finalMidPoint.lng, markerHtml("도보 이동", "#8a968e"), {
+        anchorX: 28,
+        anchorY: 14,
+        zIndex: 110,
+      });
+    }
 
     addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">출발</div>`, { anchorX: 40, anchorY: 8, zIndex: 190 });
     addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">도착</div>`, { anchorX: 4, anchorY: 8, zIndex: 190 });

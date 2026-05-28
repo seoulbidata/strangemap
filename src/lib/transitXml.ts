@@ -158,8 +158,10 @@ export function parseBusArrivalXml(body: string, stopId: string, routeId: string
         arrivalSeconds2: busArrivalSeconds(item, arrmsg2, 2),
         stationCount1: busArrivalStationCount(item, arrmsg1, 1),
         stationCount2: busArrivalStationCount(item, arrmsg2, 2),
-        congestionCode1: parseInt(firstText(["congetion1", "congestion1"]) || "0", 10),
-        congestionCode2: parseInt(firstText(["congetion2", "congestion2"]) || "0", 10),
+        congestionCode1: parseInt(firstText(["congest1", "congetion1", "congestion1"]) || "0", 10),
+        congestionCode2: parseInt(firstText(["congest2", "congetion2", "congestion2"]) || "0", 10),
+        rerideDiv1: parseInt(firstText(["rerdieDiv1", "rerdie_Div1", "rerideDiv1", "brerdeDiv1", "brerde_Div1"]) || "0", 10),
+        rerideDiv2: parseInt(firstText(["rerdieDiv2", "rerdie_Div2", "rerideDiv2", "brerdeDiv2", "brerde_Div2"]) || "0", 10),
         rerideCount1: parseInt(firstText(["rerideNum1", "reride_Num1", "brdrde_Num1"]) || "0", 10),
         rerideCount2: parseInt(firstText(["rerideNum2", "reride_Num2", "brdrde_Num2"]) || "0", 10),
         fullFlag1: firstText(["isFullFlag1", "full1"]),
@@ -177,4 +179,112 @@ export function parseBusArrivalXml(body: string, stopId: string, routeId: string
     });
 
   return { stopId, routeId, routeName, headerCode, headerMessage, arrivals };
+}
+
+let cachedStations: { name: string; lat: number; lng: number }[] | null = null;
+
+export async function fetchTransitWithFallback(
+  endpoint: string,
+  startX: string,
+  startY: string,
+  endX: string,
+  endY: string,
+  key: string
+): Promise<TransitRouteResult> {
+  const base = "http://ws.bus.go.kr/api/rest/pathinfo";
+  const url = `${base}/${endpoint}?ServiceKey=${key}&startX=${startX}&startY=${startY}&endX=${endX}&endY=${endY}`;
+
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/xml" } });
+    const body = await res.text();
+    const parsed = parseTransitRouteXml(body, endpoint);
+
+    // 정상적으로 경로가 조회된 경우 바로 반환
+    if (parsed.routes.length > 0 && parsed.headerCode === "0") {
+      return parsed;
+    }
+
+    const masterKey = process.env.SEOUL_SUBWAY_MASTER_KEY ?? "";
+    if (!masterKey) return parsed;
+
+    if (!cachedStations) {
+      try {
+        const sRes = await fetch(`http://openapi.seoul.go.kr:8088/${masterKey}/json/subwayStationMaster/1/1000/`);
+        const sData = await sRes.json();
+        const rows = sData.subwayStationMaster?.row ?? [];
+        cachedStations = rows
+          .map((row: any) => ({
+            name: String(row.BLDN_NM ?? ""),
+            lat: parseFloat(row.LAT ?? "0"),
+            lng: parseFloat(row.LOT ?? "0"),
+          }))
+          .filter((s: any) => s.lat > 0 && s.lng > 0);
+      } catch (e) {
+        console.error("Failed to fetch subway master for snapping fallback:", e);
+        cachedStations = [];
+      }
+    }
+
+    const startLng = parseFloat(startX);
+    const startLat = parseFloat(startY);
+    const endLng = parseFloat(endX);
+    const endLat = parseFloat(endY);
+
+    if (isNaN(startLng) || isNaN(startLat) || isNaN(endLng) || isNaN(endLat)) {
+      return parsed;
+    }
+
+    const calcDist = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const dx = (lng1 - lng2) * Math.cos(((lat1 + lat2) / 2) * Math.PI / 180);
+      const dy = lat1 - lat2;
+      return Math.sqrt(dx * dx + dy * dy) * 111_320;
+    };
+
+    let bestStart: { name: string; lat: number; lng: number } | null = null;
+    let bestStartDist = Infinity;
+    let bestEnd: { name: string; lat: number; lng: number } | null = null;
+    let bestEndDist = Infinity;
+
+    for (const s of cachedStations ?? []) {
+      const dStart = calcDist(startLat, startLng, s.lat, s.lng);
+      if (dStart < bestStartDist) {
+        bestStartDist = dStart;
+        bestStart = s;
+      }
+      const dEnd = calcDist(endLat, endLng, s.lat, s.lng);
+      if (dEnd < bestEndDist) {
+        bestEndDist = dEnd;
+        bestEnd = s;
+      }
+    }
+
+    // 2km 이내의 가장 가까운 지하철역으로 스냅하여 재탐색 시도
+    const startSnapped = bestStart && bestStartDist < 2000 && bestStartDist > 30;
+    const endSnapped = bestEnd && bestEndDist < 2000 && bestEndDist > 30;
+
+    if (startSnapped || endSnapped) {
+      const newStartX = startSnapped && bestStart ? bestStart.lng.toFixed(6) : startX;
+      const newStartY = startSnapped && bestStart ? bestStart.lat.toFixed(6) : startY;
+      const newEndX = endSnapped && bestEnd ? bestEnd.lng.toFixed(6) : endX;
+      const newEndY = endSnapped && bestEnd ? bestEnd.lat.toFixed(6) : endY;
+
+      console.log(
+        `[Fallback Snap] Snapping start: ${startX},${startY} -> ${newStartX},${newStartY} (${bestStart?.name}, d=${bestStartDist.toFixed(0)}m), ` +
+        `end: ${endX},${endY} -> ${newEndX},${newEndY} (${bestEnd?.name}, d=${bestEndDist.toFixed(0)}m)`
+      );
+
+      const retryUrl = `${base}/${endpoint}?ServiceKey=${key}&startX=${newStartX}&startY=${newStartY}&endX=${newEndX}&endY=${newEndY}`;
+      const retryRes = await fetch(retryUrl, { headers: { Accept: "application/xml" } });
+      const retryBody = await retryRes.text();
+      const retryParsed = parseTransitRouteXml(retryBody, endpoint);
+      if (retryParsed.routes.length > 0) {
+        return retryParsed;
+      }
+    }
+
+    return parsed;
+  } catch (e) {
+    console.error("fetchTransitWithFallback error:", e);
+    return { headerCode: "9", headerMessage: String(e), endpoint, routes: [] };
+  }
 }

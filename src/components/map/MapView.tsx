@@ -304,11 +304,20 @@ export default function MapView() {
       path.forEach((p) => bounds.extend(p));
     };
 
-    const addMarker = (lat: number, lng: number, html: string) => {
+    const addMarker = (
+      lat: number,
+      lng: number,
+      html: string,
+      options: { anchorX?: number; anchorY?: number; zIndex?: number } = {},
+    ) => {
       const m = new naver.maps.Marker({
         map: mapInstance.current,
         position: new naver.maps.LatLng(lat, lng),
-        icon: { content: html, anchor: new naver.maps.Point(0, 0) },
+        zIndex: options.zIndex ?? 120,
+        icon: {
+          content: html,
+          anchor: new naver.maps.Point(options.anchorX ?? 0, options.anchorY ?? 0),
+        },
       });
       routeMarkersRef.current.push(m);
       bounds.extend(new naver.maps.LatLng(lat, lng));
@@ -332,6 +341,16 @@ export default function MapView() {
     };
     const cleanBusRouteName = (name: string) =>
       (name.includes(":") ? name.split(":").at(-1)! : name).replace(/\s+/g, "");
+    const routeLabel = (step: RouteDrawPayload["route"]["paths"][number]) => {
+      if (step.mode === "bus") return `버스 ${cleanBusRouteName(step.lineName)}`;
+      if (step.mode === "subway") return normalizeLineName(step.lineName);
+      return "도보";
+    };
+    const transferLabel = (step: RouteDrawPayload["route"]["paths"][number]) => {
+      if (step.mode === "bus") return `버스 ${cleanBusRouteName(step.lineName)} 환승`;
+      if (step.mode === "subway") return `${normalizeLineName(step.lineName)} 환승`;
+      return "환승";
+    };
     const getBusColor = (name: string, type?: string) => {
       const routeName = cleanBusRouteName(name);
       if (type === "4" || type === "5" || type === "6" || /^M/i.test(routeName) || /^9\d{3}/.test(routeName) || /^2\d{3}/.test(routeName)) {
@@ -349,8 +368,49 @@ export default function MapView() {
       }
       return getBusColor(step.lineName, step.busRouteType);
     };
+    const markerHtml = (label: string, color: string, emphasis = false) => `
+      <div style="
+        background:${color};
+        color:#fff;
+        font-size:${emphasis ? 11 : 10}px;
+        font-weight:800;
+        padding:${emphasis ? "5px 11px" : "3px 8px"};
+        border-radius:6px;
+        border:2px solid rgba(0,0,0,0.18);
+        box-shadow:0 2px 8px rgba(0,0,0,0.24);
+        font-family:system-ui,sans-serif;
+        white-space:nowrap;
+        line-height:1.15;
+      ">${label}</div>`;
+    const distanceMeters = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+      const toRad = (v: number) => (v * Math.PI) / 180;
+      const dLat = toRad(b.lat - a.lat);
+      const dLng = toRad(b.lng - a.lng);
+      const lat1 = toRad(a.lat);
+      const lat2 = toRad(b.lat);
+      const s =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      return 6371000 * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+    };
+    const labelPointForStep = (
+      step: RouteDrawPayload["route"]["paths"][number],
+      pts: { lat: number; lng: number }[],
+      isFirstTransit: boolean,
+    ) => {
+      const base = { lat: step.fromLat!, lng: step.fromLng! };
+      if (!isFirstTransit || distanceMeters(base, org) > 90) return base;
+      if (pts.length === 2) {
+        return {
+          lat: pts[0].lat + (pts[1].lat - pts[0].lat) * 0.12,
+          lng: pts[0].lng + (pts[1].lng - pts[0].lng) * 0.12,
+        };
+      }
+      return pts[Math.min(Math.max(2, Math.floor(pts.length * 0.12)), pts.length - 1)] ?? base;
+    };
 
     let prev = { lat: org.lat, lng: org.lng };
+    let transitStepCount = 0;
     for (let idx = 0; idx < route.paths.length; idx++) {
       const step = route.paths[idx];
       if (step.fromLat == null || step.fromLng == null) continue;
@@ -364,34 +424,37 @@ export default function MapView() {
 
       if (step.mode === "walk") {
         addLine(pts, color, 4, 0.75, "dash");
-        const markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;border:2px solid rgba(0,0,0,0.15);box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">도보</div>`;
-        addMarker(step.fromLat, step.fromLng, markerHtml);
+        addMarker(step.fromLat, step.fromLng, markerHtml("도보", color), { anchorX: 12, anchorY: 24, zIndex: 125 });
         prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
         continue;
       }
 
       addLine(pts, color, 4, 0.8);
 
-      const prevStep = idx > 0 ? route.paths[idx - 1] : null;
-      const isTransfer = prevStep && 
-        (prevStep.mode !== "walk") && 
-        (prevStep.lineName !== step.lineName);
+      const prevTransitStep = [...route.paths.slice(0, idx)].reverse().find((s) => s.mode !== "walk");
+      const isTransfer = !!prevTransitStep && prevTransitStep.lineName !== step.lineName;
+      const isFirstTransit = transitStepCount === 0;
+      const labelPoint = labelPointForStep(step, pts, isFirstTransit);
+      transitStepCount += 1;
 
-      let markerHtml = "";
+      let labelHtml = "";
       if (isTransfer) {
-        markerHtml = `<div style="background:#2563eb; color:#ffffff; font-size:10px; font-weight:800; padding:3px 9px; border-radius:4px; border:2px solid #1d4ed8; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-family:system-ui,sans-serif; white-space:nowrap;">환승</div>`;
+        labelHtml = markerHtml(transferLabel(step), color, true);
       } else {
-        const markerLabel = `${step.mode === "subway" ? "지하철" : "버스"} ${step.lineName}`;
-        markerHtml = `<div style="background:${color};color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:4px;border:2px solid rgba(0,0,0,0.15);box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;white-space:nowrap;">${markerLabel}</div>`;
+        labelHtml = markerHtml(`${routeLabel(step)}${isFirstTransit ? " 탑승" : ""}`, color);
       }
 
-      addMarker(step.fromLat, step.fromLng, markerHtml);
+      addMarker(labelPoint.lat, labelPoint.lng, labelHtml, {
+        anchorX: isTransfer ? 18 : 10,
+        anchorY: isTransfer ? 40 : 32,
+        zIndex: isTransfer ? 170 : 135,
+      });
       prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
     }
     addLine([prev, { lat: dst.lat, lng: dst.lng }], "#8a968e", 3, 0.7, "dash");
 
-    addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">출발</div>`);
-    addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">도착</div>`);
+    addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">출발</div>`, { anchorX: 40, anchorY: 8, zIndex: 190 });
+    addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">도착</div>`, { anchorX: 4, anchorY: 8, zIndex: 190 });
 
     bounds.extend(new naver.maps.LatLng(dst.lat, dst.lng));
     mapInstance.current.fitBounds(bounds, { top: 80, right: 80, bottom: 80, left: 460 });

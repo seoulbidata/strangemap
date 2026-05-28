@@ -45,6 +45,7 @@ interface CongestionInfo {
   score: number;
   label: string;
   color: string;
+  source?: string;
 }
 
 interface ArrivalInfo {
@@ -59,6 +60,8 @@ interface RealtimeInfo {
   nextArrivalSeconds?: number;
   congestion?: CongestionInfo;
 }
+
+type RoutePreference = "recommended" | "fastest" | "smoothest";
 
 export interface RouteDrawPayload {
   origin: PlaceCandidate;
@@ -119,6 +122,12 @@ function cleanStationName(v: string) {
 
 function cleanBusRouteName(v: string) {
   return v.includes(":") ? v.split(":").at(-1)!.trim() : v.trim();
+}
+
+function transferLabel(step: TransitPath) {
+  if (step.mode === "bus") return `버스 ${cleanBusRouteName(step.lineName)} 환승`;
+  if (step.mode === "subway") return `${normalizeLineName(step.lineName)} 환승`;
+  return "환승";
 }
 
 async function fetchStepArrivals(step: TransitPath): Promise<ArrivalInfo[]> {
@@ -192,21 +201,32 @@ async function fetchStepCongestion(step: TransitPath): Promise<CongestionInfo | 
       };
     }
 
+    const odsayCongestion = await fetchOdsayBusCongestion(step);
+    if (odsayCongestion) return odsayCongestion;
+
+    const routeCongestion = await fetchBusRouteCongestion(step);
+    if (routeCongestion) return routeCongestion;
+
+    // 버스: RouteCongestionLevel 값이 없을 때만 도착정보 등급코드로 폴백
     if (!step.fromId) return undefined;
     const params = new URLSearchParams({
       stopId: step.fromId,
       routeName: cleanBusRouteName(step.lineName),
     });
     if (step.routeId) params.set("routeId", step.routeId);
-    const res = await fetch(`/api/bus/congestion?${params}`);
+    const res = await fetch(`/api/bus/realtime?${params}`);
     if (!res.ok) return undefined;
     const data = await res.json();
-    if (data.status !== "OK") return undefined;
-    return {
-      score: Number(data.score ?? 0),
-      label: String(data.label ?? ""),
-      color: String(data.color ?? ""),
-    };
+    // bus/realtime이 반환하는 congestion 객체 (score/label/color) 직접 사용
+    if (data.congestion?.score != null) {
+      return {
+        score: Number(data.congestion.score),
+        label: String(data.congestion.label ?? ""),
+        color: String(data.congestion.color ?? ""),
+        source: String(data.congestion.source ?? "seoulBusRealtime"),
+      };
+    }
+    return undefined;
   } catch {
     return undefined;
   }
@@ -220,7 +240,7 @@ async function enrichRouteCongestion(route: TransitRoute): Promise<TransitRoute>
   return { ...route, paths };
 }
 
-async function fetchStepPolyline(step: TransitPath): Promise<{ lat: number; lng: number }[]> {
+async function fetchStepPolyline(step: TransitPath, precision: "fast" | "rail" = "fast"): Promise<{ lat: number; lng: number }[]> {
   if (step.mode === "walk" || !step.fromId || !step.toId) return step.polyline ?? [];
 
   try {
@@ -254,6 +274,7 @@ async function fetchStepPolyline(step: TransitPath): Promise<{ lat: number; lng:
     params.set("toName", step.toName);
     params.set("lineName", step.lineName);
     params.set("railLinkCount", String(step.railLinkCount));
+    params.set("precision", precision);
     if (step.fromLat != null && step.fromLng != null) {
       params.set("fromLat", String(step.fromLat));
       params.set("fromLng", String(step.fromLng));
@@ -270,9 +291,9 @@ async function fetchStepPolyline(step: TransitPath): Promise<{ lat: number; lng:
   }
 }
 
-async function enrichRouteGeometry(route: TransitRoute): Promise<TransitRoute> {
+async function enrichRouteGeometry(route: TransitRoute, precision: "fast" | "rail" = "fast"): Promise<TransitRoute> {
   const paths = await Promise.all(route.paths.map(async (step) => {
-    const polyline = await fetchStepPolyline(step);
+    const polyline = await fetchStepPolyline(step, precision);
     return {
       ...step,
       polyline,
@@ -329,8 +350,14 @@ function scoreCandidates(items: PlaceCandidate[], query: string): PlaceCandidate
 
 function routeSignature(route: TransitRoute) {
   return route.paths
-    .filter((step) => step.mode !== "walk")
-    .map((step) => `${step.mode}:${step.lineName}:${step.fromName}:${step.toName}`)
+    .filter((p) => p.mode !== "walk")
+    .map((p) => [
+      p.mode,
+      cleanBusRouteName(normalizeLineName(p.lineName)),
+      p.routeId,
+      p.fromId,
+      p.toId,
+    ].join(":"))
     .join("|");
 }
 
@@ -402,16 +429,64 @@ function scoreToLabel(score: number): CongestionInfo {
   return { score, label: "매우 혼잡", color: "#991b1b" };
 }
 
+/** 서울 버스 API 혼잡도 코드 3-7 → CongestionInfo 변환 (실시간 도착 정보에서 사용) */
 function busCongestionCodeToInfo(code: number): CongestionInfo | undefined {
-  if (code === 1) return { score: 20, label: "여유", color: "#2563eb" };
-  if (code === 2) return { score: 45, label: "보통", color: "#16a34a" };
-  if (code === 3) return { score: 75, label: "약간 혼잡", color: "#f97316" };
-  if (code === 4) return { score: 95, label: "혼잡", color: "#dc2626" };
+  if (code === 3) return { score: 22, label: "여유",     color: "#2563eb" };
+  if (code === 4) return { score: 45, label: "보통",     color: "#16a34a" };
+  if (code === 5) return { score: 75, label: "혼잡",     color: "#f97316" };
+  if (code === 6) return { score: 92, label: "매우 혼잡", color: "#dc2626" };
+  if (code === 7) return { score: 100, label: "만차",    color: "#991b1b" };
   return undefined;
 }
 
 function realtimeKey(step: TransitPath) {
   return `${step.mode}|${step.fromId}|${step.routeId}`;
+}
+
+async function fetchOdsayBusCongestion(step: TransitPath): Promise<CongestionInfo | undefined> {
+  if (step.mode !== "bus" || !step.fromId) return undefined;
+
+  try {
+    const params = new URLSearchParams({
+      stopId: step.fromId,
+      stopName: step.fromName,
+      routeName: cleanBusRouteName(step.lineName),
+    });
+    if (step.routeId) params.set("routeId", step.routeId);
+    const res = await fetch(`/api/odsay/bus-realtime?${params}`);
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    if (data.status !== "OK" || data.congestion?.score == null) return undefined;
+    return {
+      score: Number(data.congestion.score),
+      label: String(data.congestion.label ?? ""),
+      color: String(data.congestion.color ?? ""),
+      source: String(data.congestion.source ?? "odsayRealtime"),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+async function fetchBusRouteCongestion(step: TransitPath): Promise<CongestionInfo | undefined> {
+  if (step.mode !== "bus" || !step.fromId) return undefined;
+
+  try {
+    const params = new URLSearchParams({ stationId: step.fromId });
+    if (step.routeId) params.set("routeId", step.routeId);
+    const res = await fetch(`/api/bus/route-congestion?${params}`);
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    if (data.status !== "OK" || data.score == null) return undefined;
+    return {
+      score: Number(data.score),
+      label: String(data.label ?? ""),
+      color: String(data.color ?? ""),
+      source: String(data.source ?? "routeCongestionLevel"),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 async function fetchBusRealtime(step: TransitPath): Promise<RealtimeInfo | null> {
@@ -429,12 +504,14 @@ async function fetchBusRealtime(step: TransitPath): Promise<RealtimeInfo | null>
     if (!first) return null;
     const nextMsg = first.arrmsg2 || "";
     const nextSecs = first.arrivalSeconds2 ?? 0;
+    const odsayCongestion = await fetchOdsayBusCongestion(step);
+    const routeCongestion = odsayCongestion ?? await fetchBusRouteCongestion(step);
     return {
       arrivalMsg: first.arrmsg1 || "",
       arrivalSeconds: first.arrivalSeconds1 ?? 0,
       nextArrivalMsg: nextMsg || undefined,
       nextArrivalSeconds: nextSecs > 0 ? nextSecs : undefined,
-      congestion: busCongestionCodeToInfo(first.congestionCode1 ?? 0),
+      congestion: routeCongestion ?? data.congestion ?? busCongestionCodeToInfo(first.congestionCode1 ?? 0),
     };
   } catch {
     return null;
@@ -517,7 +594,7 @@ function summarizeModes(route: TransitRoute) {
   return "대중교통";
 }
 
-function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
+function decorateAlternatives(routes: TransitRoute[], preference: RoutePreference): TransitRoute[] {
   const scored = routes.map((r) => {
     const seg = r.paths.filter((p) => p.mode !== "walk").map((p) => p.congestion ?? estimateCongestion(p));
     const avg = seg.length ? Math.round(seg.reduce((a, b) => a + b.score, 0) / seg.length) : 50;
@@ -536,79 +613,41 @@ function decorateAlternatives(routes: TransitRoute[]): TransitRoute[] {
     return congestionScore * 0.5 + timeScore * 0.5 - transfers * 10;
   };
 
-  const selected: TransitRoute[] = [];
-  const pick = (r: TransitRoute | undefined, label: string) => {
-    if (!r || selected.includes(r)) return;
-    (r as TransitRoute & { alternativeLabel: string }).alternativeLabel = label;
-    selected.push(r);
-  };
+  const deepClone = (r: TransitRoute): TransitRoute => JSON.parse(JSON.stringify(r));
 
-  // 1. 추천 경로: 5:5 밸런스 점수가 가장 높은 경로를 1순위로 선정 (Score-First)
   const recommended = scored.reduce((a, b) => {
     const aScore = recommendationScore(a);
     const bScore = recommendationScore(b);
     return bScore > aScore || (bScore === aScore && b.time < a.time) ? b : a;
   }, scored[0]);
 
-  // 3순위까지 라벨 부여 (최고 밸런스 추천 경로를 언제나 "서울로의 추천경로"로 최우선 보장)
-  pick(recommended, "서울로의 추천경로");
-
-  // 2. 최단 시간 경로 선정
   const fastest = scored.reduce((a, b) => a.time < b.time ? a : b, scored[0]);
-  if (fastest !== recommended) {
-    pick(fastest, "최단시간 경로");
-  } else {
-    // 추천 경로와 최단 시간 경로가 같을 경우, 남은 경로 중 다음으로 가장 빠른 대안 경로를 선정하여 "빠른 대안 경로"로 표시
-    const nextFastest = scored
-      .filter((r) => r !== recommended)
-      .reduce((a: TransitRoute | null, b) => {
-        if (!a) return b;
-        return b.time < a.time ? b : a;
-      }, null);
-    if (nextFastest) {
-      pick(nextFastest, "빠른 대안 경로");
-    }
-  }
 
-  // 4. 가장 쾌적한 경로: 이미 선택된 추천/대안 경로 제외, 혼잡도가 가장 낮은 경로 선정
-  const smoothest = scored.filter((r) => !selected.includes(r)).reduce((a: TransitRoute | null, b) => {
-    if (!a) return b;
+  const smoothest = scored.reduce((a, b) => {
     const aCong = a.congestion?.score ?? 50;
     const bCong = b.congestion?.score ?? 50;
     return (bCong < aCong || (bCong === aCong && b.time < a.time)) ? b : a;
-  }, null);
+  }, scored[0]);
 
-  if (smoothest) {
-    pick(smoothest, "가장 쾌적한 경로");
-  }
+  const selectedByPreference: Record<RoutePreference, [TransitRoute, string]> = {
+    recommended: [recommended, "서울로의 추천경로 안내"],
+    fastest: [fastest, "가장 빠른길 안내"],
+    smoothest: [smoothest, "가장 원활한 경로 안내"],
+  };
 
-  // 5. 만약 3개의 대안 경로가 아직 다 채워지지 않았는데 추가 경로 후보가 있다면, 남은 경로들을 순서대로 "대안 경로"로 채워서 3개를 보장
-  if (selected.length < 3) {
-    const remaining = scored
-      .filter((r) => !selected.includes(r))
-      .sort((a, b) => recommendationScore(b) - recommendationScore(a));
-    for (const r of remaining) {
-      if (selected.length >= 3) break;
-      pick(r, "대안 경로");
-    }
-  }
-
-  return selected;
+  const [route, label] = selectedByPreference[preference];
+  return [{ ...deepClone(route), alternativeLabel: label }];
 }
 
 function renderAlternativeLabel(label?: string) {
   if (!label) return null;
   let bgClass = "bg-[#EFF6FF] text-[#1B3A6B] border-[#EFF6FF]";
-  if (label === "최적 및 최단 경로") {
-    bgClass = "bg-[#FEF3C7] text-[#D97706] border-[#FDECC8]";
-  } else if (label === "서울로의 추천경로") {
+  if (label === "서울로의 추천경로 안내") {
     bgClass = "bg-[#FE9C00] text-white border-[#FE9C00] shadow-sm";
-  } else if (label === "최단시간 경로" || label === "빠른 대안 경로") {
-    bgClass = "bg-[#F3E8FF] text-[#7E22CE] border-[#E9D5FF]";
-  } else if (label === "가장 쾌적한 경로") {
+  } else if (label === "가장 빠른길 안내") {
+    bgClass = "bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]";
+  } else if (label === "가장 원활한 경로 안내") {
     bgClass = "bg-[#D1FAE5] text-[#047857] border-[#A7F3D0]";
-  } else if (label === "대안 경로") {
-    bgClass = "bg-[#EFF6FF] text-[#1B3A6B] border-[#EFF6FF]";
   }
 
   return (
@@ -626,7 +665,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
   const [destCandidates, setDestCandidates] = useState<PlaceCandidate[]>([]);
   const [origin, setOrigin] = useState<PlaceCandidate | null>(null);
   const [dest, setDest] = useState<PlaceCandidate | null>(null);
-  const [routeMode, setRouteMode] = useState<"all" | "subway" | "bus" | "mixed">("all");
+  const [routePreference, setRoutePreference] = useState<RoutePreference>("recommended");
   const [alternatives, setAlternatives] = useState<TransitRoute[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [status, setStatus] = useState("");
@@ -690,18 +729,6 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
       setDestCandidates([]);
     }
     setStatus("");
-  };
-
-  const filterByMode = (routes: TransitRoute[]) => {
-    if (routeMode === "all") return routes;
-    return routes.filter((r) => {
-      const modes = new Set(r.paths.map((p) => p.mode));
-      modes.delete("walk");
-      if (routeMode === "subway") return modes.size === 1 && modes.has("subway");
-      if (routeMode === "bus") return modes.size === 1 && modes.has("bus");
-      if (routeMode === "mixed") return modes.has("bus") && modes.has("subway");
-      return true;
-    });
   };
 
   /** 텍스트만 입력되어 있고 후보를 직접 선택하지 않은 경우, 자동 지오코딩으로 첫 번째 결과를 사용 */
@@ -768,7 +795,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
       });
 
       const routeResults = await Promise.allSettled(
-        routeEndpointsForMode(routeMode).map(async (endpoint) => {
+        routeEndpointsForMode("all").map(async (endpoint) => {
           const res = await fetch(`${endpoint}?${params}`);
           if (!res.ok) return [];
           const data = await res.json();
@@ -785,12 +812,11 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
         return;
       }
 
-      const filtered = filterByMode(allRoutes);
       setStatus("실시간 혼잡도를 확인하는 중…");
-      const routesWithCongestion = await Promise.all((filtered.length ? filtered : allRoutes).map(enrichRouteCongestion));
-      const decorated = decorateAlternatives(routesWithCongestion);
-      setStatus("노선 동선을 불러오는 중…");
-      const routesWithGeometry = await Promise.all(decorated.map(enrichRouteGeometry));
+      const routesWithCongestion = await Promise.all(allRoutes.map(enrichRouteCongestion));
+      const decorated = decorateAlternatives(routesWithCongestion, routePreference);
+      setStatus("지하철 노선 동선을 불러오는 중…");
+      const routesWithGeometry = await Promise.all(decorated.map((route) => enrichRouteGeometry(route, "rail")));
       setStatus("실시간 도착 정보를 확인하는 중…");
       const routesWithArrivals = await Promise.all(routesWithGeometry.map(enrichRouteArrivals));
 
@@ -802,7 +828,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
         onRouteFound?.({ origin: resolvedOrigin, destination: resolvedDest, route: routesWithArrivals[0] });
       }
 
-      fetchRealtimeForRoutes(decorated).then(setStepArrivals);
+      fetchRealtimeForRoutes(routesWithArrivals).then(setStepArrivals);
     } catch (e) {
       setStatus("경로 탐색 중 오류가 발생했습니다.");
       console.error(e);
@@ -856,18 +882,17 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
           color="#DC2626"
         />
 
-        {/* 경로 필터 */}
+        {/* 검색 옵션 */}
         <div>
-          <div className="text-[11px] text-[#A8A29E] mb-1">경로 필터</div>
+          <div className="text-[11px] text-[#A8A29E] mb-1">검색 옵션</div>
           <select
-            value={routeMode}
-            onChange={(e) => setRouteMode(e.target.value as typeof routeMode)}
+            value={routePreference}
+            onChange={(e) => setRoutePreference(e.target.value as RoutePreference)}
             className="w-full text-sm border border-[#FDECC8] rounded-lg px-2 py-1.5 bg-white text-[#1B3A6B] focus:outline-none"
           >
-            <option value="all">전체 최적 경로</option>
-            <option value="subway">지하철만</option>
-            <option value="bus">버스만</option>
-            <option value="mixed">버스 + 지하철</option>
+            <option value="recommended">서울로의 추천경로 받기</option>
+            <option value="fastest">가장 빠른길 찾기</option>
+            <option value="smoothest">가장 원활한 길찾기</option>
           </select>
         </div>
 
@@ -885,7 +910,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
           <div className="text-[11px] text-[#A8A29E] text-center">{status}</div>
         )}
 
-        {/* 결과: 대안 경로 */}
+        {/* 결과: 선택 경로 */}
         {alternatives.length > 0 && (
           <div className="space-y-2">
             <div className="text-[11px] text-[#A8A29E] font-medium">추천 경로</div>
@@ -924,15 +949,17 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
                 ? ` · ${step.railLinkCount}개 ${step.mode === "subway" ? "역" : "정류장"} 이동 후 도착`
                 : "";
               const detailText = `${step.lineName}${stopLabel}`;
-              const prevStep = idx > 0 ? currentRoute.paths[idx - 1] : null;
-              const isTransfer = prevStep && 
-                (prevStep.mode !== "walk" && step.mode !== "walk") && 
-                (prevStep.lineName !== step.lineName);
+              const prevTransitStep = currentRoute.paths
+                .slice(0, idx)
+                .reverse()
+                .find((s) => s.mode !== "walk");
+              const isTransfer = step.mode !== "walk" && prevTransitStep && 
+                (prevTransitStep.lineName !== step.lineName);
 
-              const fromStation = prevStep && (
-                prevStep.toName.endsWith("역") || prevStep.toName.endsWith("정류장")
-                  ? prevStep.toName
-                  : prevStep.toName + (prevStep.mode === "subway" ? "역" : " 정류장")
+              const fromStation = prevTransitStep && (
+                prevTransitStep.toName.endsWith("역") || prevTransitStep.toName.endsWith("정류장")
+                  ? prevTransitStep.toName
+                  : prevTransitStep.toName + (prevTransitStep.mode === "subway" ? "역" : " 정류장")
               );
 
               return (
@@ -941,7 +968,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] animate-fade-in">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
                       <span className="text-[10px] font-bold text-[#1E40AF]">
-                        {fromStation}에서 {step.lineName}(으)로 환승
+                        {fromStation}에서 {transferLabel(step)}
                       </span>
                       <span className="ml-auto text-[8px] text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-1 rounded font-bold">환승</span>
                     </div>

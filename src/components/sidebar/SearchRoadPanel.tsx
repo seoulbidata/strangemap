@@ -31,6 +31,8 @@ interface TransitPath {
   polyline?: { lat: number; lng: number }[];
   congestion?: CongestionInfo;
   arrivals?: ArrivalInfo[];
+  walkTimeBefore?: number;
+  walkDistanceBefore?: number;
 }
 
 interface TransitRoute {
@@ -39,6 +41,8 @@ interface TransitRoute {
   paths: TransitPath[];
   alternativeLabel?: string;
   congestion?: CongestionInfo;
+  walkTimeAfter?: number;
+  walkDistanceAfter?: number;
 }
 
 interface CongestionInfo {
@@ -107,7 +111,7 @@ function normalizeText(v: string) {
 }
 
 function normalizeLineName(v: string) {
-  return v.replace(/\s+/g, "").replace(/^수도권/, "").replace(/\(급행\)$/, "");
+  return v.replace(/\s+/g, "").replace(/^(수도권|지하철)/, "").replace(/\(급행\)$/, "");
 }
 
 function formatRouteColor(color?: string) {
@@ -252,6 +256,7 @@ async function fetchStepPolyline(step: TransitPath, precision: "fast" | "rail" =
     if (step.mode === "bus") {
       if (!step.routeId) return step.polyline ?? [];
       params.set("routeId", step.routeId);
+      params.set("routeName", cleanBusRouteName(step.lineName));
       params.set("fromName", step.fromName);
       params.set("toName", step.toName);
       if (step.fromLat != null && step.fromLng != null) {
@@ -264,7 +269,7 @@ async function fetchStepPolyline(step: TransitPath, precision: "fast" | "rail" =
       }
       const res = await fetch(`/api/bus/segment-shape?${params}`);
       const data = await res.json();
-      if (data && typeof data.stopCount === "number") {
+      if (data && typeof data.stopCount === "number" && data.stopCount > 0) {
         step.railLinkCount = data.stopCount;
       }
       return (data.points ?? []) as { lat: number; lng: number }[];
@@ -443,10 +448,15 @@ function realtimeKey(step: TransitPath) {
   return `${step.mode}|${step.fromId}|${step.routeId}`;
 }
 
+const odsayCongestionCache = new Map<string, Promise<CongestionInfo | undefined>>();
+
 async function fetchOdsayBusCongestion(step: TransitPath): Promise<CongestionInfo | undefined> {
   if (step.mode !== "bus" || !step.fromId) return undefined;
+  const cacheKey = `${step.routeId}|${cleanBusRouteName(step.lineName)}|${step.fromId}`;
+  const cached = odsayCongestionCache.get(cacheKey);
+  if (cached) return cached;
 
-  try {
+  const request = (async () => {
     const params = new URLSearchParams({
       stopId: step.fromId,
       stopName: step.fromName,
@@ -463,7 +473,13 @@ async function fetchOdsayBusCongestion(step: TransitPath): Promise<CongestionInf
       color: String(data.congestion.color ?? ""),
       source: String(data.congestion.source ?? "odsayRealtime"),
     };
+  })();
+
+  odsayCongestionCache.set(cacheKey, request);
+  try {
+    return await request;
   } catch {
+    odsayCongestionCache.delete(cacheKey);
     return undefined;
   }
 }
@@ -504,14 +520,12 @@ async function fetchBusRealtime(step: TransitPath): Promise<RealtimeInfo | null>
     if (!first) return null;
     const nextMsg = first.arrmsg2 || "";
     const nextSecs = first.arrivalSeconds2 ?? 0;
-    const odsayCongestion = await fetchOdsayBusCongestion(step);
-    const routeCongestion = odsayCongestion ?? await fetchBusRouteCongestion(step);
     return {
       arrivalMsg: first.arrmsg1 || "",
       arrivalSeconds: first.arrivalSeconds1 ?? 0,
       nextArrivalMsg: nextMsg || undefined,
       nextArrivalSeconds: nextSecs > 0 ? nextSecs : undefined,
-      congestion: routeCongestion ?? data.congestion ?? busCongestionCodeToInfo(first.congestionCode1 ?? 0),
+      congestion: step.congestion ?? data.congestion ?? busCongestionCodeToInfo(first.congestionCode1 ?? 0),
     };
   } catch {
     return null;
@@ -609,8 +623,8 @@ function decorateAlternatives(routes: TransitRoute[], preference: RoutePreferenc
     const congestionScore = 100 - (route.congestion?.score ?? 50);
     const timeScore = maxTime === minTime ? 100 : ((maxTime - route.time) / (maxTime - minTime)) * 100;
     const transfers = countRouteTransfers(route);
-    // 5:5 비율 반영 및 환승 1회당 10점 페널티 적용
-    return congestionScore * 0.5 + timeScore * 0.5 - transfers * 10;
+    // 6:4 비율 반영 (혼잡도 6, 시간 4 가중치) 및 환승 1회당 10점 페널티 적용
+    return congestionScore * 0.6 + timeScore * 0.4 - transfers * 10;
   };
 
   const deepClone = (r: TransitRoute): TransitRoute => JSON.parse(JSON.stringify(r));
@@ -812,11 +826,11 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
         return;
       }
 
+      const decorated = decorateAlternatives(allRoutes, routePreference);
       setStatus("실시간 혼잡도를 확인하는 중…");
-      const routesWithCongestion = await Promise.all(allRoutes.map(enrichRouteCongestion));
-      const decorated = decorateAlternatives(routesWithCongestion, routePreference);
+      const routesWithCongestion = await Promise.all(decorated.map(enrichRouteCongestion));
       setStatus("지하철 노선 동선을 불러오는 중…");
-      const routesWithGeometry = await Promise.all(decorated.map((route) => enrichRouteGeometry(route, "rail")));
+      const routesWithGeometry = await Promise.all(routesWithCongestion.map((route) => enrichRouteGeometry(route, "rail")));
       setStatus("실시간 도착 정보를 확인하는 중…");
       const routesWithArrivals = await Promise.all(routesWithGeometry.map(enrichRouteArrivals));
 
@@ -929,7 +943,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
                   {alt.congestion && ` · 혼잡도 ${alt.congestion.label}`}
                 </div>
                 {alt.congestion && (
-                  <CongestionBar congestion={alt.congestion} />
+                  <CongestionBar congestion={alt.congestion} showPercentage={false} />
                 )}
               </button>
             ))}
@@ -962,29 +976,77 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
                   : prevTransitStep.toName + (prevTransitStep.mode === "subway" ? "역" : " 정류장")
               );
 
+              const nextTransitStep = currentRoute.paths
+                .slice(idx + 1)
+                .find((s) => s.mode !== "walk");
+              const isLastTransit = step.mode !== "walk" && !nextTransitStep;
+
+              const lastStation = isLastTransit && (
+                step.toName.endsWith("역") || step.toName.endsWith("정류장")
+                  ? step.toName
+                  : step.toName + (step.mode === "subway" ? "역" : " 정류장")
+              );
+
               return (
-                <div key={idx} className="space-y-1.5">
+                <div key={idx} className="space-y-1.5 animate-fade-in">
+                  {step.walkTimeBefore != null && step.walkTimeBefore > 0 && (
+                    <StepItem
+                      icon="도보"
+                      label="도보 이동"
+                      detail={`약 ${step.walkTimeBefore}분 (${step.walkDistanceBefore}m)`}
+                      color="#8a968e"
+                    />
+                  )}
                   {isTransfer && (
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] animate-fade-in">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
                       <span className="text-[10px] font-bold text-[#1E40AF]">
-                        {fromStation}에서 {transferLabel(step)}
+                        {fromStation} 하차 후 {transferLabel(step)}
                       </span>
-                      <span className="ml-auto text-[8px] text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-1 rounded font-bold">환승</span>
+                      <span className="ml-auto text-[8px] text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-1 rounded font-bold">하차 & 환승</span>
                     </div>
                   )}
                   <StepItem
                     icon={step.mode === "walk" ? "도보" : step.mode === "subway" ? "지하철" : "버스"}
-                    label={`${step.fromName} → ${step.toName}`}
+                    label={
+                      step.mode === "walk"
+                        ? "도보 이동"
+                        : `${
+                            step.fromName.endsWith("역") || step.fromName.endsWith("정류장") || step.fromName.endsWith("정류소")
+                              ? step.fromName
+                              : step.fromName + (step.mode === "subway" ? "역" : " 정류장")
+                          } 탑승 → ${
+                            step.toName.endsWith("역") || step.toName.endsWith("정류장") || step.toName.endsWith("정류소")
+                              ? step.toName
+                              : step.toName + (step.mode === "subway" ? "역" : " 정류장")
+                          } 하차`
+                    }
                     detail={detailText}
                     color={getLineColor(step)}
                     congestion={step.mode === "walk" ? undefined : rt?.congestion ?? step.congestion ?? estimateCongestion(step)}
                     arrivals={step.arrivals}
                     realtimeInfo={rt}
                   />
+                  {isLastTransit && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F3F4F6] border border-[#D1D5DB] animate-fade-in">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#4B5563]" />
+                      <span className="text-[10px] font-bold text-[#374151]">
+                        {lastStation} 하차
+                      </span>
+                      <span className="ml-auto text-[8px] text-[#4B5563] bg-[#F3F4F6] border border-[#D1D5DB] px-1 rounded font-bold">하차</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
+            {currentRoute.walkTimeAfter != null && currentRoute.walkTimeAfter > 0 && (
+              <StepItem
+                icon="도보"
+                label="도보 이동"
+                detail={`약 ${currentRoute.walkTimeAfter}분 (${currentRoute.walkDistanceAfter}m)`}
+                color="#8a968e"
+              />
+            )}
             {dest && (
               <StepItem icon="도착" label={dest.label} detail="" color="#DC2626" />
             )}
@@ -1107,18 +1169,18 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
             ))}
           </div>
         )}
-        {congestion && <CongestionBar congestion={congestion} />}
+        {congestion && <CongestionBar congestion={congestion} showPercentage={icon === "지하철"} />}
       </div>
     </div>
   );
 }
 
-function CongestionBar({ congestion }: { congestion: CongestionInfo }) {
+function CongestionBar({ congestion, showPercentage = true }: { congestion: CongestionInfo; showPercentage?: boolean }) {
   return (
     <div className="mt-1">
       <div className="flex items-center justify-between mb-0.5">
         <span className="text-[10px] font-bold" style={{ color: congestion.color }}>{congestion.label}</span>
-        <span className="text-[10px] text-[#A8A29E]">{congestion.score}%</span>
+        {showPercentage && <span className="text-[10px] text-[#A8A29E]">{congestion.score}%</span>}
       </div>
       <div className="h-1 bg-[#F3F4F6] rounded-full overflow-hidden">
         <div

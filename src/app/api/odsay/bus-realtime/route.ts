@@ -5,6 +5,9 @@ const ODSAY_BASE = "https://api.odsay.com/v1/api";
 
 const cache = new Map<string, { ts: number; body: unknown }>();
 const CACHE_TTL_MS = 60 * 1000;
+const laneCache = new Map<string, { ts: number; body: any }>();
+const laneDetailCache = new Map<string, { ts: number; body: any }>();
+const ROUTE_CACHE_TTL_MS = 60 * 60 * 1000;
 
 function cleanBusNo(v: string) {
   return (v.includes(":") ? v.split(":").at(-1)! : v).replace(/\s+/g, "");
@@ -27,10 +30,34 @@ function asArray<T>(v: T | T[] | undefined | null): T[] {
 async function odsayGet(path: string, params: Record<string, string>) {
   const search = new URLSearchParams({ ...params, apiKey: ODSAY_API_KEY });
   const res = await fetch(`${ODSAY_BASE}/${path}?${search}`, {
-    headers: { Accept: "application/json" },
+    headers: { 
+      Accept: "application/json",
+      Referer: "https://seoulro.site",
+    },
     next: { revalidate: 60 },
   });
   return res.json();
+}
+
+async function cachedSearchBusLane(routeName: string, routeId: string) {
+  const key = `${routeName || routeId}`;
+  const cached = laneCache.get(key);
+  if (cached && Date.now() - cached.ts < ROUTE_CACHE_TTL_MS) return cached.body;
+  const body = await odsayGet("searchBusLane", {
+    busNo: routeName || routeId,
+    CID: "1000",
+    stationListYn: "no",
+  });
+  laneCache.set(key, { ts: Date.now(), body });
+  return body;
+}
+
+async function cachedBusLaneDetail(busID: string) {
+  const cached = laneDetailCache.get(busID);
+  if (cached && Date.now() - cached.ts < ROUTE_CACHE_TTL_MS) return cached.body;
+  const body = await odsayGet("busLaneDetail", { busID });
+  laneDetailCache.set(busID, { ts: Date.now(), body });
+  return body;
 }
 
 function findCongestionNode(node: any): any {
@@ -46,7 +73,6 @@ function findCongestionNode(node: any): any {
     "crowdedType",
     "crowdType",
     "crowdLevel",
-    "type",
   ]) {
     if (node[key] !== undefined) return node[key];
   }
@@ -81,11 +107,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const laneData = await odsayGet("searchBusLane", {
-      busNo: routeName || routeId,
-      CID: "1000",
-      stationListYn: "no",
-    });
+    const laneData = await cachedSearchBusLane(routeName, routeId);
     if (laneData?.error) {
       const body = { status: "ODSAY_ERROR", error: laneData.error };
       cache.set(cacheKey, { ts: Date.now(), body });
@@ -102,7 +124,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(body);
     }
 
-    const detailData = await odsayGet("busLaneDetail", { busID: String(lane.busID) });
+    const detailData = await cachedBusLaneDetail(String(lane.busID));
     const stations = asArray(detailData?.result?.station);
     const station = stations.find((item: any) => String(item.localStationID ?? "") === stopId)
       ?? stations.find((item: any) => String(item.arsID ?? "").replace(/\D/g, "") === stopId.replace(/\D/g, ""))
@@ -129,7 +151,16 @@ export async function GET(request: NextRequest) {
       ?? realItems.find((item: any) => cleanBusNo(String(item.routeNm ?? "")) === routeName)
       ?? realItems[0]
       ?? realtimeData?.result;
-    const congestion = congestionFromCode(findCongestionNode(target));
+    let rawCongestionCode = null;
+    if (target?.arrival1 && target.arrival1.congestion !== undefined && Number(target.arrival1.congestion) > 0) {
+      rawCongestionCode = target.arrival1.congestion;
+    } else if (target?.arrival2 && target.arrival2.congestion !== undefined && Number(target.arrival2.congestion) > 0) {
+      rawCongestionCode = target.arrival2.congestion;
+    } else {
+      rawCongestionCode = findCongestionNode(target);
+    }
+
+    const congestion = congestionFromCode(rawCongestionCode);
     if (!congestion) {
       const body = { status: "NO_CONGESTION", source: "odsayRealtime", routeName, routeId, stationID: station.stationID };
       cache.set(cacheKey, { ts: Date.now(), body });

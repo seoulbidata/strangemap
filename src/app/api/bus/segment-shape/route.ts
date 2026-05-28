@@ -71,6 +71,12 @@ function pathDistance(points: { lat: number; lng: number }[]): number {
   return total;
 }
 
+function estimateBusStopCount(points: { lat: number; lng: number }[]): number {
+  const meters = pathDistance(points);
+  if (meters < 250) return 1;
+  return Math.max(1, Math.round(meters / 430));
+}
+
 function interpolate(a: { lat: number; lng: number }, b: { lat: number; lng: number }, t: number) {
   return {
     lat: a.lat + (b.lat - a.lat) * t,
@@ -358,7 +364,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           status: "OK",
           routeId,
-          stopCount: 0,
+          stopCount: estimateBusStopCount(clippedRoutePath.points),
+          stopCountSource: "estimated-route-path",
           source: "seoul-bus-route-path-direct",
           points: clippedRoutePath.points,
           debug: clippedRoutePath.debug,
@@ -385,7 +392,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           status: "OK",
           routeId,
-          stopCount,
+          stopCount: stopCount > 0 ? stopCount : estimateBusStopCount(clippedRoutePath.points),
+          stopCountSource: stopCount > 0 ? "station-list" : "estimated-route-path",
           source: "seoul-bus-route-path-direct",
           points: clippedRoutePath.points,
           debug: clippedRoutePath.debug,
@@ -399,6 +407,7 @@ export async function GET(request: NextRequest) {
         status: "OK",
         routeId,
         stopCount,
+        stopCountSource: "station-list",
         source: bestSource,
         points: dedupePoints(bestSource === "seoul-bus-route-path" ? finalPoints : stationSlice),
         debug: bestDebug,

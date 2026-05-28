@@ -73,7 +73,7 @@ export default function AIQuestPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
-      <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8]">
+      <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8] md:block hidden">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse" />
           <span className="text-[10px] font-display tracking-wider text-[#9CA3AF] uppercase">AI 추천</span>

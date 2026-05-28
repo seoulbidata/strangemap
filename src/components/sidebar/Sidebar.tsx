@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import type { POIItem } from "@/app/api/poi/route";
 import type { ThemeCourse } from "@/data/themeCourses";
@@ -10,7 +10,7 @@ import NightviewPanel from "./NightviewPanel";
 import AIQuestPanel from "./AIQuestPanel";
 import ThemeCoursePanel from "./ThemeCoursePanel";
 import NowRecommendPanel from "./NowRecommendPanel";
-import SearchRoadPanel, { type RouteDrawPayload } from "./SearchRoadPanel";
+import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "./SearchRoadPanel";
 
 interface Props {
   pois: POIItem[];
@@ -21,6 +21,9 @@ interface Props {
   onRouteClear?: () => void;
   presetDest?: { label: string; lat: number; lng: number } | null;
   presetOrigin?: { label: string; lat: number; lng: number } | null;
+  onClearOrigin?: () => void;
+  onClearDest?: () => void;
+  routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
   activeTab: TabId | null;
   onActiveTabChange: (tab: TabId | null) => void;
 }
@@ -46,13 +49,27 @@ export default function Sidebar({
   onRouteClear,
   presetDest,
   presetOrigin,
+  onClearOrigin,
+  onClearDest,
+  routeCacheRef,
   activeTab,
   onActiveTabChange,
 }: Props) {
   const toggle = (id: TabId) => onActiveTabChange(activeTab === id ? null : id);
 
+  const prevPresetDest = useRef(presetDest);
+  const prevPresetOrigin = useRef(presetOrigin);
+
   useEffect(() => {
-    if (presetDest || presetOrigin) onActiveTabChange("route");
+    const destChanged = presetDest && presetDest !== prevPresetDest.current;
+    const originChanged = presetOrigin && presetOrigin !== prevPresetOrigin.current;
+
+    if (destChanged || originChanged) {
+      onActiveTabChange("route");
+    }
+
+    prevPresetDest.current = presetDest;
+    prevPresetOrigin.current = presetOrigin;
   }, [onActiveTabChange, presetDest, presetOrigin]);
 
   return (
@@ -109,8 +126,16 @@ export default function Sidebar({
           {activeTab === "now" && (
             <NowRecommendPanel onSelectPOI={onSelectPOI} />
           )}
-          {activeTab === "route" && (
-            <SearchRoadPanel onRouteFound={onRouteFound} onRouteClear={onRouteClear} presetDest={presetDest} presetOrigin={presetOrigin} />
+          {activeTab === "route" && routeCacheRef && (
+            <SearchRoadPanel
+              onRouteFound={onRouteFound}
+              onRouteClear={onRouteClear}
+              presetDest={presetDest}
+              presetOrigin={presetOrigin}
+              onClearOrigin={onClearOrigin}
+              onClearDest={onClearDest}
+              routeCacheRef={routeCacheRef}
+            />
           )}
         </div>
       )}

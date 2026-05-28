@@ -40,7 +40,7 @@ export default function NightviewPanel({ pois, onSelectPOI }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
-      <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8]">
+      <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8] md:block hidden">
         <h2 className="text-base font-bold text-[#1A1E2E]">야경명소</h2>
         <p className="text-xs text-[#9CA3AF] mt-0.5">
           서울 대표 야경 포인트 {pois.filter((p) => p.source === "nightview").length}곳

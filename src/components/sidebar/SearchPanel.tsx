@@ -323,7 +323,7 @@ function SearchIcon({ className }: { className?: string }) {
 
 function PanelHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8]">
+    <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8] md:block hidden">
       <h2 className="text-base font-bold text-[#1A1E2E]">{title}</h2>
       <p className="text-xs text-[#9CA3AF] mt-0.5">{subtitle}</p>
     </div>

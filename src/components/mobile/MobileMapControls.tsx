@@ -71,19 +71,38 @@ export default function MobileMapControls({
       {/* 1. 상단 컨트롤 패널 (검색 바 + 필터 알약 버튼들) */}
       <div className="pointer-events-none fixed inset-x-0 top-3 z-30 px-4 md:hidden flex flex-col gap-2">
         
-        {/* 검색창 */}
-        <button
-          onClick={() => onOpenTab("search")}
-          className="pointer-events-auto w-full h-14 rounded-full bg-white/95 border border-[#FDECC8] shadow-[0_4px_20px_rgba(0,0,0,0.08)] px-4 flex items-center gap-3 active:scale-[0.98] transition-transform backdrop-blur-md"
-        >
-          <Image src="/icons/logo.png" alt="서울로 로고" width={28} height={28} className="rounded-lg shrink-0" />
-          <span className="min-w-0 flex-1 text-left text-base font-semibold text-[#6B7280]">
-            서울로 검색
-          </span>
-          <svg className="w-5 h-5 text-[#FE9C00] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </button>
+        {/* 검색창 및 길찾기 버튼 그룹 */}
+        <div className="flex gap-2 w-full">
+          {/* 검색창 */}
+          <button
+            onClick={() => onOpenTab("search")}
+            className="pointer-events-auto flex-1 h-14 rounded-full bg-white/95 border border-[#FDECC8] shadow-[0_4px_20px_rgba(0,0,0,0.08)] px-4 flex items-center gap-3 active:scale-[0.98] transition-transform backdrop-blur-md"
+          >
+            <Image src="/icons/logo.png" alt="서울로 로고" width={28} height={28} className="rounded-lg shrink-0" />
+            <span className="min-w-0 flex-1 text-left text-base font-semibold text-[#6B7280]">
+              서울로 검색
+            </span>
+            <svg className="w-5 h-5 text-[#FE9C00] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+
+          {/* 길찾기 버튼 */}
+          <button
+            onClick={() => onOpenTab("route")}
+            className="pointer-events-auto w-14 h-14 shrink-0 rounded-full bg-white/95 border border-[#FDECC8] shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-[0.98] transition-transform backdrop-blur-md"
+            title="길찾기"
+            aria-label="길찾기 열기"
+          >
+            <Image
+              src="/sidebaricons/route.png"
+              alt="길찾기"
+              width={24}
+              height={24}
+              className="object-contain"
+            />
+          </button>
+        </div>
 
         {/* 필터 알약 버튼 (네이버 레퍼런스 스타일) */}
         <div className="pointer-events-auto flex flex-col gap-2">
@@ -147,24 +166,8 @@ export default function MobileMapControls({
         </div>
       </div>
 
-      {/* 2. 우측 플로팅 컨트롤러 (길찾기, 내 위치) */}
+      {/* 2. 우측 플로팅 컨트롤러 (내 위치만 남김) */}
       <div className="pointer-events-none fixed right-4 bottom-24 z-10 flex flex-col gap-2.5 md:hidden">
-        {/* 길찾기 버튼 */}
-        <button
-          onClick={() => onOpenTab("route")}
-          className="pointer-events-auto w-12 h-12 rounded-full bg-white border border-[#FDECC8] shadow-lg flex items-center justify-center active:scale-95 transition-transform"
-          title="길찾기"
-          aria-label="길찾기 열기"
-        >
-          <Image
-            src="/sidebaricons/route.png"
-            alt="길찾기"
-            width={24}
-            height={24}
-            className="object-contain"
-          />
-        </button>
-
         {/* 내 위치 버튼 */}
         <button
           onClick={onRequestLocation}

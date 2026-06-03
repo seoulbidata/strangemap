@@ -80,6 +80,16 @@ interface Props {
   onRouteClear?: () => void;
   presetDest?: { label: string; lat: number; lng: number } | null;
   presetOrigin?: { label: string; lat: number; lng: number } | null;
+  onClearOrigin?: () => void;
+  onClearDest?: () => void;
+  routeCacheRef: React.MutableRefObject<RouteSearchCache>;
+}
+
+export interface RouteSearchCache {
+  alternatives: TransitRoute[];
+  selectedIdx: number;
+  status: string;
+  stepArrivals: Record<string, RealtimeInfo>;
 }
 
 /* ---- 상수 ---- */
@@ -673,7 +683,6 @@ function decorateAlternatives(routes: TransitRoute[], preference: RoutePreferenc
   const [route, label] = selectedByPreference[preference];
   return [{ ...deepClone(route), alternativeLabel: label }];
 }
-
 function renderAlternativeLabel(label?: string) {
   if (!label) return null;
   let bgClass = "bg-[#EFF6FF] text-[#1B3A6B] border-[#EFF6FF]";
@@ -693,7 +702,15 @@ function renderAlternativeLabel(label?: string) {
 }
 
 /* ---- 컴포넌트 ---- */
-export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest, presetOrigin }: Props) {
+export default function SearchRoadPanel({
+  onRouteFound,
+  onRouteClear,
+  presetDest,
+  presetOrigin,
+  onClearOrigin,
+  onClearDest,
+  routeCacheRef,
+}: Props) {
   const [originQuery, setOriginQuery] = useState("");
   const [destQuery, setDestQuery] = useState("");
   const [originCandidates, setOriginCandidates] = useState<PlaceCandidate[]>([]);
@@ -701,13 +718,30 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
   const [origin, setOrigin] = useState<PlaceCandidate | null>(null);
   const [dest, setDest] = useState<PlaceCandidate | null>(null);
   const [routePreference, setRoutePreference] = useState<RoutePreference>("recommended");
-  const [alternatives, setAlternatives] = useState<TransitRoute[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const [status, setStatus] = useState("");
+  const [alternatives, setAlternativesState] = useState<TransitRoute[]>(() => routeCacheRef.current.alternatives);
+  const [selectedIdx, setSelectedIdxState] = useState(() => routeCacheRef.current.selectedIdx);
+  const [status, setStatusState] = useState(() => routeCacheRef.current.status);
   const [loading, setLoading] = useState(false);
   const [stepArrivals, setStepArrivals] = useState<Record<string, RealtimeInfo>>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const geocacheRef = useRef(new Map<string, PlaceCandidate[]>());
+
+  const setAlternatives = (val: TransitRoute[]) => {
+    routeCacheRef.current.alternatives = val;
+    setAlternativesState(val);
+  };
+  const setSelectedIdx = (val: number) => {
+    routeCacheRef.current.selectedIdx = val;
+    setSelectedIdxState(val);
+  };
+  const setStatus = (val: string) => {
+    routeCacheRef.current.status = val;
+    setStatusState(val);
+  };
+  const setStepArrivals = (val: Record<string, RealtimeInfo>) => {
+    routeCacheRef.current.stepArrivals = val;
+    setStepArrivalsState(val);
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -729,6 +763,16 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
     setOriginQuery(presetOrigin.label);
     setOriginCandidates([]);
   }, [presetOrigin]);
+
+  useEffect(() => {
+    if (!origin && !dest && !originQuery.trim() && !destQuery.trim()) {
+      onRouteClear?.();
+      setAlternatives([]);
+      setSelectedIdx(0);
+      setStatus("");
+      setStepArrivals({});
+    }
+  }, [origin, dest, originQuery, destQuery, onRouteClear]);
 
   const searchPlaces = useCallback(async (kind: "origin" | "dest", query: string) => {
     if (!query.trim()) return;
@@ -890,7 +934,7 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-[#FDECC8] shrink-0">
+      <div className="px-4 py-3 border-b border-[#FDECC8] shrink-0 md:block hidden">
         <div className="text-sm font-bold text-[#1B3A6B]">길찾기</div>
         <div className="text-[11px] text-[#A8A29E] mt-0.5">버스·지하철 환승 경로 탐색</div>
       </div>
@@ -905,7 +949,12 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
           candidates={originCandidates}
           selected={origin}
           onSelect={(p) => selectPlace("origin", p)}
-          onClear={() => { setOrigin(null); setOriginQuery(""); setOriginCandidates([]); }}
+          onClear={() => {
+            setOrigin(null);
+            setOriginQuery("");
+            setOriginCandidates([]);
+            onClearOrigin?.();
+          }}
           placeholder="예: 홍대입구역, 서울시청"
           color="#16A34A"
         />
@@ -918,7 +967,12 @@ export default function SearchRoadPanel({ onRouteFound, onRouteClear, presetDest
           candidates={destCandidates}
           selected={dest}
           onSelect={(p) => selectPlace("dest", p)}
-          onClear={() => { setDest(null); setDestQuery(""); setDestCandidates([]); }}
+          onClear={() => {
+            setDest(null);
+            setDestQuery("");
+            setDestCandidates([]);
+            onClearDest?.();
+          }}
           placeholder="예: 강남역, 코엑스"
           color="#DC2626"
         />

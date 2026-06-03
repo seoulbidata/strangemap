@@ -14,7 +14,7 @@ import CultureSpeedDial from "@/components/map/CultureSpeedDial";
 import MobileNavigation, { type MobileTabId } from "@/components/mobile/MobileNavigation";
 import MobilePanel from "@/components/mobile/MobilePanel";
 import MobileMapControls from "@/components/mobile/MobileMapControls";
-import type { RouteDrawPayload } from "@/components/sidebar/SearchRoadPanel";
+import type { RouteDrawPayload, RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
 import { CATEGORY_MARKER, type CultureCategory } from "@/lib/cultureCategories";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
@@ -135,6 +135,12 @@ export default function MapView() {
   const isMobile = useMediaQuery("(max-width: 767px)");
 
   const locationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const routeCacheRef = useRef<RouteSearchCache>({
+    alternatives: [],
+    selectedIdx: 0,
+    status: "",
+    stepArrivals: {},
+  });
 
   const triggerMessageTimeout = useCallback(() => {
     if (locationTimeoutRef.current) {
@@ -436,6 +442,29 @@ export default function MapView() {
     if (originMarkerRef.current) { originMarkerRef.current.setMap(null); originMarkerRef.current = null; }
     if (destMarkerRef.current) { destMarkerRef.current.setMap(null); destMarkerRef.current = null; }
     if (polylineRef.current) { polylineRef.current.setMap(null); polylineRef.current = null; }
+    setOrigin(null);
+    setDest(null);
+    setPresetOrigin(null);
+    setPresetDest(null);
+    routeCacheRef.current = { alternatives: [], selectedIdx: 0, status: "", stepArrivals: {} };
+  }, []);
+
+  const handleClearOrigin = useCallback(() => {
+    setOrigin(null);
+    setPresetOrigin(null);
+    if (originMarkerRef.current) {
+      originMarkerRef.current.setMap(null);
+      originMarkerRef.current = null;
+    }
+  }, []);
+
+  const handleClearDest = useCallback(() => {
+    setDest(null);
+    setPresetDest(null);
+    if (destMarkerRef.current) {
+      destMarkerRef.current.setMap(null);
+      destMarkerRef.current = null;
+    }
   }, []);
 
   const handleRouteFound = useCallback(async (payload: RouteDrawPayload) => {
@@ -714,6 +743,9 @@ export default function MapView() {
     addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">출발</div>`, { anchorX: 40, anchorY: 8, zIndex: 190 });
     addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">도착</div>`, { anchorX: 4, anchorY: 8, zIndex: 190 });
 
+    setPresetOrigin({ label: org.label, lat: org.lat, lng: org.lng });
+    setPresetDest({ label: dst.label, lat: dst.lat, lng: dst.lng });
+
     bounds.extend(new naver.maps.LatLng(dst.lat, dst.lng));
     mapInstance.current.fitBounds(
       bounds,
@@ -721,8 +753,7 @@ export default function MapView() {
         ? { top: 80, right: 32, bottom: 300, left: 32 }
         : { top: 80, right: 80, bottom: 80, left: 460 }
     );
-    if (isMobile) setSidebarActiveTab(null);
-  }, [clearRouteOverlay, isMobile]);
+  }, [clearRouteOverlay, isMobile, setPresetOrigin, setPresetDest]);
 
   // 사이드바에서 POI 선택 → 지도 이동 + 카드 열기
   const handleSelectPOI = (poi: POIItem) => {
@@ -956,6 +987,9 @@ export default function MapView() {
             onRouteClear={clearRouteOverlay}
             presetDest={presetDest}
             presetOrigin={presetOrigin}
+            onClearOrigin={handleClearOrigin}
+            onClearDest={handleClearDest}
+            routeCacheRef={routeCacheRef}
             activeTab={sidebarActiveTab}
             onActiveTabChange={setSidebarActiveTab}
           />
@@ -972,6 +1006,9 @@ export default function MapView() {
           onRouteClear={clearRouteOverlay}
           presetDest={presetDest}
           presetOrigin={presetOrigin}
+          onClearOrigin={handleClearOrigin}
+          onClearDest={handleClearDest}
+          routeCacheRef={routeCacheRef}
         />
 
         <MobileNavigation

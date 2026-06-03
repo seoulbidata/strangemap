@@ -8,7 +8,7 @@ import CulturePanel from "@/components/sidebar/CulturePanel";
 import NightviewPanel from "@/components/sidebar/NightviewPanel";
 import NowRecommendPanel from "@/components/sidebar/NowRecommendPanel";
 import SearchPanel from "@/components/sidebar/SearchPanel";
-import SearchRoadPanel, { type RouteDrawPayload } from "@/components/sidebar/SearchRoadPanel";
+import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
 import ThemeCoursePanel from "@/components/sidebar/ThemeCoursePanel";
 import type { MobileTabId } from "@/components/mobile/MobileNavigation";
 
@@ -23,6 +23,9 @@ interface Props {
   onRouteClear?: () => void;
   presetDest?: { label: string; lat: number; lng: number } | null;
   presetOrigin?: { label: string; lat: number; lng: number } | null;
+  onClearOrigin?: () => void;
+  onClearDest?: () => void;
+  routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
 }
 
 type SnapState = "closed" | "medium" | "max";
@@ -38,6 +41,9 @@ export default function MobilePanel({
   onRouteClear,
   presetDest,
   presetOrigin,
+  onClearOrigin,
+  onClearDest,
+  routeCacheRef,
 }: Props) {
   const [lastActiveTab, setLastActiveTab] = useState<MobileTabId | null>(null);
   const [snap, setSnap] = useState<SnapState>("closed");
@@ -196,12 +202,15 @@ export default function MobilePanel({
       {/* 바텀시트 콘텐츠 */}
       <div className="flex-1 overflow-hidden pb-[76px]">
         {displayTab === "search" && <SearchPanel pois={pois} onSelectPOI={onSelectPOI} />}
-        {displayTab === "route" && (
+        {displayTab === "route" && routeCacheRef && (
           <SearchRoadPanel
             onRouteFound={onRouteFound}
             onRouteClear={onRouteClear}
             presetDest={presetDest}
             presetOrigin={presetOrigin}
+            onClearOrigin={onClearOrigin}
+            onClearDest={onClearDest}
+            routeCacheRef={routeCacheRef}
           />
         )}
         {displayTab === "culture" && <CulturePanel pois={pois} onSelectPOI={onSelectPOI} />}

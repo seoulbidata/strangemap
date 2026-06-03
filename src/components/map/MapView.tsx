@@ -9,6 +9,7 @@ import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
 import CourseStopCard from "@/components/game/CourseStopCard";
 import AIInfoPanel from "@/components/game/AIInfoPanel";
+import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import Sidebar from "@/components/sidebar/Sidebar";
 import CultureSpeedDial from "@/components/map/CultureSpeedDial";
 import MobileNavigation, { type MobileTabId } from "@/components/mobile/MobileNavigation";
@@ -923,6 +924,24 @@ export default function MapView() {
     [resolveUserLocationForRoute]
   );
 
+  const handleSetAIDestination = useCallback(
+    async (placeName: string) => {
+      const found = SEOUL_PLACES.find((p) => p.displayName === placeName);
+      if (!found) return;
+      setPresetDest({ label: found.displayName, lat: found.lat, lng: found.lng });
+      setDest({ lat: found.lat, lng: found.lng });
+      setSidebarActiveTab("route");
+      try {
+        const loc = await resolveUserLocationForRoute();
+        setOrigin({ lat: loc.lat, lng: loc.lng });
+        setPresetOrigin({ label: "내 위치", lat: loc.lat, lng: loc.lng });
+      } catch {
+        setPresetOrigin(null);
+      }
+    },
+    [resolveUserLocationForRoute]
+  );
+
   // 우클릭 컨텍스트 메뉴
   useEffect(() => {
     const map = mapInstance.current;
@@ -992,6 +1011,7 @@ export default function MapView() {
             routeCacheRef={routeCacheRef}
             activeTab={sidebarActiveTab}
             onActiveTabChange={setSidebarActiveTab}
+            onSetAIDestination={handleSetAIDestination}
           />
         </div>
 
@@ -1009,6 +1029,7 @@ export default function MapView() {
           onClearOrigin={handleClearOrigin}
           onClearDest={handleClearDest}
           routeCacheRef={routeCacheRef}
+          onSetAIDestination={handleSetAIDestination}
         />
 
         <MobileNavigation

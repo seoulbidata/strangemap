@@ -26,6 +26,7 @@ interface Props {
   onClearOrigin?: () => void;
   onClearDest?: () => void;
   routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
+  onSetAIDestination?: (placeName: string) => void;
 }
 
 type SnapState = "closed" | "medium" | "max";
@@ -44,6 +45,7 @@ export default function MobilePanel({
   onClearOrigin,
   onClearDest,
   routeCacheRef,
+  onSetAIDestination,
 }: Props) {
   const [lastActiveTab, setLastActiveTab] = useState<MobileTabId | null>(null);
   const [snap, setSnap] = useState<SnapState>("closed");
@@ -215,7 +217,7 @@ export default function MobilePanel({
         )}
         {displayTab === "culture" && <CulturePanel pois={pois} onSelectPOI={onSelectPOI} />}
         {displayTab === "night" && <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />}
-        {displayTab === "ai" && <AIQuestPanel />}
+        {displayTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} />}
         {displayTab === "course" && (
           <ThemeCoursePanel onSelectCourse={onSelectCourse} activeCourseId={activeCourseId} />
         )}

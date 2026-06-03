@@ -231,7 +231,8 @@ function buildPrompt(
 
   return `서울에서 오늘 할 수 있는 활동 3가지를 추천해줘. JSON 배열만 응답.
 
-[사용자 상황]
+[
+  사용자 상황]
 - 현재: ${kstCtx.date} (${kstCtx.weekday}요일 ${kstCtx.period})
 - 누구랑: ${companion}
 - 나이대: ${ageGroup} → ${ageHint(ageGroup)}

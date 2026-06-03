@@ -26,6 +26,7 @@ interface Props {
   routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
   activeTab: TabId | null;
   onActiveTabChange: (tab: TabId | null) => void;
+  onSetAIDestination?: (placeName: string) => void;
 }
 
 type TabId = "search" | "culture" | "night" | "ai" | "course" | "now" | "route";
@@ -54,6 +55,7 @@ export default function Sidebar({
   routeCacheRef,
   activeTab,
   onActiveTabChange,
+  onSetAIDestination,
 }: Props) {
   const toggle = (id: TabId) => onActiveTabChange(activeTab === id ? null : id);
 
@@ -119,7 +121,7 @@ export default function Sidebar({
           {activeTab === "night" && (
             <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />
           )}
-          {activeTab === "ai" && <AIQuestPanel />}
+          {activeTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} />}
           {activeTab === "course" && (
             <ThemeCoursePanel onSelectCourse={onSelectCourse} activeCourseId={activeCourseId} />
           )}

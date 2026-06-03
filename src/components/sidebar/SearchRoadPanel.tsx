@@ -477,41 +477,6 @@ function realtimeKey(step: TransitPath) {
   return `${step.mode}|${step.fromId}|${step.routeId}`;
 }
 
-const odsayCongestionCache = new Map<string, Promise<CongestionInfo | undefined>>();
-
-async function fetchOdsayBusCongestion(step: TransitPath): Promise<CongestionInfo | undefined> {
-  if (step.mode !== "bus" || !step.fromId) return undefined;
-  const cacheKey = `${step.routeId}|${cleanBusRouteName(step.lineName)}|${step.fromId}`;
-  const cached = odsayCongestionCache.get(cacheKey);
-  if (cached) return cached;
-
-  const request = (async () => {
-    const params = new URLSearchParams({
-      stopId: step.fromId,
-      stopName: step.fromName,
-      routeName: cleanBusRouteName(step.lineName),
-    });
-    if (step.routeId) params.set("routeId", step.routeId);
-    const res = await fetch(`/api/odsay/bus-realtime?${params}`);
-    if (!res.ok) return undefined;
-    const data = await res.json();
-    if (data.status !== "OK" || data.congestion?.score == null) return undefined;
-    return {
-      score: Number(data.congestion.score),
-      label: String(data.congestion.label ?? ""),
-      color: String(data.congestion.color ?? ""),
-      source: String(data.congestion.source ?? "odsayRealtime"),
-    };
-  })();
-
-  odsayCongestionCache.set(cacheKey, request);
-  try {
-    return await request;
-  } catch {
-    odsayCongestionCache.delete(cacheKey);
-    return undefined;
-  }
-}
 
 async function fetchBusRouteCongestion(step: TransitPath): Promise<CongestionInfo | undefined> {
   if (step.mode !== "bus" || !step.fromId) return undefined;

@@ -28,7 +28,11 @@ const CHIP_COLORS: Record<string, { bg: string; text: string; border: string }> 
   congestion: { bg: "#F0C0C8", text: "#7A2535", border: "#E0A0A8" },
 };
 
-export default function AIQuestPanel() {
+interface AIQuestPanelProps {
+  onSetDestination?: (placeName: string) => void;
+}
+
+export default function AIQuestPanel({ onSetDestination }: AIQuestPanelProps) {
   const [companion, setCompanion] = useState<CompanionType>("친구");
   const [ageGroup, setAgeGroup] = useState<AgeGroupType>("20-30대");
   const [time, setTime] = useState<TimeType>("오후");
@@ -227,6 +231,15 @@ export default function AIQuestPanel() {
                       </span>
                     ))}
                   </div>
+                  {onSetDestination && (
+                    <button
+                      onClick={() => onSetDestination(s.place)}
+                      className="mt-3 w-full py-2 rounded-lg bg-[#FE9C00] text-white text-[12px] font-semibold hover:bg-[#E58900] transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <RouteIcon className="w-3.5 h-3.5" />
+                      목적지로 설정하기
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -298,6 +311,16 @@ function AIIcon({ className }: { className?: string }) {
         strokeLinecap="round"
       />
       <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function RouteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <circle cx="6" cy="19" r="2" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="18" cy="5" r="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6 17V13C6 10 9 9 12 9H14C17 9 18 8 18 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

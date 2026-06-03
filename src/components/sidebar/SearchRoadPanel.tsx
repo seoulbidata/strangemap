@@ -50,6 +50,7 @@ interface CongestionInfo {
   label: string;
   color: string;
   source?: string;
+  unavailable?: boolean;
 }
 
 interface ArrivalInfo {
@@ -63,6 +64,7 @@ interface RealtimeInfo {
   nextArrivalMsg?: string;
   nextArrivalSeconds?: number;
   congestion?: CongestionInfo;
+  fetchedAt?: number;
 }
 
 type RoutePreference = "recommended" | "fastest" | "smoothest";
@@ -215,13 +217,7 @@ async function fetchStepCongestion(step: TransitPath): Promise<CongestionInfo | 
       };
     }
 
-    const odsayCongestion = await fetchOdsayBusCongestion(step);
-    if (odsayCongestion) return odsayCongestion;
-
-    const routeCongestion = await fetchBusRouteCongestion(step);
-    if (routeCongestion) return routeCongestion;
-
-    // 버스: RouteCongestionLevel 값이 없을 때만 도착정보 등급코드로 폴백
+    // 버스: 서울 실시간 도착 API의 reride_Div/reride_Num 기반 혼잡도를 사용
     if (!step.fromId) return undefined;
     const params = new URLSearchParams({
       stopId: step.fromId,
@@ -231,16 +227,23 @@ async function fetchStepCongestion(step: TransitPath): Promise<CongestionInfo | 
     const res = await fetch(`/api/bus/realtime?${params}`);
     if (!res.ok) return undefined;
     const data = await res.json();
-    // bus/realtime이 반환하는 congestion 객체 (score/label/color) 직접 사용
+    // bus/realtime이 반환하는 reride 기반 congestion 객체를 직접 사용
     if (data.congestion?.score != null) {
       return {
         score: Number(data.congestion.score),
         label: String(data.congestion.label ?? ""),
         color: String(data.congestion.color ?? ""),
         source: String(data.congestion.source ?? "seoulBusRealtime"),
+        unavailable: Boolean(data.congestion.unavailable),
       };
     }
-    return undefined;
+    return {
+      score: 0,
+      label: "정보 없음",
+      color: "#9CA3AF",
+      source: "seoulBusNoCongestionData",
+      unavailable: true,
+    };
   } catch {
     return undefined;
   }
@@ -454,6 +457,22 @@ function busCongestionCodeToInfo(code: number): CongestionInfo | undefined {
   return undefined;
 }
 
+function formatCountdown(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  if (safeSeconds <= 0) return "곧 도착";
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainSeconds = safeSeconds % 60;
+  if (minutes <= 0) return `${remainSeconds}초 후`;
+  return `${minutes}분 ${remainSeconds}초 후`;
+}
+
+function remainingArrivalSeconds(info: RealtimeInfo, key: "arrivalSeconds" | "nextArrivalSeconds", now: number) {
+  const baseSeconds = info[key];
+  if (baseSeconds === undefined) return undefined;
+  const elapsedSeconds = info.fetchedAt ? Math.floor((now - info.fetchedAt) / 1000) : 0;
+  return Math.max(0, baseSeconds - elapsedSeconds);
+}
+
 function realtimeKey(step: TransitPath) {
   return `${step.mode}|${step.fromId}|${step.routeId}`;
 }
@@ -536,6 +555,7 @@ async function fetchBusRealtime(step: TransitPath): Promise<RealtimeInfo | null>
       nextArrivalMsg: nextMsg || undefined,
       nextArrivalSeconds: nextSecs > 0 ? nextSecs : undefined,
       congestion: step.congestion ?? data.congestion ?? busCongestionCodeToInfo(first.congestionCode1 ?? 0),
+      fetchedAt: Date.now(),
     };
   } catch {
     return null;
@@ -571,6 +591,7 @@ async function fetchSubwayRealtime(step: TransitPath): Promise<RealtimeInfo | nu
       arrivalSeconds: isFinite(firstSecs) ? firstSecs : 0,
       nextArrivalMsg: second ? ((second.arvlMsg2 as string) || "") : undefined,
       nextArrivalSeconds: secondSecs !== undefined && isFinite(secondSecs) ? secondSecs : undefined,
+      fetchedAt: Date.now(),
     };
   } catch {
     return null;
@@ -701,7 +722,8 @@ export default function SearchRoadPanel({
   const [selectedIdx, setSelectedIdxState] = useState(() => routeCacheRef.current.selectedIdx);
   const [status, setStatusState] = useState(() => routeCacheRef.current.status);
   const [loading, setLoading] = useState(false);
-  const [stepArrivals, setStepArrivalsState] = useState<Record<string, RealtimeInfo>>(() => routeCacheRef.current.stepArrivals);
+  const [stepArrivals, setStepArrivals] = useState<Record<string, RealtimeInfo>>({});
+  const [nowMs, setNowMs] = useState(Date.now());
   const geocacheRef = useRef(new Map<string, PlaceCandidate[]>());
 
   const setAlternatives = (val: TransitRoute[]) => {
@@ -720,6 +742,11 @@ export default function SearchRoadPanel({
     routeCacheRef.current.stepArrivals = val;
     setStepArrivalsState(val);
   };
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!presetDest) return;
@@ -1077,9 +1104,10 @@ export default function SearchRoadPanel({
                     }
                     detail={detailText}
                     color={getLineColor(step)}
-                    congestion={step.mode === "walk" ? undefined : rt?.congestion ?? step.congestion ?? estimateCongestion(step)}
+                    congestion={step.mode === "walk" ? undefined : rt?.congestion ?? step.congestion ?? (step.mode === "bus" ? undefined : estimateCongestion(step))}
                     arrivals={step.arrivals}
                     realtimeInfo={rt}
+                    nowMs={nowMs}
                   />
                   {isLastTransit && (
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F3F4F6] border border-[#D1D5DB] animate-fade-in">
@@ -1170,7 +1198,7 @@ function PlaceInput({
   );
 }
 
-function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeInfo }: {
+function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeInfo, nowMs }: {
   icon: string;
   label: string;
   detail: string;
@@ -1178,7 +1206,12 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
   congestion?: CongestionInfo;
   arrivals?: ArrivalInfo[];
   realtimeInfo?: RealtimeInfo;
+  nowMs?: number;
 }) {
+  const renderNowMs = nowMs ?? Date.now();
+  const currentRemaining = realtimeInfo ? remainingArrivalSeconds(realtimeInfo, "arrivalSeconds", renderNowMs) : undefined;
+  const nextRemaining = realtimeInfo ? remainingArrivalSeconds(realtimeInfo, "nextArrivalSeconds", renderNowMs) : undefined;
+
   return (
     <div className="flex gap-2 p-2 rounded-lg bg-white border border-[#FDECC8]">
       <span
@@ -1195,18 +1228,14 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
             <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white shrink-0" style={{ background: color }}>현재</span>
               <span className="text-[10px] font-medium text-[#1B3A6B] truncate">
-                {realtimeInfo.arrivalSeconds === 0 ? "곧 도착" : realtimeInfo.arrivalMsg}
+                {currentRemaining !== undefined ? formatCountdown(currentRemaining) : realtimeInfo.arrivalMsg}
               </span>
             </div>
             {realtimeInfo.nextArrivalMsg && (
               <div className="flex items-center gap-1.5">
                 <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white shrink-0 opacity-60" style={{ background: color }}>다음</span>
                 <span className="text-[10px] text-[#A8A29E] truncate">
-                  {realtimeInfo.nextArrivalSeconds !== undefined && realtimeInfo.nextArrivalSeconds >= 60
-                    ? `약 ${Math.round(realtimeInfo.nextArrivalSeconds / 60)}분 후`
-                    : realtimeInfo.nextArrivalSeconds !== undefined && realtimeInfo.nextArrivalSeconds < 60
-                    ? realtimeInfo.nextArrivalMsg || "곧 도착"
-                    : realtimeInfo.nextArrivalMsg || "곧 도착"}
+                  {nextRemaining !== undefined ? formatCountdown(nextRemaining) : realtimeInfo.nextArrivalMsg || "곧 도착"}
                 </span>
               </div>
             )}

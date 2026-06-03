@@ -86,6 +86,7 @@ interface Props {
 }
 
 export interface RouteSearchCache {
+  routePool: TransitRoute[];
   alternatives: TransitRoute[];
   selectedIdx: number;
   status: string;
@@ -604,11 +605,42 @@ function summarizeModes(route: TransitRoute) {
   return "대중교통";
 }
 
+function routeCongestionFromSteps(
+  route: TransitRoute,
+  realtimeMap?: Record<string, RealtimeInfo>
+): CongestionInfo {
+  const transitSteps = route.paths.filter((p) => p.mode !== "walk");
+  const segmentCongestions = transitSteps
+    .map((step) => {
+      const actualCongestion = realtimeMap?.[realtimeKey(step)]?.congestion ?? step.congestion;
+      return actualCongestion ?? (step.mode === "bus" ? undefined : estimateCongestion(step));
+    })
+    .filter((congestion): congestion is CongestionInfo => Boolean(congestion && !congestion.unavailable));
+
+  if (!segmentCongestions.length) {
+    return {
+      score: 0,
+      label: "정보 없음",
+      color: "#9CA3AF",
+      source: "routeAverageNoData",
+      unavailable: true,
+    };
+  }
+
+  const avg = Math.round(segmentCongestions.reduce((sum, congestion) => sum + congestion.score, 0) / segmentCongestions.length);
+  return {
+    ...scoreToLabel(avg),
+    source: segmentCongestions.length > 1 ? "routeAverageCongestion" : segmentCongestions[0].source,
+  };
+}
+
+function withRouteCongestion(route: TransitRoute, realtimeMap?: Record<string, RealtimeInfo>): TransitRoute {
+  return { ...route, congestion: routeCongestionFromSteps(route, realtimeMap) };
+}
+
 function decorateAlternatives(routes: TransitRoute[], preference: RoutePreference): TransitRoute[] {
   const scored = routes.map((r) => {
-    const seg = r.paths.filter((p) => p.mode !== "walk").map((p) => p.congestion ?? estimateCongestion(p));
-    const avg = seg.length ? Math.round(seg.reduce((a, b) => a + b.score, 0) / seg.length) : 50;
-    return { ...r, congestion: scoreToLabel(avg) };
+    return withRouteCongestion(r);
   });
 
   if (scored.length === 0) return [];
@@ -683,6 +715,7 @@ export default function SearchRoadPanel({
   const [origin, setOrigin] = useState<PlaceCandidate | null>(null);
   const [dest, setDest] = useState<PlaceCandidate | null>(null);
   const [routePreference, setRoutePreference] = useState<RoutePreference>("recommended");
+  const [routePool, setRoutePoolState] = useState<TransitRoute[]>(() => routeCacheRef.current.routePool ?? []);
   const [alternatives, setAlternativesState] = useState<TransitRoute[]>(() => routeCacheRef.current.alternatives);
   const [selectedIdx, setSelectedIdxState] = useState(() => routeCacheRef.current.selectedIdx);
   const [status, setStatusState] = useState(() => routeCacheRef.current.status);
@@ -690,7 +723,12 @@ export default function SearchRoadPanel({
   const [stepArrivals, setStepArrivalsState] = useState<Record<string, RealtimeInfo>>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const geocacheRef = useRef(new Map<string, PlaceCandidate[]>());
+  const preferenceApplySeqRef = useRef(0);
 
+  const setRoutePool = (val: TransitRoute[]) => {
+    routeCacheRef.current.routePool = val;
+    setRoutePoolState(val);
+  };
   const setAlternatives = (val: TransitRoute[]) => {
     routeCacheRef.current.alternatives = val;
     setAlternativesState(val);
@@ -732,6 +770,7 @@ export default function SearchRoadPanel({
   useEffect(() => {
     if (!origin && !dest && !originQuery.trim() && !destQuery.trim()) {
       onRouteClear?.();
+      setRoutePool([]);
       setAlternatives([]);
       setSelectedIdx(0);
       setStatus("");
@@ -808,9 +847,46 @@ export default function SearchRoadPanel({
     return null;
   };
 
+  const applyRoutePreference = async (
+    routes: TransitRoute[],
+    preference: RoutePreference,
+    resolvedOrigin: PlaceCandidate,
+    resolvedDest: PlaceCandidate
+  ) => {
+    const seq = ++preferenceApplySeqRef.current;
+    const decorated = decorateAlternatives(routes, preference);
+
+    setStatus("실시간 혼잡도를 확인하는 중…");
+    const routesWithCongestion = await Promise.all(decorated.map(enrichRouteCongestion));
+    if (seq !== preferenceApplySeqRef.current) return;
+
+    setStatus("지하철 노선 동선을 불러오는 중…");
+    const routesWithGeometry = await Promise.all(routesWithCongestion.map((route) => enrichRouteGeometry(route, "rail")));
+    if (seq !== preferenceApplySeqRef.current) return;
+
+    setStatus("실시간 도착 정보를 확인하는 중…");
+    const routesWithArrivals = (await Promise.all(routesWithGeometry.map(enrichRouteArrivals))).map((route) => withRouteCongestion(route));
+    if (seq !== preferenceApplySeqRef.current) return;
+
+    setAlternatives(routesWithArrivals);
+    setSelectedIdx(0);
+    setStatus(`${resolvedOrigin.label} → ${resolvedDest.label} 경로를 찾았습니다.`);
+
+    if (routesWithArrivals[0]) {
+      onRouteFound?.({ origin: resolvedOrigin, destination: resolvedDest, route: routesWithArrivals[0] });
+    }
+
+    fetchRealtimeForRoutes(routesWithArrivals).then((nextArrivals) => {
+      if (seq !== preferenceApplySeqRef.current) return;
+      setStepArrivals(nextArrivals);
+      setAlternatives(routesWithArrivals.map((route) => withRouteCongestion(route, nextArrivals)));
+    });
+  };
+
   const searchRoute = async () => {
     setLoading(true);
     setStatus("출발·도착지 확인 중…");
+    setRoutePool([]);
     setAlternatives([]);
     setStepArrivals({});
     onRouteClear?.();
@@ -862,23 +938,8 @@ export default function SearchRoadPanel({
         return;
       }
 
-      const decorated = decorateAlternatives(allRoutes, routePreference);
-      setStatus("실시간 혼잡도를 확인하는 중…");
-      const routesWithCongestion = await Promise.all(decorated.map(enrichRouteCongestion));
-      setStatus("지하철 노선 동선을 불러오는 중…");
-      const routesWithGeometry = await Promise.all(routesWithCongestion.map((route) => enrichRouteGeometry(route, "rail")));
-      setStatus("실시간 도착 정보를 확인하는 중…");
-      const routesWithArrivals = await Promise.all(routesWithGeometry.map(enrichRouteArrivals));
-
-      setAlternatives(routesWithArrivals);
-      setSelectedIdx(0);
-      setStatus(`${resolvedOrigin.label} → ${resolvedDest.label} 경로를 찾았습니다.`);
-
-      if (routesWithArrivals[0]) {
-        onRouteFound?.({ origin: resolvedOrigin, destination: resolvedDest, route: routesWithArrivals[0] });
-      }
-
-      fetchRealtimeForRoutes(routesWithArrivals).then(setStepArrivals);
+      setRoutePool(allRoutes);
+      await applyRoutePreference(allRoutes, routePreference, resolvedOrigin, resolvedDest);
     } catch (e) {
       setStatus("경로 탐색 중 오류가 발생했습니다.");
       console.error(e);
@@ -886,6 +947,28 @@ export default function SearchRoadPanel({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!routePool.length || !origin || !dest || loading) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setStepArrivals({});
+    applyRoutePreference(routePool, routePreference, origin, dest)
+      .catch((error) => {
+        if (!cancelled) {
+          setStatus("경로 옵션 변경 중 오류가 발생했습니다.");
+          console.error(error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routePreference]);
 
   const selectAlt = (idx: number) => {
     setSelectedIdx(idx);

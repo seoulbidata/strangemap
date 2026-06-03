@@ -9,30 +9,26 @@ const cache = new Map<string, { ts: number; body: unknown }>();
 const CACHE_TTL_MS = 90 * 1000;
 
 /** 서울 버스 API 혼잡도 코드 3-7 → score/label/color 매핑 */
-function congestionFromCode(code: number): { score: number; label: string; color: string } | null {
-  if (code === 3) return { score: 22, label: "여유",     color: "#2563eb" };
-  if (code === 4) return { score: 45, label: "보통",     color: "#16a34a" };
-  if (code === 5) return { score: 75, label: "혼잡",     color: "#f97316" };
-  if (code === 6) return { score: 92, label: "매우 혼잡", color: "#dc2626" };
-  if (code === 7) return { score: 100, label: "만차",    color: "#991b1b" };
+function congestionFromCode(code: number, source = "seoulBusRealtimeCode"): { score: number; label: string; color: string; source: string } | null {
+  if (code === 3) return { score: 22, label: "여유",     color: "#2563eb", source };
+  if (code === 4) return { score: 45, label: "보통",     color: "#16a34a", source };
+  if (code === 5) return { score: 75, label: "혼잡",     color: "#f97316", source };
+  if (code === 6) return { score: 92, label: "매우 혼잡", color: "#dc2626", source };
+  if (code === 7) return { score: 100, label: "만차",    color: "#991b1b", source };
   return null;
 }
 
-function congestionLabel(score: number) {
-  if (score <= 25) return { label: "원활", color: "#2563eb" };
-  if (score <= 50) return { label: "보통", color: "#16a34a" };
-  if (score <= 75) return { label: "약간 혼잡", color: "#f97316" };
-  if (score <= 100) return { label: "혼잡", color: "#dc2626" };
-  return { label: "매우 혼잡", color: "#991b1b" };
+function unavailableCongestion(source = "seoulBusNoCongestionData") {
+  return { score: 0, label: "정보 없음", color: "#9CA3AF", source, unavailable: true };
 }
 
 function congestionFromPassengerCount(count: number, busType?: string) {
   const capacity = busType === "2" ? 90 : 60;
   const ratio = count / capacity;
-  if (ratio <= 0.25) return { score: 22, label: "여유", color: "#2563eb" };
-  if (ratio <= 0.55) return { score: 45, label: "보통", color: "#16a34a" };
-  if (ratio <= 0.8) return { score: 75, label: "혼잡", color: "#f97316" };
-  return { score: 92, label: "매우 혼잡", color: "#dc2626" };
+  if (ratio <= 0.25) return { score: 22, label: "여유", color: "#2563eb", source: "seoulBusReridePassenger" };
+  if (ratio <= 0.55) return { score: 45, label: "보통", color: "#16a34a", source: "seoulBusReridePassenger" };
+  if (ratio <= 0.8) return { score: 75, label: "혼잡", color: "#f97316", source: "seoulBusReridePassenger" };
+  return { score: 92, label: "매우 혼잡", color: "#dc2626", source: "seoulBusReridePassenger" };
 }
 
 function congestionFromArrival(firstArrival: {
@@ -50,10 +46,11 @@ function congestionFromArrival(firstArrival: {
   if (mapped) return mapped;
 
   const reride = firstArrival.rerideCount1 ?? 0;
-  if (reride <= 0) return null;
-  if (firstArrival.rerideDiv1 === 4) return congestionFromCode(reride) ?? null;
+  if (firstArrival.rerideDiv1 === 4 && reride <= 0) return unavailableCongestion("seoulBusRerideNoData");
+  if (firstArrival.rerideDiv1 === 4) return congestionFromCode(reride, "seoulBusRerideCongestion") ?? unavailableCongestion("seoulBusRerideUnknownCode");
+  if (reride <= 0) return unavailableCongestion();
   if (firstArrival.rerideDiv1 === 2) return congestionFromPassengerCount(reride, firstArrival.busType1);
-  if (reride >= 3 && reride <= 7) return congestionFromCode(reride) ?? null;
+  if (reride >= 3 && reride <= 7) return congestionFromCode(reride, "seoulBusRerideCongestion") ?? null;
   return congestionFromPassengerCount(reride, firstArrival.busType1);
 }
 

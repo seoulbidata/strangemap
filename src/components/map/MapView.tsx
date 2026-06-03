@@ -815,6 +815,83 @@ export default function MapView() {
     );
   }, [mapReady, triggerMessageTimeout]);
 
+  const resolveUserLocationForRoute = useCallback(() => {
+    if (userLocation) {
+      return Promise.resolve(userLocation);
+    }
+
+    if (!("geolocation" in navigator)) {
+      setLocationStatus("unavailable");
+      setLocationMessage("이 브라우저에서는 위치 정보를 사용할 수 없습니다.");
+      triggerMessageTimeout();
+      return Promise.reject(new Error("Geolocation unavailable"));
+    }
+
+    if (locationTimeoutRef.current) {
+      clearTimeout(locationTimeoutRef.current);
+    }
+    setLocationStatus("requesting");
+    setLocationMessage("출발지 설정을 위해 현재 위치를 확인하는 중입니다.");
+
+    return new Promise<UserLocation>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          const nextLocation = {
+            lat: latitude,
+            lng: longitude,
+            accuracy,
+            updatedAt: Date.now(),
+          };
+
+          setUserLocation(nextLocation);
+          setLocationStatus("granted");
+          setLocationMessage("현재 위치를 출발지로 설정했습니다.");
+          triggerMessageTimeout();
+          resolve(nextLocation);
+        },
+        (error) => {
+          let msg = "현재 위치를 확인할 수 없어 목적지만 먼저 설정했습니다.";
+          if (error.code === error.PERMISSION_DENIED) {
+            setLocationStatus("denied");
+            msg = "위치 권한이 거부되어 목적지만 먼저 설정했습니다.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            setLocationStatus("unavailable");
+            msg = "현재 위치를 가져올 수 없어 목적지만 먼저 설정했습니다.";
+          } else {
+            setLocationStatus("error");
+          }
+          setLocationMessage(msg);
+          triggerMessageTimeout();
+          reject(error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 30000,
+        }
+      );
+    });
+  }, [triggerMessageTimeout, userLocation]);
+
+  const setPlaceAsRouteDestination = useCallback(
+    async (poi: POIItem) => {
+      setPresetDest({ label: poi.name, lat: poi.lat, lng: poi.lng });
+      setDest({ lat: poi.lat, lng: poi.lng });
+      setSidebarActiveTab("route");
+      setSelected(null);
+
+      try {
+        const currentLocation = await resolveUserLocationForRoute();
+        setOrigin({ lat: currentLocation.lat, lng: currentLocation.lng });
+        setPresetOrigin({ label: "내 위치", lat: currentLocation.lat, lng: currentLocation.lng });
+      } catch {
+        setPresetOrigin(null);
+      }
+    },
+    [resolveUserLocationForRoute]
+  );
+
   // 우클릭 컨텍스트 메뉴
   useEffect(() => {
     const map = mapInstance.current;
@@ -1015,7 +1092,9 @@ export default function MapView() {
             isQuestTarget={isQuestTarget(selected)}
             onClose={() => setSelected(null)}
             onAskAI={() => setAiAskingPOI(selected)}
-            onSetDest={() => { setPresetDest({ label: selected.name, lat: selected.lat, lng: selected.lng }); setDest({ lat: selected.lat, lng: selected.lng }); setSelected(null); }}
+            onSetDest={() => {
+              void setPlaceAsRouteDestination(selected);
+            }}
           />
         ) : null}
 

@@ -722,7 +722,7 @@ export default function SearchRoadPanel({
   const [selectedIdx, setSelectedIdxState] = useState(() => routeCacheRef.current.selectedIdx);
   const [status, setStatusState] = useState(() => routeCacheRef.current.status);
   const [loading, setLoading] = useState(false);
-  const [stepArrivals, setStepArrivals] = useState<Record<string, RealtimeInfo>>({});
+  const [stepArrivals, setStepArrivalsState] = useState<Record<string, RealtimeInfo>>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const geocacheRef = useRef(new Map<string, PlaceCandidate[]>());
 

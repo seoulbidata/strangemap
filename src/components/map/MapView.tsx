@@ -137,6 +137,7 @@ export default function MapView() {
 
   const locationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeCacheRef = useRef<RouteSearchCache>({
+    routePool: [],
     alternatives: [],
     selectedIdx: 0,
     status: "",
@@ -447,7 +448,7 @@ export default function MapView() {
     setDest(null);
     setPresetOrigin(null);
     setPresetDest(null);
-    routeCacheRef.current = { alternatives: [], selectedIdx: 0, status: "", stepArrivals: {} };
+    routeCacheRef.current = { routePool: [], alternatives: [], selectedIdx: 0, status: "", stepArrivals: {} };
   }, []);
 
   const handleClearOrigin = useCallback(() => {

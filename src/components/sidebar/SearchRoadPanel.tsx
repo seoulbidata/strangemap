@@ -619,8 +619,8 @@ function decorateAlternatives(routes: TransitRoute[], preference: RoutePreferenc
     const congestionScore = 100 - (route.congestion?.score ?? 50);
     const timeScore = maxTime === minTime ? 100 : ((maxTime - route.time) / (maxTime - minTime)) * 100;
     const transfers = countRouteTransfers(route);
-    // 6:4 비율 반영 (혼잡도 6, 시간 4 가중치) 및 환승 1회당 10점 페널티 적용
-    return congestionScore * 0.6 + timeScore * 0.4 - transfers * 10;
+    // 7:3 비율 반영 (혼잡도 7, 시간 3 가중치)
+    return congestionScore * 0.7 + timeScore * 0.3;
   };
 
   const deepClone = (r: TransitRoute): TransitRoute => JSON.parse(JSON.stringify(r));

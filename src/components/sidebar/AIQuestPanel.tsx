@@ -18,6 +18,17 @@ type PurposeType = "힐링" | "놀거리" | "데이트" | "관광" | "운동" | 
 type RegionType = "강북" | "강서" | "강남" | "강동" | "상관없음";
 type CongestionType = "여유" | "보통" | "상관없음";
 
+export interface AIQuestCache {
+  companion: CompanionType;
+  ageGroup: AgeGroupType;
+  time: TimeType;
+  purpose: PurposeType;
+  region: RegionType;
+  congestion: CongestionType;
+  suggestions: Suggestion[] | null;
+  source: "ai" | "mock" | null;
+}
+
 // 카테고리별 파스텔 선택 색상 (bg, text, border)
 const CHIP_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   companion: { bg: "#B8D0E8", text: "#2C5F82", border: "#9BBDD9" },
@@ -30,20 +41,30 @@ const CHIP_COLORS: Record<string, { bg: string; text: string; border: string }> 
 
 interface AIQuestPanelProps {
   onSetDestination?: (placeName: string) => void;
+  cacheRef?: React.MutableRefObject<AIQuestCache>;
 }
 
-export default function AIQuestPanel({ onSetDestination }: AIQuestPanelProps) {
-  const [companion, setCompanion] = useState<CompanionType>("친구");
-  const [ageGroup, setAgeGroup] = useState<AgeGroupType>("20-30대");
-  const [time, setTime] = useState<TimeType>("오후");
-  const [purpose, setPurpose] = useState<PurposeType>("관광");
-  const [region, setRegion] = useState<RegionType>("상관없음");
-  const [congestion, setCongestion] = useState<CongestionType>("상관없음");
+export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPanelProps) {
+  const [companion, setCompanionState] = useState<CompanionType>(() => cacheRef?.current.companion ?? "친구");
+  const [ageGroup, setAgeGroupState] = useState<AgeGroupType>(() => cacheRef?.current.ageGroup ?? "20-30대");
+  const [time, setTimeState] = useState<TimeType>(() => cacheRef?.current.time ?? "오후");
+  const [purpose, setPurposeState] = useState<PurposeType>(() => cacheRef?.current.purpose ?? "관광");
+  const [region, setRegionState] = useState<RegionType>(() => cacheRef?.current.region ?? "상관없음");
+  const [congestion, setCongestionState] = useState<CongestionType>(() => cacheRef?.current.congestion ?? "상관없음");
 
-  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [suggestions, setSuggestionsState] = useState<Suggestion[] | null>(() => cacheRef?.current.suggestions ?? null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<"ai" | "mock" | null>(null);
+  const [source, setSourceState] = useState<"ai" | "mock" | null>(() => cacheRef?.current.source ?? null);
+
+  const setCompanion = (v: CompanionType) => { setCompanionState(v); if (cacheRef) cacheRef.current.companion = v; };
+  const setAgeGroup = (v: AgeGroupType) => { setAgeGroupState(v); if (cacheRef) cacheRef.current.ageGroup = v; };
+  const setTime = (v: TimeType) => { setTimeState(v); if (cacheRef) cacheRef.current.time = v; };
+  const setPurpose = (v: PurposeType) => { setPurposeState(v); if (cacheRef) cacheRef.current.purpose = v; };
+  const setRegion = (v: RegionType) => { setRegionState(v); if (cacheRef) cacheRef.current.region = v; };
+  const setCongestion = (v: CongestionType) => { setCongestionState(v); if (cacheRef) cacheRef.current.congestion = v; };
+  const setSuggestions = (v: Suggestion[] | null) => { setSuggestionsState(v); if (cacheRef) cacheRef.current.suggestions = v; };
+  const setSource = (v: "ai" | "mock" | null) => { setSourceState(v); if (cacheRef) cacheRef.current.source = v; };
 
   const handleRecommend = async () => {
     setLoading(true);

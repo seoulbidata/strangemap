@@ -11,6 +11,7 @@ import AIQuestPanel from "./AIQuestPanel";
 import ThemeCoursePanel from "./ThemeCoursePanel";
 import NowRecommendPanel from "./NowRecommendPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "./SearchRoadPanel";
+import type { AIQuestCache } from "./AIQuestPanel";
 
 interface Props {
   pois: POIItem[];
@@ -24,6 +25,7 @@ interface Props {
   onClearOrigin?: () => void;
   onClearDest?: () => void;
   routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
+  aiQuestCacheRef?: React.MutableRefObject<AIQuestCache>;
   activeTab: TabId | null;
   onActiveTabChange: (tab: TabId | null) => void;
   onSetAIDestination?: (placeName: string) => void;
@@ -53,6 +55,7 @@ export default function Sidebar({
   onClearOrigin,
   onClearDest,
   routeCacheRef,
+  aiQuestCacheRef,
   activeTab,
   onActiveTabChange,
   onSetAIDestination,
@@ -121,7 +124,7 @@ export default function Sidebar({
           {activeTab === "night" && (
             <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />
           )}
-          {activeTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} />}
+          {activeTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} cacheRef={aiQuestCacheRef} />}
           {activeTab === "course" && (
             <ThemeCoursePanel onSelectCourse={onSelectCourse} activeCourseId={activeCourseId} />
           )}

@@ -16,6 +16,7 @@ import MobileNavigation, { type MobileTabId } from "@/components/mobile/MobileNa
 import MobilePanel from "@/components/mobile/MobilePanel";
 import MobileMapControls from "@/components/mobile/MobileMapControls";
 import type { RouteDrawPayload, RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
+import type { AIQuestCache } from "@/components/sidebar/AIQuestPanel";
 import { CATEGORY_MARKER, type CultureCategory } from "@/lib/cultureCategories";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
@@ -142,6 +143,17 @@ export default function MapView() {
     selectedIdx: 0,
     status: "",
     stepArrivals: {},
+  });
+
+  const aiQuestCacheRef = useRef<AIQuestCache>({
+    companion: "친구",
+    ageGroup: "20-30대",
+    time: "오후",
+    purpose: "관광",
+    region: "상관없음",
+    congestion: "상관없음",
+    suggestions: null,
+    source: null,
   });
 
   const triggerMessageTimeout = useCallback(() => {
@@ -1010,6 +1022,7 @@ export default function MapView() {
             onClearOrigin={handleClearOrigin}
             onClearDest={handleClearDest}
             routeCacheRef={routeCacheRef}
+            aiQuestCacheRef={aiQuestCacheRef}
             activeTab={sidebarActiveTab}
             onActiveTabChange={setSidebarActiveTab}
             onSetAIDestination={handleSetAIDestination}
@@ -1030,6 +1043,7 @@ export default function MapView() {
           onClearOrigin={handleClearOrigin}
           onClearDest={handleClearDest}
           routeCacheRef={routeCacheRef}
+          aiQuestCacheRef={aiQuestCacheRef}
           onSetAIDestination={handleSetAIDestination}
         />
 

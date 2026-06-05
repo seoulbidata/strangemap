@@ -9,6 +9,7 @@ import NightviewPanel from "@/components/sidebar/NightviewPanel";
 import NowRecommendPanel from "@/components/sidebar/NowRecommendPanel";
 import SearchPanel from "@/components/sidebar/SearchPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
+import type { AIQuestCache } from "@/components/sidebar/AIQuestPanel";
 import ThemeCoursePanel from "@/components/sidebar/ThemeCoursePanel";
 import type { MobileTabId } from "@/components/mobile/MobileNavigation";
 
@@ -26,6 +27,7 @@ interface Props {
   onClearOrigin?: () => void;
   onClearDest?: () => void;
   routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
+  aiQuestCacheRef?: React.MutableRefObject<AIQuestCache>;
   onSetAIDestination?: (placeName: string) => void;
 }
 
@@ -45,6 +47,7 @@ export default function MobilePanel({
   onClearOrigin,
   onClearDest,
   routeCacheRef,
+  aiQuestCacheRef,
   onSetAIDestination,
 }: Props) {
   const [lastActiveTab, setLastActiveTab] = useState<MobileTabId | null>(null);
@@ -217,7 +220,7 @@ export default function MobilePanel({
         )}
         {displayTab === "culture" && <CulturePanel pois={pois} onSelectPOI={onSelectPOI} />}
         {displayTab === "night" && <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />}
-        {displayTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} />}
+        {displayTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} cacheRef={aiQuestCacheRef} />}
         {displayTab === "course" && (
           <ThemeCoursePanel onSelectCourse={onSelectCourse} activeCourseId={activeCourseId} />
         )}

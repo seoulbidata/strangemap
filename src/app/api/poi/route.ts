@@ -8,7 +8,7 @@ export interface POIItem {
   name: string;
   category: string;
   normalizedCategory?: CultureCategory;
-  source: "culture" | "nightview";
+  source: "culture" | "nightview" | "theme_course";
   lat: number;
   lng: number;
   place: string;

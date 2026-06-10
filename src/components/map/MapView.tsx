@@ -349,7 +349,7 @@ export default function MapView() {
       });
 
       naver.maps.Event.addListener(marker, "click", () => {
-        setSelected({ id: `course_${i}`, name: stop.name, category: "테마 코스", source: "nightview", lat: stop.lat, lng: stop.lng, place: stop.description, fee: stop.duration } as POIItem);
+        setSelected({ id: `course_${i}`, name: stop.name, category: "테마 코스", source: "theme_course", lat: stop.lat, lng: stop.lng, place: stop.description, fee: stop.duration } as POIItem);
         if (isMobile) setSidebarActiveTab(null);
       });
       courseMarkersRef.current.push(marker);
@@ -781,7 +781,13 @@ export default function MapView() {
 
   // 테마 코스 선택
   const handleSelectCourse = (course: ThemeCourse) => {
-    setActiveCourse((prev) => (prev?.id === course.id ? null : course));
+    setActiveCourse((prev) => {
+      if (prev?.id === course.id) {
+        setSelected(null);
+        return null;
+      }
+      return course;
+    });
     if (isMobile) setSidebarActiveTab(null);
   };
 
@@ -1146,7 +1152,7 @@ export default function MapView() {
               const idx = parseInt(selected.id.replace("course_", ""), 10);
               if (idx > 0) {
                 const s = activeCourse.stops[idx - 1];
-                setSelected({ id: `course_${idx - 1}`, name: s.name, category: "테마 코스", source: "nightview", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
+                setSelected({ id: `course_${idx - 1}`, name: s.name, category: "테마 코스", source: "theme_course", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
                 mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
               }
             }}
@@ -1154,7 +1160,7 @@ export default function MapView() {
               const idx = parseInt(selected.id.replace("course_", ""), 10);
               if (idx < activeCourse.stops.length - 1) {
                 const s = activeCourse.stops[idx + 1];
-                setSelected({ id: `course_${idx + 1}`, name: s.name, category: "테마 코스", source: "nightview", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
+                setSelected({ id: `course_${idx + 1}`, name: s.name, category: "테마 코스", source: "theme_course", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
                 mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
               }
             }}

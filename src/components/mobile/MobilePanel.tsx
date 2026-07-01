@@ -3,14 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { POIItem } from "@/app/api/poi/route";
 import type { ThemeCourse } from "@/data/themeCourses";
-import AIQuestPanel from "@/components/sidebar/AIQuestPanel";
 import CulturePanel from "@/components/sidebar/CulturePanel";
 import NightviewPanel from "@/components/sidebar/NightviewPanel";
 import NowRecommendPanel from "@/components/sidebar/NowRecommendPanel";
 import SearchPanel from "@/components/sidebar/SearchPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
-import type { AIQuestCache } from "@/components/sidebar/AIQuestPanel";
-import ThemeCoursePanel from "@/components/sidebar/ThemeCoursePanel";
+import CourseCollection from "@/components/sidebar/CourseCollection";
 import type { MobileTabId } from "@/components/mobile/MobileNavigation";
 
 interface Props {
@@ -18,7 +16,7 @@ interface Props {
   pois: POIItem[];
   onClose: () => void;
   onSelectPOI: (poi: POIItem) => void;
-  onSelectCourse: (course: ThemeCourse) => void;
+  onOpenCourse: (course: ThemeCourse) => void;
   activeCourseId: string | null;
   onRouteFound?: (payload: RouteDrawPayload) => void;
   onRouteClear?: () => void;
@@ -27,8 +25,6 @@ interface Props {
   onClearOrigin?: () => void;
   onClearDest?: () => void;
   routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
-  aiQuestCacheRef?: React.MutableRefObject<AIQuestCache>;
-  onSetAIDestination?: (placeName: string) => void;
 }
 
 type SnapState = "closed" | "medium" | "max";
@@ -38,7 +34,7 @@ export default function MobilePanel({
   pois,
   onClose,
   onSelectPOI,
-  onSelectCourse,
+  onOpenCourse,
   activeCourseId,
   onRouteFound,
   onRouteClear,
@@ -47,8 +43,6 @@ export default function MobilePanel({
   onClearOrigin,
   onClearDest,
   routeCacheRef,
-  aiQuestCacheRef,
-  onSetAIDestination,
 }: Props) {
   const [lastActiveTab, setLastActiveTab] = useState<MobileTabId | null>(null);
   const [snap, setSnap] = useState<SnapState>("closed");
@@ -162,10 +156,8 @@ export default function MobilePanel({
         return "문화행사 정보";
       case "night":
         return "야경명소 정보";
-      case "ai":
-        return "서울로 AI 추천";
       case "course":
-        return "테마 코스";
+        return "코스";
       case "now":
         return "실시간 혼잡도 추천";
       default:
@@ -220,9 +212,11 @@ export default function MobilePanel({
         )}
         {displayTab === "culture" && <CulturePanel pois={pois} onSelectPOI={onSelectPOI} />}
         {displayTab === "night" && <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />}
-        {displayTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} cacheRef={aiQuestCacheRef} />}
         {displayTab === "course" && (
-          <ThemeCoursePanel onSelectCourse={onSelectCourse} activeCourseId={activeCourseId} />
+          <CourseCollection
+            onOpenCourse={onOpenCourse}
+            activeCourseId={activeCourseId}
+          />
         )}
         {displayTab === "now" && <NowRecommendPanel onSelectPOI={onSelectPOI} />}
       </div>

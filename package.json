@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "precompute:routes": "node --experimental-strip-types scripts/precompute-routes.mts"
   },
   "dependencies": {
     "fast-xml-parser": "^5.7.2",

@@ -2,22 +2,16 @@
 
 import { useState, useMemo } from "react";
 import type { POIItem } from "@/app/api/poi/route";
+import { NIGHT_CATEGORIES } from "@/lib/nightCategories";
+import { FeedShell, FeedHeader, FilterPills, FeedCard } from "./_feedKit";
 
 interface Props {
   pois: POIItem[];
   onSelectPOI: (poi: POIItem) => void;
 }
 
-const AREA_FILTERS = ["전체", "강북", "강남", "한강변", "도심"];
-
-const areaMatch = (poi: POIItem, area: string): boolean => {
-  const place = poi.place + poi.name;
-  if (area === "강북") return /노원|도봉|강북|성북|종로|중구|용산|은평|서대문|마포/.test(place);
-  if (area === "강남") return /강남|서초|송파|강동|관악|동작|영등포|구로|금천/.test(place);
-  if (area === "한강변") return /한강|여의도|반포|뚝섬|잠실|이촌|망원|선유도|세빛|성산|동작대교|한강대교|성수대교/.test(place);
-  if (area === "도심") return /광화문|종로|명동|청계|을지로|시청|남산|중구/.test(place);
-  return true;
-};
+const TYPE_FILTERS = ["전체", ...NIGHT_CATEGORIES] as const;
+type TypeFilter = (typeof TYPE_FILTERS)[number];
 
 function PlaceholderImage({ name }: { name: string }) {
   return (
@@ -29,59 +23,43 @@ function PlaceholderImage({ name }: { name: string }) {
 }
 
 export default function NightviewPanel({ pois, onSelectPOI }: Props) {
-  const [activeArea, setActiveArea] = useState("전체");
+  const [activeType, setActiveType] = useState<TypeFilter>("전체");
 
   const nightPOIs = useMemo(() => {
     return pois
       .filter((p) => p.source === "nightview")
-      .filter((p) => areaMatch(p, activeArea));
-  }, [pois, activeArea]);
+      .filter((p) => activeType === "전체" || p.nightCategory === activeType);
+  }, [pois, activeType]);
+
+  const totalCount = pois.filter((p) => p.source === "nightview").length;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* 헤더 */}
-      <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8] md:block hidden">
-        <h2 className="text-base font-bold text-[#1A1E2E]">야경명소</h2>
-        <p className="text-xs text-[#9CA3AF] mt-0.5">
-          서울 대표 야경 포인트 {pois.filter((p) => p.source === "nightview").length}곳
-        </p>
-      </div>
+    <FeedShell>
+      <FeedHeader title="야경명소" subtitle={`서울 대표 야경 포인트 ${totalCount}곳`} />
 
-      {/* 지역 필터 */}
-      <div className="px-4 py-3 border-b border-[#E5E1D8]">
-        <div className="flex gap-1.5 flex-wrap">
-          {AREA_FILTERS.map((area) => (
-            <button
-              key={area}
-              onClick={() => setActiveArea(area)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                activeArea === area
-                  ? "bg-[#D97706] text-white"
-                  : "bg-[#F5F2EC] text-[#6B7280] hover:bg-[#E5E1D8]"
-              }`}
-            >
-              {area}
-            </button>
-          ))}
-        </div>
+      {/* 풍경 유형 필터 */}
+      <div className="px-5 pb-3 md:pt-0 pt-5">
+        <FilterPills options={TYPE_FILTERS} value={activeType} onChange={setActiveType} />
       </div>
 
       {/* 목록 */}
-      <div className="flex-1 overflow-y-auto thin-scroll">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-2 pb-4">
         {nightPOIs.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-[#9CA3AF]">
-            해당 지역의 야경명소가 없습니다
-          </div>
+          <p className="text-[13px] text-[#A8A398] text-center mt-16 leading-relaxed">
+            해당 유형의 야경명소가 없습니다
+          </p>
         ) : (
-          <div className="py-2">
-            <p className="text-[10px] text-[#9CA3AF] px-4 py-2">{nightPOIs.length}곳</p>
-            {nightPOIs.map((poi) => (
-              <NightviewCard key={poi.id} poi={poi} onSelect={() => onSelectPOI(poi)} />
-            ))}
-          </div>
+          <>
+            <p className="text-[11px] text-[#A8A398] pb-3">{nightPOIs.length}곳</p>
+            <div className="space-y-5">
+              {nightPOIs.map((poi) => (
+                <NightviewCard key={poi.id} poi={poi} onSelect={() => onSelectPOI(poi)} />
+              ))}
+            </div>
+          </>
         )}
       </div>
-    </div>
+    </FeedShell>
   );
 }
 
@@ -89,12 +67,9 @@ function NightviewCard({ poi, onSelect }: { poi: POIItem; onSelect: () => void }
   const [imgError, setImgError] = useState(false);
 
   return (
-    <button
-      onClick={onSelect}
-      className="w-full text-left border-b border-[#F0EDE8] last:border-0 hover:bg-[#FFFBEB] transition-colors"
-    >
-      {/* 이미지 */}
-      <div className="h-[164px] overflow-hidden relative bg-[#0F1F3D]">
+    <FeedCard onClick={onSelect}>
+      {/* 히어로 */}
+      <div className="relative h-44 overflow-hidden bg-[#0F1F3D]">
         {poi.thumbnail && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -106,17 +81,19 @@ function NightviewCard({ poi, onSelect }: { poi: POIItem; onSelect: () => void }
         ) : (
           <PlaceholderImage name={poi.name} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <span className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded bg-black/40 text-white/80 backdrop-blur-sm">
-          {poi.category}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
+        <span className="absolute top-3.5 right-3.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-black/40 text-white/90 backdrop-blur-sm">
+          {poi.nightCategory ?? poi.category}
         </span>
       </div>
 
-      {/* 텍스트 */}
-      <div className="px-4 py-2.5">
-        <p className="text-sm font-semibold text-[#1A1E2E]">{poi.name}</p>
-        <p className="text-[11px] text-[#9CA3AF] mt-0.5 truncate">{poi.place}</p>
+      {/* 본문 */}
+      <div className="px-5 pt-4 pb-5">
+        <h3 className="text-[18px] font-semibold leading-snug tracking-[-0.01em] line-clamp-2 text-[#16243C] group-hover:text-[#1E2F4D] transition-colors duration-150">
+          {poi.name}
+        </h3>
+        <p className="text-[13px] text-[#9A958A] mt-1.5 line-clamp-1">{poi.place}</p>
       </div>
-    </button>
+    </FeedCard>
   );
 }

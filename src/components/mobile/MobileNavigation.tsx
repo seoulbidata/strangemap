@@ -2,13 +2,12 @@
 
 import Image from "next/image";
 
-export type MobileTabId = "culture" | "night" | "ai" | "course" | "now" | "search" | "route";
+export type MobileTabId = "culture" | "night" | "course" | "now" | "search" | "route";
 
 const TABS: { id: MobileTabId; label: string; icon: string }[] = [
   { id: "culture", label: "문화행사", icon: "/sidebaricons/culture.png" },
   { id: "night", label: "야경명소", icon: "/sidebaricons/night.png" },
-  { id: "ai", label: "AI 추천", icon: "/sidebaricons/ai.png" },
-  { id: "course", label: "테마코스", icon: "/sidebaricons/course.png" },
+  { id: "course", label: "코스", icon: "/sidebaricons/course.png" },
   { id: "now", label: "혼잡도", icon: "/sidebaricons/now.png" },
 ];
 

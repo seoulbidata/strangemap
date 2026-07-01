@@ -13,7 +13,8 @@
     "tel": "02-3455-9277, 9288",
     "bus": "남산순환버스 01A번, 01B번 이용  * 남산공원 생태 환경 보호 일환으로 승용차량 통행 제한",
     "parking": null,
-    "image": "/nightview/1.jpg"
+    "image": "/nightview/1.jpg",
+    "nightCategory": "전망대·산"
   },
   {
     "id": "2",
@@ -29,7 +30,8 @@
     "tel": "02-3700-3900",
     "bus": "경복궁 정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/2.jpg"
+    "image": "/nightview/2.jpg",
+    "nightCategory": "고궁·역사"
   },
   {
     "id": "3",
@@ -45,7 +47,8 @@
     "tel": "(공원안내) 02-820-9258",
     "bus": "동작실버센터 정류장, 흑석동효사정 하차 도보 5분",
     "parking": "용양봉저정공원 주차장 도보 5분",
-    "image": "/nightview/3.jpg"
+    "image": "/nightview/3.jpg",
+    "nightCategory": "전망대·산"
   },
   {
     "id": "4",
@@ -61,23 +64,25 @@
     "tel": "02-762-4868",
     "bus": "창경궁 정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/4.jpg"
+    "image": "/nightview/4.jpg",
+    "nightCategory": "고궁·역사"
   },
   {
-  "id": "5",
-  "name": "북악스카이웨이 팔각정",
-  "category": "공원/전망대",
-  "lat": 37.60155,
-  "lng": 126.98067,
-  "place": "서울특별시 종로구 북악산로 267",
-  "operating_time": "00:00 - 24:00",
-  "fee": "무료",
-  "subway": "",
-  "url": "https://www.ijongno.co.kr/www/125",
-  "tel": "02-6951-3438",
-  "bus": null,
-  "parking": "북악팔각정 주차장 (유료)",
-  "image": "/nightview/5.jpg"
+    "id": "5",
+    "name": "북악스카이웨이 팔각정",
+    "category": "공원/전망대",
+    "lat": 37.60155,
+    "lng": 126.98067,
+    "place": "서울특별시 종로구 북악산로 267",
+    "operating_time": "00:00 - 24:00",
+    "fee": "무료",
+    "subway": "",
+    "url": "https://www.ijongno.co.kr/www/125",
+    "tel": "02-6951-3438",
+    "bus": null,
+    "parking": "북악팔각정 주차장 (유료)",
+    "image": "/nightview/5.jpg",
+    "nightCategory": "전망대·산"
   },
   {
     "id": "6",
@@ -93,7 +98,8 @@
     "tel": "02-3668-2300",
     "bus": "창덕궁 정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/6.jpg"
+    "image": "/nightview/6.jpg",
+    "nightCategory": "고궁·역사"
   },
   {
     "id": "7",
@@ -109,25 +115,29 @@
     "tel": "여의도안내센터 02-3780-0566, 총괄 담당 02-3780-0652",
     "bus": "여의도 순복음교회 앞 / 여의도공원 앞 버스정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/7.jpg"
+    "image": "/nightview/7.jpg",
+    "nightCategory": "한강·다리"
   },
   {
-  "id": "8",
-  "name": "북촌6경",
-  "category": "관광지",
-  "lat": 37.583144,
-  "lng": 126.983411,
-  "place": "서울특별시 종로구 북촌로11나길 일대",
-  "operating_time": "10:00 - 17:00 (주민 거주 지역)",
-  "fee": "무료",
-  "subway": "안국역(3호선)",
-  "url": "https://hanok.seoul.go.kr/",
-  "tel": "02-2148-4151",
-  "bus": "마을버스 종로02",
-  "parking": "정독도서관 주차장 등 인근 유료주차장 이용",
-  "image": "/nightview/8.jpg",
-  "viewpoint": ["북촌 한옥마을 중 '북촌 6경'에 해당하는 지점에서 내려다보는 뷰."]
- },
+    "id": "8",
+    "name": "북촌6경",
+    "category": "관광지",
+    "lat": 37.583144,
+    "lng": 126.983411,
+    "place": "서울특별시 종로구 북촌로11나길 일대",
+    "operating_time": "10:00 - 17:00 (주민 거주 지역)",
+    "fee": "무료",
+    "subway": "안국역(3호선)",
+    "url": "https://hanok.seoul.go.kr/",
+    "tel": "02-2148-4151",
+    "bus": "마을버스 종로02",
+    "parking": "정독도서관 주차장 등 인근 유료주차장 이용",
+    "image": "/nightview/8.jpg",
+    "viewpoint": [
+      "북촌 한옥마을 중 '북촌 6경'에 해당하는 지점에서 내려다보는 뷰."
+    ],
+    "nightCategory": "고궁·역사"
+  },
   {
     "id": "9",
     "name": "청계천",
@@ -143,7 +153,11 @@
     "bus": "시청.서울신문사(02137, 02706) 하차 / 간선 : 101,150,501,506,708 / 지선 : 1711,7016 / 순환 : 01A",
     "parking": "청계광장에는 별도의 주차장이 없습니다. 대중교통이나 인근 주차장을 이용하여 주시기 바랍니다.",
     "image": "/nightview/9.jpg",
-    "viewpoint": ["청계천 산책로에서 두물다리를 바라보는 뷰.", "청계천 모전교의 중앙에서 청계광장을 바라보는 뷰."]
+    "viewpoint": [
+      "청계천 산책로에서 두물다리를 바라보는 뷰.",
+      "청계천 모전교의 중앙에서 청계광장을 바라보는 뷰."
+    ],
+    "nightCategory": "도심·거리"
   },
   {
     "id": "10",
@@ -159,7 +173,8 @@
     "tel": "02-120",
     "bus": "(북단) 버스정류장 뚝섬서울숲 정류장 하차 후 도보 이용, (남단) 압구정중고등학교 정류장 하차 후 도보 이용",
     "parking": null,
-    "image": "/nightview/10.jpg"
+    "image": "/nightview/10.jpg",
+    "nightCategory": "한강·다리"
   },
   {
     "id": "11",
@@ -175,7 +190,8 @@
     "tel": "(경관조명 안내) 02-300-8404 (마포대교 안내) 02-2133-1978",
     "bus": "(북단) 버스정류장 강변한신코아 정류장 하차 후 도보 이용 / (남단) 버스정류장 여의도공원 정류장 하차 후 도보 이용",
     "parking": null,
-    "image": "/nightview/11.jpg"
+    "image": "/nightview/11.jpg",
+    "nightCategory": "한강·다리"
   },
   {
     "id": "12",
@@ -191,7 +207,8 @@
     "tel": "난지안내센터 02-3780-0611",
     "bus": "마포구청역 버스정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/12.jpg"
+    "image": "/nightview/12.jpg",
+    "nightCategory": "한강·다리"
   },
   {
     "id": "13",
@@ -207,7 +224,8 @@
     "tel": "02-3780-0551~4",
     "bus": "이촌동한강맨션, 동부이촌동, 한강대교전망카페 등 버스정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/13.jpg"
+    "image": "/nightview/13.jpg",
+    "nightCategory": "한강·다리"
   },
   {
     "id": "14",
@@ -224,7 +242,11 @@
     "bus": "힐튼호텔, 백범광장(힐튼호텔방면) 정류장 하차 도보 이용",
     "parking": null,
     "image": "/nightview/14.jpg",
-    "viewpoint": ["남산타워가 정면으로 보이는 위치.", "서울성곽과 남산, 남산타워가 한 눈에 담김."]
+    "viewpoint": [
+      "남산타워가 정면으로 보이는 위치.",
+      "서울성곽과 남산, 남산타워가 한 눈에 담김."
+    ],
+    "nightCategory": "공원·정원"
   },
   {
     "id": "15",
@@ -241,26 +263,30 @@
     "bus": "버스정류장 사육신공원 정류장 하차 도보 이용",
     "parking": null,
     "image": "/nightview/15.jpg",
-    "viewpoint": ["여의도와 한강 수변의 모습을 조망할 수 있어요."]
+    "viewpoint": [
+      "여의도와 한강 수변의 모습을 조망할 수 있어요."
+    ],
+    "nightCategory": "공원·정원"
   },
   {
-  "id": "16",
-  "name": "녹사평육교",
-  "category": "전망대/육교",
-  "lat": 37.534948,
-  "lng": 126.987051,
-  "place": "서울특별시 용산구 녹사평대로 195 앞 (녹사평역 인근)",
-  "operating_time": "00:00 - 24:00 (상시 개방)",
-  "fee": "무료",
-  "subway": "6호선 녹사평(용산구청)역 1번, 3번 출구 도보 1분",
-  "url": null,
-  "tel": "02-2199-1114 (용산구청)",
-  "bus": "용산구청.이태원시장 또는 녹사평역 정류장 하차",
-  "parking": "이태원1동 노상 공영주차장 등 인근 유료 주차장 이용",
-  "image": "/nightview/16.jpg",
-  "viewpoint": [
-    "남산서울타워를 정면으로 바라보며 이태원 일대의 화려한 야경을 볼수 있어요."
-  ]
+    "id": "16",
+    "name": "녹사평육교",
+    "category": "전망대/육교",
+    "lat": 37.534948,
+    "lng": 126.987051,
+    "place": "서울특별시 용산구 녹사평대로 195 앞 (녹사평역 인근)",
+    "operating_time": "00:00 - 24:00 (상시 개방)",
+    "fee": "무료",
+    "subway": "6호선 녹사평(용산구청)역 1번, 3번 출구 도보 1분",
+    "url": null,
+    "tel": "02-2199-1114 (용산구청)",
+    "bus": "용산구청.이태원시장 또는 녹사평역 정류장 하차",
+    "parking": "이태원1동 노상 공영주차장 등 인근 유료 주차장 이용",
+    "image": "/nightview/16.jpg",
+    "viewpoint": [
+      "남산서울타워를 정면으로 바라보며 이태원 일대의 화려한 야경을 볼수 있어요."
+    ],
+    "nightCategory": "도심·거리"
   },
   {
     "id": "17",
@@ -276,7 +302,8 @@
     "tel": " 02-376-8410",
     "bus": "문화비축기지 정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/17.jpg"
+    "image": "/nightview/17.jpg",
+    "nightCategory": "공원·정원"
   },
   {
     "id": "18",
@@ -293,26 +320,32 @@
     "bus": "숭례문 또는 남대문시장 정류장 하차 도보 이용",
     "parking": null,
     "image": "/nightview/18.jpg",
-    "viewpoint": ["숭례문이 정면으로 보이는 위치에서 찍은 사진이에요 도심의 빌딩숲과 대비되는 따스한 빛의 숭례문을 감상할 수 있어요."]
+    "viewpoint": [
+      "숭례문이 정면으로 보이는 위치에서 찍은 사진이에요 도심의 빌딩숲과 대비되는 따스한 빛의 숭례문을 감상할 수 있어요."
+    ],
+    "nightCategory": "고궁·역사"
   },
   {
-  "id": "19",
-  "name": "이태원 부군당 역사공원",
-  "category": "공원/전망대",
-  "lat": 37.535801,
-  "lng": 126.989755,
-  "place": "서울특별시 용산구 녹사평대로40다길 33",
-  "operating_time": "00:00 - 24:00",
-  "fee": "무료",
-  "subway": "녹사평역(6호선), 이태원역(6호선)",
-  "url": "https://mediahub.seoul.go.kr/archives/2001416",
-  "tel": "02-2199-7593",
-  "bus": "마을버스 용산03",
-  "parking": "이태원2동 공영주차장 (유료)",
-  "image": "/nightview/19.jpg",
-  "viewpoint": ["조용한 서울의 밤과 도심의 빌딩숲이 보이는 뷰포인트에서 찍은 사진이에요. 이태원의 화려한 야경과는 또 다른 매력을 느낄 수 있어요."]
+    "id": "19",
+    "name": "이태원 부군당 역사공원",
+    "category": "공원/전망대",
+    "lat": 37.535801,
+    "lng": 126.989755,
+    "place": "서울특별시 용산구 녹사평대로40다길 33",
+    "operating_time": "00:00 - 24:00",
+    "fee": "무료",
+    "subway": "녹사평역(6호선), 이태원역(6호선)",
+    "url": "https://mediahub.seoul.go.kr/archives/2001416",
+    "tel": "02-2199-7593",
+    "bus": "마을버스 용산03",
+    "parking": "이태원2동 공영주차장 (유료)",
+    "image": "/nightview/19.jpg",
+    "viewpoint": [
+      "조용한 서울의 밤과 도심의 빌딩숲이 보이는 뷰포인트에서 찍은 사진이에요. 이태원의 화려한 야경과는 또 다른 매력을 느낄 수 있어요."
+    ],
+    "nightCategory": "고궁·역사"
   },
- {
+  {
     "id": "20",
     "name": "노들섬(2028년 완공예정)",
     "category": "공원/광장",
@@ -326,7 +359,8 @@
     "tel": "02-749-4500",
     "bus": "버스정류장 노들섬에서 하차 도보 이용",
     "parking": "유료주차(서측 69대, 동측 21대), 주차 문의 : 02-2105-2415  * 주차장이 협소로 대중교통 이용 권장",
-    "image": "/nightview/20.jpg"
+    "image": "/nightview/20.jpg",
+    "nightCategory": "한강·다리"
   },
   {
     "id": "21",
@@ -342,7 +376,8 @@
     "tel": "02-120",
     "bus": "세종문화회관, KT광화문지사 정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/21.jpg"
+    "image": "/nightview/21.jpg",
+    "nightCategory": "도심·거리"
   },
   {
     "id": "22",
@@ -358,7 +393,8 @@
     "tel": "(공원안내) 02-300-5501 (주차장안내) 02-304-6678",
     "bus": "난지천공원에서 하늘공원 정상까지 맹꽁이 전기차 탑승",
     "parking": "운영시간 09:00 - 22:00 (이후 시간 무료 개방)",
-    "image": "/nightview/22.jpg"
+    "image": "/nightview/22.jpg",
+    "nightCategory": "공원·정원"
   },
   {
     "id": "23",
@@ -375,59 +411,69 @@
     "bus": "동대문역사문화공원, 동대문디자인플라자 정류장 하차",
     "parking": null,
     "image": "/nightview/23.jpg",
-    "viewpoint": ["동대문 디자인 플라자 입구인 동상이 있는 곳"]
+    "viewpoint": [
+      "동대문 디자인 플라자 입구인 동상이 있는 곳"
+    ],
+    "nightCategory": "도심·거리"
   },
   {
-  "id": "24",
-  "name": "잠원한강공원 그라스정원",
-  "category": "공원/정원",
-  "lat": 37.516917, 
-  "lng": 127.005719,
-  "place": "서울특별시 서초구 잠원로 221-124",
-  "operating_time": "00:00 - 24:00",
-  "fee": "무료",
-  "subway": "잠원역(3호선), 신사역(3호선, 신분당선)",
-  "url": "https://hangang.seoul.go.kr/",
-  "tel": "02-3780-0531",
-  "bus": null,
-  "parking": "잠원한강공원 제6주차장",
-  "image": "/nightview/24.jpg",
-  "viewpoint": ["그라스 정원 앞쪽 벤치에서 이태원을 바라보는걸 추천해요."]
+    "id": "24",
+    "name": "잠원한강공원 그라스정원",
+    "category": "공원/정원",
+    "lat": 37.516917,
+    "lng": 127.005719,
+    "place": "서울특별시 서초구 잠원로 221-124",
+    "operating_time": "00:00 - 24:00",
+    "fee": "무료",
+    "subway": "잠원역(3호선), 신사역(3호선, 신분당선)",
+    "url": "https://hangang.seoul.go.kr/",
+    "tel": "02-3780-0531",
+    "bus": null,
+    "parking": "잠원한강공원 제6주차장",
+    "image": "/nightview/24.jpg",
+    "viewpoint": [
+      "그라스 정원 앞쪽 벤치에서 이태원을 바라보는걸 추천해요."
+    ],
+    "nightCategory": "한강·다리"
   },
   {
-  "id": "25",
-  "name": "서울로7017",
-  "category": "공공시설",
-  "lat": 37.556978,
-  "lng": 126.974766,
-  "place": "서울특별시 중구 통일로 15",
-  "operating_time": "18:00 -23:00",
-  "fee": "무료",
-  "subway": "서울역(1호선, 4호선, 경의중앙선, 공항철도)",
-  "url": "https://korean.visitseoul.net/tours/seoullo-night-trip/KON021913",
-  "tel": "02-313-7017",
-  "bus": null,
-  "parking": null,
-  "image": "/nightview/25.jpg",
-  "viewpoint": ["어느 위치에서도 서울을 한 눈에 바라볼 수 있음. (서울로 개발자 추천공간)"]
+    "id": "25",
+    "name": "서울로7017",
+    "category": "공공시설",
+    "lat": 37.556978,
+    "lng": 126.974766,
+    "place": "서울특별시 중구 통일로 15",
+    "operating_time": "18:00 -23:00",
+    "fee": "무료",
+    "subway": "서울역(1호선, 4호선, 경의중앙선, 공항철도)",
+    "url": "https://korean.visitseoul.net/tours/seoullo-night-trip/KON021913",
+    "tel": "02-313-7017",
+    "bus": null,
+    "parking": null,
+    "image": "/nightview/25.jpg",
+    "viewpoint": [
+      "어느 위치에서도 서울을 한 눈에 바라볼 수 있음. (서울로 개발자 추천공간)"
+    ],
+    "nightCategory": "도심·거리"
   },
   {
-  "id": "26",
-  "name": "마포새빛문화숲",
-  "category": "공원/문화공간",
-  "lat": 37.543868,
-  "lng": 126.919384,
-  "place": "서울특별시 마포구 토정로 56",
-  "operating_time": "00:00 - 24:00 (일부 시설 제외)",
-  "fee": "무료",
-  "subway": "상수역(6호선), 합정역(2호선, 6호선)",
-  "url": "https://www.mapo.go.kr/",
-  "tel": "02-3153-9270",
-  "bus": "마을버스 마포07",
-  "parking": "인근 노상 공영주차장 등 이용",
-  "image": "/nightview/26.jpg"
+    "id": "26",
+    "name": "마포새빛문화숲",
+    "category": "공원/문화공간",
+    "lat": 37.543868,
+    "lng": 126.919384,
+    "place": "서울특별시 마포구 토정로 56",
+    "operating_time": "00:00 - 24:00 (일부 시설 제외)",
+    "fee": "무료",
+    "subway": "상수역(6호선), 합정역(2호선, 6호선)",
+    "url": "https://www.mapo.go.kr/",
+    "tel": "02-3153-9270",
+    "bus": "마을버스 마포07",
+    "parking": "인근 노상 공영주차장 등 이용",
+    "image": "/nightview/26.jpg",
+    "nightCategory": "공원·정원"
   },
-   {
+  {
     "id": "27",
     "name": "반포대교 달빛무지개 분수",
     "category": "공공시설",
@@ -441,9 +487,10 @@
     "tel": "반포안내센터 02-3780-0541~4, 운영사무실 02-3780-0578",
     "bus": "반포한강공원, 반포대교남단 한강시민공윈 입구 버스정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/27.jpg"
+    "image": "/nightview/27.jpg",
+    "nightCategory": "한강·다리"
   },
-    {
+  {
     "id": "28",
     "name": "윤동주 시인의 언덕",
     "category": "문화/공원",
@@ -458,26 +505,30 @@
     "bus": "지선 1020, 7022, 7212 (윤동주문학관 하차)",
     "parking": "주차 불가 (대중교통 권장)",
     "image": "/nightview/28.jpg",
-    "viewpoint": ["높은 고도에서 내려다보는 서울 도심의 뷰."]
-    },
-    {
-  "id": "29",
-  "name": "별마당 도서관",
-  "category": "문화/도서관",
-  "lat": 37.512558,
-  "lng": 127.058814,
-  "place": "서울특별시 강남구 영동대로 513 스타필드 코엑스몰 B1",
-  "operating_time": "10:30 - 22:00",
-  "fee": "무료",
-  "subway": "2호선 삼성역 5, 6번 출구 / 9호선 봉은사역 7번 출구 지하 연결 통로 이용",
-  "url": "https://www.starfield.co.kr/coexmall/starfieldLibrary/library.do",
-  "tel": "02-6002-3031",
-  "bus": "삼성역.코엑스 또는 무역센터 정류장 하차",
-  "parking": "스타필드 코엑스몰 주차장 이용 (유료, 매장 이용 금액별 무료 주차 시간 적용)",
-  "image": "/nightview/29.jpg",
-  "viewpoint": [
-    "13m 높이의 천장까지 닿아있는 거대한 서가와 은은한 실내조명이 어우러져 압도적이면서도 따뜻한 분위기를 자아내며, 에스컬레이터를 통해 오르내리며 공간 전체의 입체감을 한눈에 조망할 수 있는 뷰."
-  ]
+    "viewpoint": [
+      "높은 고도에서 내려다보는 서울 도심의 뷰."
+    ],
+    "nightCategory": "전망대·산"
+  },
+  {
+    "id": "29",
+    "name": "별마당 도서관",
+    "category": "문화/도서관",
+    "lat": 37.512558,
+    "lng": 127.058814,
+    "place": "서울특별시 강남구 영동대로 513 스타필드 코엑스몰 B1",
+    "operating_time": "10:30 - 22:00",
+    "fee": "무료",
+    "subway": "2호선 삼성역 5, 6번 출구 / 9호선 봉은사역 7번 출구 지하 연결 통로 이용",
+    "url": "https://www.starfield.co.kr/coexmall/starfieldLibrary/library.do",
+    "tel": "02-6002-3031",
+    "bus": "삼성역.코엑스 또는 무역센터 정류장 하차",
+    "parking": "스타필드 코엑스몰 주차장 이용 (유료, 매장 이용 금액별 무료 주차 시간 적용)",
+    "image": "/nightview/29.jpg",
+    "viewpoint": [
+      "13m 높이의 천장까지 닿아있는 거대한 서가와 은은한 실내조명이 어우러져 압도적이면서도 따뜻한 분위기를 자아내며, 에스컬레이터를 통해 오르내리며 공간 전체의 입체감을 한눈에 조망할 수 있는 뷰."
+    ],
+    "nightCategory": "도심·거리"
   },
   {
     "id": "30",
@@ -493,7 +544,8 @@
     "tel": "1566-3433",
     "bus": "반포대교 남단 정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/30.jpg"
+    "image": "/nightview/30.jpg",
+    "nightCategory": "한강·다리"
   },
   {
     "id": "31",
@@ -510,7 +562,10 @@
     "bus": "2, 6호선 합정역 1번 출구 앞 버스정류장에서 마포16번 버스 탑승 후 '망원유수지, 마포구민체육센터' 버스정류장 하차 후 도보 7분",
     "parking": "운영시간 06:00 ~ 24:00 (유료 운영) 안내 문의처 070-7778-6678",
     "image": "/nightview/31.jpg",
-    "viewpoint": ["서울함의 선미와 옆면이 보이는 위치이며 성산대교까지 조망 가능."]
+    "viewpoint": [
+      "서울함의 선미와 옆면이 보이는 위치이며 성산대교까지 조망 가능."
+    ],
+    "nightCategory": "한강·다리"
   },
   {
     "id": "32",
@@ -526,7 +581,8 @@
     "tel": "(공원안내) 02-3783-5900, 02-743-7985 (주차안내) 070-8955-7426",
     "bus": "낙산공원(낙산삼거리방면), 혜화역 마로니애공원 정류장 하차 도보 이용",
     "parking": "운영시간 상시 (일반 26대, 장애인 1대)",
-    "image": "/nightview/32.jpg"
+    "image": "/nightview/32.jpg",
+    "nightCategory": "전망대·산"
   },
   {
     "id": "33",
@@ -542,9 +598,10 @@
     "tel": "02-120",
     "bus": "세종문화회관, KT광화문지사 정류장 하차 도보 이용",
     "parking": null,
-    "image": "/nightview/33.jpg"
+    "image": "/nightview/33.jpg",
+    "nightCategory": "도심·거리"
   },
-    {
+  {
     "id": "34",
     "name": "백빈건널목",
     "category": "명소/거리",
@@ -561,14 +618,15 @@
     "image": "/nightview/34.jpg",
     "viewpoint": [
       "도심 한복판에서 땡땡거리는 소리와 함께 기차가 지나가는 레트로한 철길 골목 풍경과 아날로그 감성이 묻어나는 뷰."
-    ]
+    ],
+    "nightCategory": "도심·거리"
   },
-    {
+  {
     "id": "35",
     "name": "삼성해맞이공원",
     "category": "공원/전망대",
     "lat": 37.519643,
-    "lng": 127.061950,
+    "lng": 127.06195,
     "place": "서울특별시 강남구 영동대로128길 39",
     "operating_time": "00:00 - 24:00 (상시 개방)",
     "fee": "무료",
@@ -580,13 +638,14 @@
     "image": "/nightview/35.jpg",
     "viewpoint": [
       "언덕 위 탁 트인 데크 전망대에서 한강 물줄기를 따라 잠실 올림픽주경기장과 롯데월드타워, 청담대교의 화려한 야경을 파노라마로 조망할 수 있는 곳."
-    ]
+    ],
+    "nightCategory": "전망대·산"
   },
- {
+  {
     "id": "36",
     "name": "잠수교",
     "category": "교량/산책로",
-    "lat": 37.513630,
+    "lat": 37.51363,
     "lng": 126.996874,
     "place": "서울특별시 서초구 반포동 ~ 용산구 서빙고동 (잠수교)",
     "operating_time": "00:00 - 24:00 (보행로 상시 개방, 기상 악화 시 통제 가능)",
@@ -599,8 +658,9 @@
     "image": "/nightview/36.jpg",
     "viewpoint": [
       "머리 위로 쏟아지는 반포대교 달빛무지개분수를 가장 가까이서 감상하며, 한강 수면에 반사되는 조명과 남산서울타워가 어우러진 생동감 넘치는 뷰."
-    ]
-    }, 
+    ],
+    "nightCategory": "한강·다리"
+  },
   {
     "id": "37",
     "name": "동작대교",
@@ -615,7 +675,8 @@
     "tel": "(경관조명 안내) 02-3284-5436",
     "bus": "(북단) 버스정류장 금강병원, 반도아파트 정류장 하차 후 도보 이용, (남단) 버스정류장 동작역, 국립현충원 정류장 하차 후 도보 이용",
     "parking": null,
-    "image": "/nightview/37.jpg"
+    "image": "/nightview/37.jpg",
+    "nightCategory": "한강·다리"
   },
   {
     "id": "39",
@@ -632,7 +693,10 @@
     "bus": "버스정류장 겸재정원미술관, 마곡나루역 정류장 하차 도보 이용",
     "parking": "운영시간 08:00 - 21:00 (지상 주차장은 24시간 이용 가능)",
     "image": "/nightview/39.jpg",
-    "viewpoint": ["유리온실의 디자인이 원형으로 되어있어 공원방향과 입구 쪽에서도 바라볼 수 있음."]
+    "viewpoint": [
+      "유리온실의 디자인이 원형으로 되어있어 공원방향과 입구 쪽에서도 바라볼 수 있음."
+    ],
+    "nightCategory": "공원·정원"
   },
   {
     "id": "40",
@@ -649,7 +713,10 @@
     "bus": "버스정류장 시청덕수궁 도보 3분",
     "parking": null,
     "image": "/nightview/40.jpg",
-    "viewpoint": ["대한문을 지나서 서울시립미술관 방면으로 걸어가는 돌담길."]
+    "viewpoint": [
+      "대한문을 지나서 서울시립미술관 방면으로 걸어가는 돌담길."
+    ],
+    "nightCategory": "고궁·역사"
   },
   {
     "id": "41",
@@ -665,26 +732,29 @@
     "tel": "02-476-0722",
     "bus": "광나루 한강공원 2주차장(강동구 천호동 483-8), 광나루 한강공원 3주차장(송파구 풍납동 49-2)",
     "parking": null,
-    "image": "/nightview/41.jpg"
+    "image": "/nightview/41.jpg",
+    "nightCategory": "한강·다리"
   },
   {
-  "id": "42",
-  "name": "인왕산(무무대 전망대)",
-  "category": "전망대/산책로",
-  "lat": 37.584077,
-  "lng": 126.963725,
-  "place": "서울특별시 종로구 옥인동 산3-13",
-  "operating_time": "00:00 - 24:00",
-  "fee": "무료",
-  "subway": "경복궁역(3호선)에서 마을버스 환승",
-  "url": "https://parks.seoul.go.kr/parks/detailView.do?pIdx=110",
-  "tel": "02-2148-1114",
-  "bus": "마을버스 종로09 (수성동계곡 하차 후 도보)",
-  "parking": "인왕산 초소책방 주차장 등 (공간 매우 협소, 대중교통 권장)",
-  "image": "/nightview/42.jpg",
-  "viewpoint": ["서울시를 검색 하면 가장 많이 나오는 사진을 볼수있는 곳!!."]
+    "id": "42",
+    "name": "인왕산(무무대 전망대)",
+    "category": "전망대/산책로",
+    "lat": 37.584077,
+    "lng": 126.963725,
+    "place": "서울특별시 종로구 옥인동 산3-13",
+    "operating_time": "00:00 - 24:00",
+    "fee": "무료",
+    "subway": "경복궁역(3호선)에서 마을버스 환승",
+    "url": "https://parks.seoul.go.kr/parks/detailView.do?pIdx=110",
+    "tel": "02-2148-1114",
+    "bus": "마을버스 종로09 (수성동계곡 하차 후 도보)",
+    "parking": "인왕산 초소책방 주차장 등 (공간 매우 협소, 대중교통 권장)",
+    "image": "/nightview/42.jpg",
+    "viewpoint": [
+      "서울시를 검색 하면 가장 많이 나오는 사진을 볼수있는 곳!!."
+    ],
+    "nightCategory": "전망대·산"
   },
-
   {
     "id": "44",
     "name": "뚝섬 공원",
@@ -700,7 +770,10 @@
     "bus": "자양4동주민센터 앞 / 신자초등학교 앞 버스정류장 하차 도보 이용",
     "parking": null,
     "image": "/nightview/44.jpg",
-    "viewpoint": ["뚝섬 한강공원에서 자벌레와 가까이 위치한 청담대교 아래 조망점에서 바라본 뷰."]
+    "viewpoint": [
+      "뚝섬 한강공원에서 자벌레와 가까이 위치한 청담대교 아래 조망점에서 바라본 뷰."
+    ],
+    "nightCategory": "한강·다리"
   },
   {
     "id": "45",
@@ -716,24 +789,26 @@
     "tel": null,
     "bus": null,
     "parking": null,
-    "image": "/nightview/45.jpg"
+    "image": "/nightview/45.jpg",
+    "nightCategory": "공원·정원"
   },
   {
-  "id": "46",
-  "name": "달맞이 근린공원 (달맞이봉공원)",
-  "category": "공원/광장",
-  "lat": 37.53866839156651,
-  "lng": 127.01914464062273,
-  "place": "서울특별시 성동구 금호동4가 산27",
-  "operating_time": "상시개방 (야간 조명: 일몰 후 ~ 23:00)",
-  "fee": "무료",
-  "subway": "지하철 3호선·경의중앙선 옥수역 4번 출구에서 도보 약 5~10분",
-  "url": "https://parks.seoul.go.kr/parks/detailView.do?pIdx=1011",
-  "tel": "02-2286-5656 (성동구청 공원녹지과)",
-  "bus": "옥수삼성아파트(04-131) 정류장 하차 후 도보 이용",
-  "parking": "전용 주차장 없음 (인근 옥수역 공영 주차장 이용 권장)",
-  "image": "/nightview/46.jpg"
- },
+    "id": "46",
+    "name": "달맞이 근린공원 (달맞이봉공원)",
+    "category": "공원/광장",
+    "lat": 37.53866839156651,
+    "lng": 127.01914464062273,
+    "place": "서울특별시 성동구 금호동4가 산27",
+    "operating_time": "상시개방 (야간 조명: 일몰 후 ~ 23:00)",
+    "fee": "무료",
+    "subway": "지하철 3호선·경의중앙선 옥수역 4번 출구에서 도보 약 5~10분",
+    "url": "https://parks.seoul.go.kr/parks/detailView.do?pIdx=1011",
+    "tel": "02-2286-5656 (성동구청 공원녹지과)",
+    "bus": "옥수삼성아파트(04-131) 정류장 하차 후 도보 이용",
+    "parking": "전용 주차장 없음 (인근 옥수역 공영 주차장 이용 권장)",
+    "image": "/nightview/46.jpg",
+    "nightCategory": "전망대·산"
+  },
   {
     "id": "47",
     "name": "선유도공원",
@@ -748,7 +823,8 @@
     "tel": "02-2631-9368",
     "bus": "선유도 정류장 하차 도보 이용  * 장애인주차만 가능, 일반차량의 경우 양화한강공원3주차장 이용",
     "parking": null,
-    "image": "/nightview/47.jpg"
+    "image": "/nightview/47.jpg",
+    "nightCategory": "공원·정원"
   },
   {
     "id": "49",
@@ -765,7 +841,10 @@
     "bus": "‘경춘선숲길.화랑대역공원’ 버스정류장 하차 (간선버스 202 / 지선버스 1155, 2212 / 일반버스 115 / 마을버스 82A, 82B)",
     "parking": null,
     "image": "/nightview/49.jpg",
-    "viewpoint": ["체험코스로 조성해 놓아서 걸어다니며 눈높이에서 조망할 수 있는 요소가 매우 많음."]
+    "viewpoint": [
+      "체험코스로 조성해 놓아서 걸어다니며 눈높이에서 조망할 수 있는 요소가 매우 많음."
+    ],
+    "nightCategory": "공원·정원"
   },
   {
     "id": "50",
@@ -781,7 +860,8 @@
     "tel": "02-450-9311",
     "bus": "‘세종대학교’ 정류소 하차",
     "parking": "운영시간 05:00-22:00",
-    "image": "/nightview/50.jpg"
+    "image": "/nightview/50.jpg",
+    "nightCategory": "공원·정원"
   },
   {
     "id": "51",
@@ -797,6 +877,7 @@
     "tel": "(경관조명 안내) 02-2657-7965 (성산대교 안내) 02-2133-1943",
     "bus": "(북단) 버스정류장 마포구청역 하차 후 도보 / (남단) 버스정류장 양평동한솔아파트 하차 후 도보",
     "parking": null,
-    "image": "/nightview/51.jpg"
+    "image": "/nightview/51.jpg",
+    "nightCategory": "한강·다리"
   }
 ]

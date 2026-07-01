@@ -7,8 +7,7 @@ import type { ThemeCourse } from "@/data/themeCourses";
 import SearchPanel from "./SearchPanel";
 import CulturePanel from "./CulturePanel";
 import NightviewPanel from "./NightviewPanel";
-import AIQuestPanel from "./AIQuestPanel";
-import ThemeCoursePanel from "./ThemeCoursePanel";
+import CourseCollection from "./CourseCollection";
 import NowRecommendPanel from "./NowRecommendPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "./SearchRoadPanel";
 import type { AIQuestCache } from "./AIQuestPanel";
@@ -16,7 +15,7 @@ import type { AIQuestCache } from "./AIQuestPanel";
 interface Props {
   pois: POIItem[];
   onSelectPOI: (poi: POIItem) => void;
-  onSelectCourse: (course: ThemeCourse) => void;
+  onOpenCourse: (course: ThemeCourse) => void;
   activeCourseId: string | null;
   onRouteFound?: (payload: RouteDrawPayload) => void;
   onRouteClear?: () => void;
@@ -28,25 +27,23 @@ interface Props {
   aiQuestCacheRef?: React.MutableRefObject<AIQuestCache>;
   activeTab: TabId | null;
   onActiveTabChange: (tab: TabId | null) => void;
-  onSetAIDestination?: (placeName: string) => void;
 }
 
-type TabId = "search" | "culture" | "night" | "ai" | "course" | "now" | "route";
+type TabId = "search" | "culture" | "night" | "course" | "now" | "route";
 
 const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "search", label: "검색", icon: "/sidebaricons/search.png" },
   { id: "route", label: "길찾기", icon: "/sidebaricons/route.png" },
+  { id: "course", label: "관광코스", icon: "/sidebaricons/course.png" },
   { id: "culture", label: "문화행사", icon: "/sidebaricons/culture.png" },
   { id: "night", label: "야경명소", icon: "/sidebaricons/night.png" },
-  { id: "ai", label: "AI 추천", icon: "/sidebaricons/ai.png" },
-  { id: "course", label: "테마코스", icon: "/sidebaricons/course.png" },
   { id: "now", label: "혼잡도", icon: "/sidebaricons/now.png" },
 ];
 
 export default function Sidebar({
   pois,
   onSelectPOI,
-  onSelectCourse,
+  onOpenCourse,
   activeCourseId,
   onRouteFound,
   onRouteClear,
@@ -58,7 +55,6 @@ export default function Sidebar({
   aiQuestCacheRef,
   activeTab,
   onActiveTabChange,
-  onSetAIDestination,
 }: Props) {
   const toggle = (id: TabId) => onActiveTabChange(activeTab === id ? null : id);
 
@@ -124,9 +120,12 @@ export default function Sidebar({
           {activeTab === "night" && (
             <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />
           )}
-          {activeTab === "ai" && <AIQuestPanel onSetDestination={onSetAIDestination} cacheRef={aiQuestCacheRef} />}
           {activeTab === "course" && (
-            <ThemeCoursePanel onSelectCourse={onSelectCourse} activeCourseId={activeCourseId} />
+            <CourseCollection
+              onOpenCourse={onOpenCourse}
+              activeCourseId={activeCourseId}
+              cacheRef={aiQuestCacheRef}
+            />
           )}
           {activeTab === "now" && (
             <NowRecommendPanel onSelectPOI={onSelectPOI} />

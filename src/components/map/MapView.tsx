@@ -9,6 +9,9 @@ import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
 import CourseStopCard from "@/components/game/CourseStopCard";
 import AIInfoPanel from "@/components/game/AIInfoPanel";
+import CourseDetailPanel from "@/components/map/CourseDetailPanel";
+import { useCourseCollection } from "@/hooks/useCourseCollection";
+import { RouteFlowAnimator, type FlowNaverApi } from "@/lib/routeFlow";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import Sidebar from "@/components/sidebar/Sidebar";
 import CultureSpeedDial from "@/components/map/CultureSpeedDial";
@@ -16,7 +19,6 @@ import MobileNavigation, { type MobileTabId } from "@/components/mobile/MobileNa
 import MobilePanel from "@/components/mobile/MobilePanel";
 import MobileMapControls from "@/components/mobile/MobileMapControls";
 import type { RouteDrawPayload, RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
-import type { AIQuestCache } from "@/components/sidebar/AIQuestPanel";
 import { CATEGORY_MARKER, type CultureCategory } from "@/lib/cultureCategories";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
@@ -109,6 +111,10 @@ export default function MapView() {
   const cultureMarkersRef = useRef<NaverOverlay[]>([]);
   const questMarkersRef = useRef<NaverOverlay[]>([]);
   const courseMarkersRef = useRef<NaverOverlay[]>([]);
+  const coursePolylinesRef = useRef<NaverOverlay[]>([]);
+  const courseArrowsRef = useRef<NaverOverlay[]>([]);
+  const courseFlowRef = useRef<RouteFlowAnimator[]>([]);
+  const routeFlowRef = useRef<RouteFlowAnimator[]>([]);
   const originMarkerRef = useRef<NaverMarker | null>(null);
   const destMarkerRef = useRef<NaverMarker | null>(null);
   const userLocationMarkerRef = useRef<NaverMarker | null>(null);
@@ -122,6 +128,8 @@ export default function MapView() {
   const [activeQuest, setActiveQuest] = useState<StoryQuest | null>(null);
   const [currentObjIndex, setCurrentObjIndex] = useState(0);
   const [activeCourse, setActiveCourse] = useState<ThemeCourse | null>(null);
+  const [detailCourse, setDetailCourse] = useState<ThemeCourse | null>(null);
+  const { drafts: courseDrafts, addDraft, removeDraft } = useCourseCollection();
   const [mapReady, setMapReady] = useState(false);
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [dest, setDest] = useState<{ lat: number; lng: number } | null>(null);
@@ -145,16 +153,6 @@ export default function MapView() {
     stepArrivals: {},
   });
 
-  const aiQuestCacheRef = useRef<AIQuestCache>({
-    companion: "친구",
-    ageGroup: "20-30대",
-    time: "오후",
-    purpose: "관광",
-    region: "상관없음",
-    congestion: "상관없음",
-    suggestions: null,
-    source: null,
-  });
 
   const triggerMessageTimeout = useCallback(() => {
     if (locationTimeoutRef.current) {
@@ -214,6 +212,12 @@ export default function MapView() {
   const clearCourseOverlay = useCallback(() => {
     courseMarkersRef.current.forEach((m) => m.setMap(null));
     courseMarkersRef.current = [];
+    coursePolylinesRef.current.forEach((p) => p.setMap(null));
+    coursePolylinesRef.current = [];
+    courseArrowsRef.current.forEach((a) => a.setMap(null));
+    courseArrowsRef.current = [];
+    courseFlowRef.current.forEach((f) => f.destroy());
+    courseFlowRef.current = [];
   }, []);
 
   // 문화행사 마커 — 카테고리 선택 시 커스텀 PNG 마커로 렌더링 (최대 100개)
@@ -320,11 +324,57 @@ export default function MapView() {
     const naver = window.naver;
     const path: NaverLatLng[] = [];
 
+    // 테마 단일 색상(hue)의 명도 그라데이션 — 경유지 번호별로 채도·명도 차이로 구분
+    const hexToHsl = (hex: string): [number, number, number] => {
+      let h = hex.replace("#", "");
+      if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+      const r = parseInt(h.slice(0, 2), 16) / 255;
+      const g = parseInt(h.slice(2, 4), 16) / 255;
+      const b = parseInt(h.slice(4, 6), 16) / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      let hue = 0;
+      let s = 0;
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) hue = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) hue = (b - r) / d + 2;
+        else hue = (r - g) / d + 4;
+        hue /= 6;
+      }
+      return [hue * 360, s * 100, l * 100];
+    };
+    const hslToHex = (h: number, s: number, l: number): string => {
+      const sn = s / 100;
+      const ln = l / 100;
+      const k = (n: number) => (n + h / 30) % 12;
+      const a = sn * Math.min(ln, 1 - ln);
+      const f = (n: number) => ln - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, "0");
+      return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+    };
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+    const [baseH, baseS] = hexToHsl(activeCourse.color);
+    const stopCount = activeCourse.stops.length;
+    // 테마 색을 중심으로 같은 계열 안에서 인접 색상으로만 살짝 회전시키고(예: 보라→파랑),
+    // 명도를 함께 변화시켜 한 계열 그라데이션처럼 자연스럽게 이어지게 한다.
+    const HUE_SPREAD = 55; // 코스 전체 색상 회전 폭(deg) — 좁게 둬 같은 계열 유지
+    const segColor = (i: number) => {
+      const p = stopCount > 1 ? i / (stopCount - 1) : 0; // 0(출발)~1(도착)
+      const H = (baseH + HUE_SPREAD * (p - 0.5) + 360) % 360;
+      const S = clamp(baseS + 18, 58, 88); // 채도 부스트 — 선명하게
+      const L = clamp(62 - 24 * p, 38, 64); // 출발 밝게 → 도착 깊게: 그라데이션 깊이
+      return hslToHex(H, S, L);
+    };
+
     activeCourse.stops.forEach((stop, i) => {
       const isFirst = i === 0;
       const isLast = i === activeCourse.stops.length - 1;
       const size = isFirst || isLast ? 36 : 28;
-      const bg = activeCourse.color;
+      const bg = segColor(i);
 
       const latlng = new naver.maps.LatLng(stop.lat, stop.lng);
       path.push(latlng);
@@ -367,6 +417,134 @@ export default function MapView() {
           : { top: 60, right: 60, bottom: 60, left: 380 }
       );
     }
+
+    // 실제 도보 경로 폴리라인 — 구간별 색상 + 진행 애니메이션 (OSRM walk)
+    let cancelled = false;
+
+    const bearing = (aLat: number, aLng: number, bLat: number, bLng: number): number => {
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const dLng = toRad(bLng - aLng);
+      const y = Math.sin(dLng) * Math.cos(toRad(bLat));
+      const x =
+        Math.cos(toRad(aLat)) * Math.sin(toRad(bLat)) -
+        Math.sin(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.cos(dLng);
+      return (((Math.atan2(y, x) * 180) / Math.PI) + 360) % 360;
+    };
+
+    // 한 구간을 점진적으로 "그려지듯" 애니메이션 (ease-out)
+    const animateSegment = (full: NaverLatLng[], color: string, opacity: number): Promise<void> =>
+      new Promise((resolve) => {
+        const poly = new naver.maps.Polyline({
+          map: mapInstance.current,
+          path: [full[0]],
+          strokeColor: color,
+          strokeOpacity: opacity,
+          strokeWeight: 6,
+          strokeLineCap: "round",
+          strokeLineJoin: "round",
+          zIndex: 80,
+        }) as NaverOverlay & { setPath: (path: NaverLatLng[]) => void };
+        coursePolylinesRef.current.push(poly);
+
+        const DURATION = 600;
+        const startT = performance.now();
+        const step = (now: number) => {
+          if (cancelled) return resolve();
+          const t = Math.min(1, (now - startT) / DURATION);
+          const eased = 1 - Math.pow(1 - t, 3);
+          const count = Math.max(2, Math.round(eased * full.length));
+          poly.setPath(full.slice(0, count));
+          if (t < 1) {
+            requestAnimationFrame(step);
+          } else {
+            poly.setPath(full);
+            resolve();
+          }
+        };
+        requestAnimationFrame(step);
+      });
+
+    (async () => {
+      // 사전 계산된 폴리라인(public/courses/routes/<id>.json)을 먼저 로드.
+      // 있으면 런타임 라우팅 없이 저장된 좌표만 그린다.
+      let precomputed: { mode: "walk" | "transit"; points: { lat: number; lng: number }[] }[] | null = null;
+      try {
+        const res = await fetch(`/courses/routes/${activeCourse.id}.json`);
+        if (res.ok) precomputed = (await res.json()).segments ?? null;
+      } catch {
+        /* 사이드카 없으면 라이브 라우팅으로 폴백 */
+      }
+      if (cancelled) return;
+
+      for (let i = 0; i < activeCourse.stops.length - 1; i++) {
+        const a = activeCourse.stops[i];
+        const b = activeCourse.stops[i + 1];
+
+        let pts: { lat: number; lng: number }[] = precomputed?.[i]?.points ?? [];
+
+        // 사전 계산본이 없을 때만 라이브 라우팅 호출(폴백)
+        if (pts.length < 2) {
+          try {
+            const res = await fetch(
+              `/api/transit/walk?fromLat=${a.lat}&fromLng=${a.lng}&toLat=${b.lat}&toLng=${b.lng}`
+            );
+            if (res.ok) pts = (await res.json()).points ?? [];
+          } catch {
+            /* 실패 시 직선 보간 폴백 */
+          }
+          if (cancelled) return;
+        }
+
+        const useFallback = pts.length < 2;
+        if (useFallback) {
+          // 직선도 부드럽게 그려지도록 보간점 생성
+          const N = 24;
+          pts = Array.from({ length: N + 1 }, (_, k) => ({
+            lat: a.lat + (b.lat - a.lat) * (k / N),
+            lng: a.lng + (b.lng - a.lng) * (k / N),
+          }));
+        }
+
+        const color = segColor(i);
+        const full = pts.map((p) => new naver.maps.LatLng(p.lat, p.lng));
+        await animateSegment(full, color, useFallback ? 0.55 : 0.95);
+        if (cancelled) return;
+
+        // 그려진 구간 위에 흐르는 빛 입자 레이어 — 출발→도착 방향으로 계속 흐른다
+        if (mapInstance.current) {
+          courseFlowRef.current.push(
+            new RouteFlowAnimator(
+              naver as unknown as FlowNaverApi,
+              mapInstance.current,
+              pts,
+              { color, zIndex: 85, size: 9, opacity: useFallback ? 0.7 : 1 },
+            ),
+          );
+        }
+
+        // 구간이 다 그려지면 진행 방향 화살표 표시
+        const mid = full[Math.floor(full.length / 2)];
+        const deg = bearing(a.lat, a.lng, b.lat, b.lng);
+        const arrow = new naver.maps.Marker({
+          position: mid,
+          map: mapInstance.current,
+          zIndex: 81,
+          icon: {
+            content: `<div style="transform:rotate(${deg}deg);display:flex;align-items:center;justify-content:center;width:18px;height:18px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 4l6 14-6-3-6 3z" fill="${color}" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+              </svg>
+            </div>`,
+            anchor: new naver.maps.Point(9, 9),
+          },
+        });
+        courseArrowsRef.current.push(arrow);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeCourse, mapReady, clearCourseOverlay, isMobile]);
 
 
@@ -443,6 +621,10 @@ export default function MapView() {
       if (userLocationMarkerRef.current) userLocationMarkerRef.current.setMap(null);
       if (accuracyCircleRef.current) accuracyCircleRef.current.setMap(null);
       if (locationTimeoutRef.current) clearTimeout(locationTimeoutRef.current);
+      courseFlowRef.current.forEach((f) => f.destroy());
+      courseFlowRef.current = [];
+      routeFlowRef.current.forEach((f) => f.destroy());
+      routeFlowRef.current = [];
     };
   }, []);
 
@@ -451,6 +633,8 @@ export default function MapView() {
   const clearRouteOverlay = useCallback(() => {
     routePolylinesRef.current.forEach((l) => l.setMap(null));
     routePolylinesRef.current = [];
+    routeFlowRef.current.forEach((f) => f.destroy());
+    routeFlowRef.current = [];
     routeMarkersRef.current.forEach((m) => m.setMap(null));
     routeMarkersRef.current = [];
     if (originMarkerRef.current) { originMarkerRef.current.setMap(null); originMarkerRef.current = null; }
@@ -507,6 +691,26 @@ export default function MapView() {
         })
       );
       path.forEach((p) => bounds.extend(p));
+
+      // 폴리라인 위에 진행 방향으로 흐르는 빛 입자 레이어를 얹는다.
+      // 도보(dash)는 보조 경로이므로 더 작고 옅게, 대중교통은 또렷하게 흐른다.
+      if (mapInstance.current) {
+        const isDash = style === "dash";
+        routeFlowRef.current.push(
+          new RouteFlowAnimator(
+            naver as unknown as FlowNaverApi,
+            mapInstance.current,
+            points,
+            {
+              color,
+              zIndex: 95,
+              size: isDash ? 6 : 7,
+              opacity: isDash ? 0.8 : 1,
+              spacingMeters: isDash ? 320 : 500,
+            },
+          ),
+        );
+      }
     };
 
     const addMarker = (
@@ -779,7 +983,7 @@ export default function MapView() {
     }
   };
 
-  // 테마 코스 선택
+  // 테마 코스 선택 (지도에 동선 그리기 토글)
   const handleSelectCourse = (course: ThemeCourse) => {
     setActiveCourse((prev) => {
       if (prev?.id === course.id) {
@@ -789,6 +993,34 @@ export default function MapView() {
       return course;
     });
     if (isMobile) setSidebarActiveTab(null);
+  };
+
+  // 컬렉션 카드 클릭 → 우측 디테일 패널 열기 (좌측 사이드바는 유지)
+  const handleOpenCourseDetail = (course: ThemeCourse) => {
+    setDetailCourse(course);
+  };
+
+  // 디테일 패널의 경유지 클릭 → 지도 이동 + stop 카드
+  const handleSelectCourseStop = (course: ThemeCourse, stopIndex: number) => {
+    const s = course.stops[stopIndex];
+    if (!s) return;
+    if (activeCourse?.id !== course.id) setActiveCourse(course);
+    setSelected({
+      id: `course_${stopIndex}`,
+      name: s.name,
+      category: "테마 코스",
+      source: "theme_course",
+      lat: s.lat,
+      lng: s.lng,
+      place: s.description,
+      fee: s.duration,
+    } as POIItem);
+    mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
+  };
+
+  const handleToggleSaveCourse = (course: ThemeCourse) => {
+    if (courseDrafts.some((d) => d.id === course.id)) removeDraft(course.id);
+    else addDraft(course);
   };
 
 
@@ -943,23 +1175,6 @@ export default function MapView() {
     [resolveUserLocationForRoute]
   );
 
-  const handleSetAIDestination = useCallback(
-    async (placeName: string) => {
-      const found = SEOUL_PLACES.find((p) => p.displayName === placeName);
-      if (!found) return;
-      setPresetDest({ label: found.displayName, lat: found.lat, lng: found.lng });
-      setDest({ lat: found.lat, lng: found.lng });
-      setSidebarActiveTab("route");
-      try {
-        const loc = await resolveUserLocationForRoute();
-        setOrigin({ lat: loc.lat, lng: loc.lng });
-        setPresetOrigin({ label: "내 위치", lat: loc.lat, lng: loc.lng });
-      } catch {
-        setPresetOrigin(null);
-      }
-    },
-    [resolveUserLocationForRoute]
-  );
 
   // 우클릭 컨텍스트 메뉴
   useEffect(() => {
@@ -1019,7 +1234,7 @@ export default function MapView() {
           <Sidebar
             pois={poisData}
             onSelectPOI={handleSelectPOI}
-            onSelectCourse={handleSelectCourse}
+            onOpenCourse={handleOpenCourseDetail}
             activeCourseId={activeCourse?.id ?? null}
             onRouteFound={handleRouteFound}
             onRouteClear={clearRouteOverlay}
@@ -1028,10 +1243,8 @@ export default function MapView() {
             onClearOrigin={handleClearOrigin}
             onClearDest={handleClearDest}
             routeCacheRef={routeCacheRef}
-            aiQuestCacheRef={aiQuestCacheRef}
             activeTab={sidebarActiveTab}
             onActiveTabChange={setSidebarActiveTab}
-            onSetAIDestination={handleSetAIDestination}
           />
         </div>
 
@@ -1040,7 +1253,7 @@ export default function MapView() {
           pois={poisData}
           onClose={() => setSidebarActiveTab(null)}
           onSelectPOI={handleSelectPOI}
-          onSelectCourse={handleSelectCourse}
+          onOpenCourse={handleOpenCourseDetail}
           activeCourseId={activeCourse?.id ?? null}
           onRouteFound={handleRouteFound}
           onRouteClear={clearRouteOverlay}
@@ -1049,8 +1262,6 @@ export default function MapView() {
           onClearOrigin={handleClearOrigin}
           onClearDest={handleClearDest}
           routeCacheRef={routeCacheRef}
-          aiQuestCacheRef={aiQuestCacheRef}
-          onSetAIDestination={handleSetAIDestination}
         />
 
         <MobileNavigation
@@ -1170,7 +1381,7 @@ export default function MapView() {
             poi={selected}
             isQuestTarget={isQuestTarget(selected)}
             onClose={() => setSelected(null)}
-            onAskAI={() => setAiAskingPOI(selected)}
+            onAskAI={() => { setAiAskingPOI(selected); setDetailCourse(null); }}
             onSetDest={() => {
               void setPlaceAsRouteDestination(selected);
             }}
@@ -1179,6 +1390,19 @@ export default function MapView() {
 
         {/* AI 정보 패널 */}
         <AIInfoPanel poi={aiAskingPOI} onClose={() => setAiAskingPOI(null)} />
+
+        {/* 코스 디테일 패널 (우측) */}
+        {detailCourse && (
+          <CourseDetailPanel
+            course={detailCourse}
+            isActive={activeCourse?.id === detailCourse.id}
+            saved={courseDrafts.some((d) => d.id === detailCourse.id)}
+            onClose={() => setDetailCourse(null)}
+            onToggleStart={() => handleSelectCourse(detailCourse)}
+            onToggleSave={() => handleToggleSaveCourse(detailCourse)}
+            onSelectStop={(i) => handleSelectCourseStop(detailCourse, i)}
+          />
+        )}
 
         {/* 우클릭 컨텍스트 메뉴 */}
         {contextMenu && (

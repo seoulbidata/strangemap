@@ -92,53 +92,133 @@ function matchesRegion(lat: number, lng: number, regionPref: string): boolean {
   return getRegion(lat, lng) === regionPref;
 }
 
-// 후보 장소 필터링 + 혼잡도 실데이터 적용
+// 두 좌표 간 직선거리(km)
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+// 시간대 → 영업시간(operatingHours) 적합성
+function isOpenForTime(hours: { start: number; end: number }, time: string): boolean {
+  const { start, end } = hours;
+  if (start === 0 && end === 24) return true; // 24시간 운영
+  if (time === "오전") return start <= 11;
+  if (time === "오후") return start <= 16 && end >= 17;
+  if (time === "밤") return end >= 20 || end === 24;
+  return true;
+}
+
+// 목적 → 선호 장소 카테고리 가중치 (SeoulPlace.category 기준)
+const PURPOSE_CATEGORY_WEIGHT: Record<string, Partial<Record<string, number>>> = {
+  "힐링":     { "공원·자연": 3, "한강": 3, "야경·전망": 1 },
+  "데이트":   { "야경·전망": 3, "한강": 3, "공원·자연": 2, "상권·역세권": 1 },
+  "관광":     { "관광·역사": 3, "야경·전망": 2, "공원·자연": 1 },
+  "놀거리":   { "상권·역세권": 3, "한강": 1 },
+  "문화생활": { "관광·역사": 3, "상권·역세권": 1 },
+};
+
+const CLUSTER_RADIUS_KM = 3.0; // 군집 반경 — 도보·짧은 이동 가능 범위
+const CLUSTER_MAX = 12;        // 프롬프트로 넘길 후보 상한
+
+export interface Candidate {
+  areaName: string;
+  displayName: string;
+  description: string;
+  category: string;
+  lat: number;
+  lng: number;
+  congestion?: string;
+}
+
+// 가까운 장소끼리 군집을 만들어, 목적 적합도가 가장 높은 한 군집만 후보로 선택한다.
+// → AI가 고른 3곳이 흩어지지 않고 자연스러운 한 동선으로 이어지도록 "거리"를 사전 반영.
+function selectCluster<T extends { category: string; lat: number; lng: number }>(
+  cands: T[],
+  purpose: string
+): T[] {
+  // 5곳 이하만 군집 생략(이미 충분히 좁음). 그 이상은 항상 거리 군집으로 좁힌다
+  // — 권역 후보가 상한 이하라도 지리적으로 흩어졌을 수 있으므로.
+  if (cands.length <= 5) return cands;
+  const weight = PURPOSE_CATEGORY_WEIGHT[purpose] ?? {};
+  const wScore = (c: T) => weight[c.category] ?? 0;
+
+  // 각 후보를 앵커로 삼아 반경 내 이웃을 모으고, 군집 크기 + 목적 적합도로 점수화
+  let best: { members: T[]; anchor: T; score: number } | null = null;
+  for (const anchor of cands) {
+    const members = cands.filter(
+      (c) => haversineKm(anchor.lat, anchor.lng, c.lat, c.lng) <= CLUSTER_RADIUS_KM
+    );
+    const score = members.length + members.reduce((s, c) => s + wScore(c), 0) + wScore(anchor) * 2;
+    if (!best || score > best.score) best = { members, anchor, score };
+  }
+  const { members, anchor } = best!;
+  // 목적 적합 우선 → 앵커 근접 우선으로 정렬 후 상한 적용
+  return [...members]
+    .sort(
+      (a, b) =>
+        wScore(b) - wScore(a) ||
+        haversineKm(anchor.lat, anchor.lng, a.lat, a.lng) -
+          haversineKm(anchor.lat, anchor.lng, b.lat, b.lng)
+    )
+    .slice(0, CLUSTER_MAX);
+}
+
+// 후보 장소 필터링: 권역 → 시간대(영업시간) → 거리·목적 군집 → 실시간 혼잡도
 async function buildCandidatePlaces(
   regionPref: string,
-  congestionPref: string
-): Promise<{ displayName: string; description: string; category: string; congestion?: string }[]> {
+  congestionPref: string,
+  time: string,
+  purpose: string
+): Promise<Candidate[]> {
   const apiKey = process.env.SEOUL_API_KEY;
 
   // 1) 권역 필터
-  const typeFiltered = SEOUL_PLACES.filter((p) => matchesRegion(p.lat, p.lng, regionPref));
+  const inRegion = SEOUL_PLACES.filter((p) => matchesRegion(p.lat, p.lng, regionPref));
 
-  // 2) 혼잡도 필터가 "상관없음"이면 바로 반환 (API 호출 불필요)
-  if (congestionPref === "상관없음" || !apiKey) {
-    return typeFiltered.map((p) => ({
-      displayName: p.displayName,
-      description: p.description,
-      category: p.category,
-    }));
-  }
+  // 2) 시간대 필터(영업시간) — 너무 적게 남으면(6곳 미만) 완화해 빈손 방지
+  const timeFiltered = inRegion.filter((p) => isOpenForTime(p.operatingHours, time));
+  const afterTime = timeFiltered.length >= 6 ? timeFiltered : inRegion;
 
-  // 3) 실시간 혼잡도 병렬 조회 (최대 30곳, timeout 3s per call)
-  const targets = typeFiltered.slice(0, 30);
-  const congestionResults = await Promise.allSettled(
-    targets.map((p) => fetchOneCongestion(p.areaName, apiKey))
-  );
+  // 3) 거리·목적 기반 군집 선택
+  const clustered = selectCluster(afterTime, purpose);
 
-  const withCongestion = targets.map((p, i) => {
-    const level: CongestionLevel =
-      congestionResults[i].status === "fulfilled"
-        ? (congestionResults[i] as PromiseFulfilledResult<CongestionLevel>).value
-        : "알 수 없음";
-    return { ...p, congestion: level };
-  });
-
-  // 4) 혼잡도 기준 필터
-  const filtered = withCongestion.filter((p) => isAcceptableCongestion(p.congestion as CongestionLevel, congestionPref));
-
-  // 5) 필터 결과가 너무 적으면 "알 수 없음" 포함 허용 (최소 5개 보장)
-  const fallback = filtered.length < 5
-    ? withCongestion.filter((p) => p.congestion === "알 수 없음" || filtered.includes(p))
-    : filtered;
-
-  return fallback.map((p) => ({
+  const toCand = (p: (typeof clustered)[number], congestion?: string): Candidate => ({
+    areaName: p.areaName,
     displayName: p.displayName,
     description: p.description,
     category: p.category,
-    congestion: p.congestion !== "알 수 없음" ? p.congestion : undefined,
+    lat: p.lat,
+    lng: p.lng,
+    congestion,
+  });
+
+  // 4) 혼잡도 "상관없음" 또는 키 없으면 군집 그대로
+  if (congestionPref === "상관없음" || !apiKey) {
+    return clustered.map((p) => toCand(p));
+  }
+
+  // 5) 군집 장소만 실시간 혼잡도 조회 (≤12곳)
+  const results = await Promise.allSettled(
+    clustered.map((p) => fetchOneCongestion(p.areaName, apiKey))
+  );
+  const withCongestion = clustered.map((p, i) => ({
+    p,
+    level: (results[i].status === "fulfilled"
+      ? (results[i] as PromiseFulfilledResult<CongestionLevel>).value
+      : "알 수 없음") as CongestionLevel,
   }));
+
+  // 6) 혼잡도 허용 필터 — 4곳 미만이면 '알 수 없음' 포함해 완화
+  const ok = withCongestion.filter((x) => isAcceptableCongestion(x.level, congestionPref));
+  const finalSet =
+    ok.length >= 4 ? ok : withCongestion.filter((x) => x.level === "알 수 없음" || ok.includes(x));
+
+  return finalSet.map((x) => toCand(x.p, x.level !== "알 수 없음" ? x.level : undefined));
 }
 
 // ── 문화생활 전용: 서울 행사 API ─────────────────────────────────────────────
@@ -203,7 +283,7 @@ function buildPrompt(
   purpose: string,
   region: string,
   congestionPref: string,
-  candidates: { displayName: string; description: string; category: string; congestion?: string }[],
+  candidates: Candidate[],
   events: string[],
   kstCtx: { date: string; weekday: string; period: string }
 ): string {
@@ -241,12 +321,15 @@ function buildPrompt(
 - 원하는 위치: ${region !== "상관없음" ? `서울 ${region} 지역` : "서울 전역 상관없음"}
 - 혼잡도 선호: ${congestionRule}${eventBlock}
 
-[추천 가능한 장소 목록 — 반드시 이 목록에 있는 장소만 추천해. 목록 밖 장소는 절대 불가]
+[추천 가능한 장소 목록 — 모두 서로 가까운 한 지역에 모여 있음. 반드시 이 목록에 있는 장소만 추천]
 ${candidateLines}
 
 [규칙]
 - 위 장소 목록에서만 골라서 추천. 목록에 없는 장소명은 사용 금지.
 - place 필드에는 목록의 장소명을 그대로 사용해.
+- 위 장소들은 서로 가까우니, 도보나 한두 정거장 이동으로 자연스럽게 이어지는 3곳을 골라줘.
+- 동선이 왔다 갔다 하지 않고 한 방향으로 흐르도록, 첫 곳 → 마지막 곳 순서를 정해서 배열에 담아줘.
+- 선택한 곳은 모두 '${time}' 시간대에 실제로 문을 여는 곳이어야 해.
 - 사용자 상황(누구랑·나이대·시간대·목적)에 딱 맞는 장소 위주로 선택.
 - 팸플릿이나 기계적인 문체는 엄격히 금지하며, 그 동네를 잘 아는 친근한 서울 토박이 친구가 조근조근 말해주는 듯 다정한 어조로 작성해줘.
 - title: 단순한 장소명 나열이 아닌, 사용자가 클릭하고 싶게 만드는 호기심 자극형 감성 제목(예: "해 질 녘 골목길을 따라 걷는 힐링 산책")으로 참신하게 지어줘.
@@ -339,7 +422,7 @@ export async function POST(req: NextRequest) {
 
   // 병렬 실행: 후보 장소(혼잡도 포함) + 문화생활일 때만 행사 API
   const [candidates, events] = await Promise.all([
-    buildCandidatePlaces(region, congestion),
+    buildCandidatePlaces(region, congestion, time, purpose),
     purpose === "문화생활" ? fetchSeoulEvents().catch(() => []) : Promise.resolve([]),
   ]);
 

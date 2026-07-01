@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import type { POIItem } from "@/app/api/poi/route";
 import { CULTURE_CATEGORIES, type CultureCategory } from "@/lib/cultureCategories";
+import { FeedShell, FeedHeader, FilterPills, FeedCard, HeroChip } from "./_feedKit";
 
 interface Props {
   pois: POIItem[];
@@ -32,29 +33,12 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
   const allCategories: Array<CultureCategory | "전체"> = ["전체", ...CULTURE_CATEGORIES];
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8] md:block hidden">
-        <h2 className="text-base font-bold text-[#1A1E2E]">문화행사</h2>
-        <p className="text-xs text-[#9CA3AF] mt-0.5">서울시 실시간 문화행사 정보</p>
-      </div>
+    <FeedShell>
+      <FeedHeader title="문화행사" subtitle="서울시 실시간 문화행사 정보" />
 
       {/* 카테고리 필터 */}
-      <div className="px-4 py-3 border-b border-[#E5E1D8] space-y-2.5">
-        <div className="flex gap-1.5 flex-wrap">
-          {allCategories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                activeCategory === cat
-                  ? "bg-[#2563EB] text-white"
-                  : "bg-[#F5F2EC] text-[#6B7280] hover:bg-[#E5E1D8]"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+      <div className="px-5 pb-3 md:pt-0 pt-5 space-y-3">
+        <FilterPills options={allCategories} value={activeCategory} onChange={setActiveCategory} />
         <label className="flex items-center gap-2 cursor-pointer">
           <div
             onClick={() => setShowFreeOnly((v) => !v)}
@@ -64,54 +48,70 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
               className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${showFreeOnly ? "left-4" : "left-0.5"}`}
             />
           </div>
-          <span className="text-[11px] text-[#6B7280]">무료 행사만</span>
+          <span className="text-[12px] text-[#8B8678]">무료 행사만</span>
         </label>
       </div>
 
       {/* 목록 */}
-      <div className="flex-1 overflow-y-auto thin-scroll">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-2 pb-4">
         {culturePOIs.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-[#9CA3AF]">
+          <p className="text-[13px] text-[#A8A398] text-center mt-16 leading-relaxed">
             해당 조건의 행사가 없습니다
-          </div>
+          </p>
         ) : (
-          <div className="py-2">
-            <p className="text-[10px] text-[#9CA3AF] px-4 py-2">{culturePOIs.length}개 행사</p>
-            {culturePOIs.map((poi) => (
-              <button
-                key={poi.id}
-                onClick={() => onSelectPOI(poi)}
-                className="w-full text-left border-b border-[#F0EDE8] last:border-0 hover:bg-[#F5F2EC] transition-colors"
-              >
-                {poi.thumbnail && (
-                  <div className="h-[132px] overflow-hidden">
-                    <img src={poi.thumbnail} alt={poi.name} className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <div className="px-4 py-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#2563EB]">
-                        {poi.normalizedCategory ?? poi.category}
-                      </span>
-                      <p className="text-sm font-semibold text-[#1A1E2E] mt-1.5 leading-snug line-clamp-2">{poi.name}</p>
-                    </div>
-                    {(poi.fee === "무료" || !poi.fee) && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded shrink-0 mt-5 bg-[#F0FDF4] text-[#16A34A]">
-                        무료
-                      </span>
+          <>
+            <p className="text-[11px] text-[#A8A398] pb-3">{culturePOIs.length}개 행사</p>
+            <div className="space-y-5">
+              {culturePOIs.map((poi) => {
+                const isFree = poi.fee === "무료" || !poi.fee;
+                return (
+                  <FeedCard key={poi.id} onClick={() => onSelectPOI(poi)}>
+                    {/* 히어로 (썸네일 있을 때만) */}
+                    {poi.thumbnail && (
+                      <div className="relative h-44 bg-center bg-cover overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={poi.thumbnail} alt={poi.name} className="w-full h-full object-cover" />
+                        <div className="absolute top-3.5 left-3.5">
+                          <HeroChip>{poi.normalizedCategory ?? poi.category}</HeroChip>
+                        </div>
+                        {isFree && (
+                          <div className="absolute top-3.5 right-3.5">
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#16A34A] text-white">
+                              무료
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </div>
-                  <div className="mt-2 text-[11px] text-[#9CA3AF] space-y-0.5">
-                    <p>{poi.place}</p>
-                    {poi.date && <p>{poi.date}</p>}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
+
+                    {/* 본문 */}
+                    <div className="px-5 pt-4 pb-5">
+                      {/* 썸네일이 없으면 카테고리/무료 배지를 본문 상단에 */}
+                      {!poi.thumbnail && (
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <HeroChip>{poi.normalizedCategory ?? poi.category}</HeroChip>
+                          {isFree && (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#16A34A] text-white">
+                              무료
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <h3 className="text-[18px] font-semibold leading-snug tracking-[-0.01em] line-clamp-2 text-[#16243C] group-hover:text-[#1E2F4D] transition-colors duration-150">
+                        {poi.name}
+                      </h3>
+                      <div className="mt-2 text-[13px] text-[#9A958A] space-y-0.5">
+                        <p className="line-clamp-1">{poi.place}</p>
+                        {poi.date && <p className="line-clamp-1">{poi.date}</p>}
+                      </div>
+                    </div>
+                  </FeedCard>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
-    </div>
+    </FeedShell>
   );
 }

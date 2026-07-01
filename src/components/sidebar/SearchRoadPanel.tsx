@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { FeedShell } from "./_feedKit";
 
 /* ---- 타입 ---- */
 interface PlaceCandidate {
@@ -682,17 +683,17 @@ function decorateAlternatives(routes: TransitRoute[], preference: RoutePreferenc
 }
 function renderAlternativeLabel(label?: string) {
   if (!label) return null;
-  let bgClass = "bg-[#EFF6FF] text-[#1B3A6B] border-[#EFF6FF]";
+  let bgClass = "bg-[#F4F2EC] text-[#5C5950]";
   if (label === "서울로의 추천경로 안내") {
-    bgClass = "bg-[#FE9C00] text-white border-[#FE9C00] shadow-sm";
+    bgClass = "bg-[#16243C] text-white";
   } else if (label === "가장 빠른길 안내") {
-    bgClass = "bg-[#DBEAFE] text-[#1D4ED8] border-[#BFDBFE]";
+    bgClass = "bg-[#DBEAFE] text-[#1D4ED8]";
   } else if (label === "가장 원활한 경로 안내") {
-    bgClass = "bg-[#D1FAE5] text-[#047857] border-[#A7F3D0]";
+    bgClass = "bg-[#D1FAE5] text-[#047857]";
   }
 
   return (
-    <span className={`px-2 py-0.5 text-[9px] font-bold rounded-md border ${bgClass}`}>
+    <span className={`px-2.5 py-1 text-[11px] font-semibold rounded-full ${bgClass}`}>
       {label}
     </span>
   );
@@ -979,15 +980,21 @@ export default function SearchRoadPanel({
 
   const currentRoute = alternatives[selectedIdx];
 
+  const routeOptions: { value: RoutePreference; label: string }[] = [
+    { value: "recommended", label: "추천경로" },
+    { value: "fastest", label: "빠른길" },
+    { value: "smoothest", label: "원활한길" },
+  ];
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <FeedShell>
       {/* 헤더 */}
-      <div className="px-4 py-3 border-b border-[#FDECC8] shrink-0 md:block hidden">
-        <div className="text-sm font-bold text-[#1B3A6B]">길찾기</div>
-        <div className="text-[11px] text-[#A8A29E] mt-0.5">버스·지하철 환승 경로 탐색</div>
+      <div className="px-6 pt-7 pb-5 md:block hidden">
+        <h2 className="text-[22px] font-bold text-[#16243C] leading-tight tracking-[-0.01em]">길찾기</h2>
+        <p className="text-[13px] text-[#8B8678] mt-1">버스·지하철 환승 경로 탐색</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto thin-scroll px-4 py-3 space-y-3">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 md:pt-0 pt-5 pb-4 space-y-4">
         {/* 출발/도착 입력 */}
         <PlaceInput
           label="출발지"
@@ -1027,47 +1034,60 @@ export default function SearchRoadPanel({
 
         {/* 검색 옵션 */}
         <div>
-          <div className="text-[11px] text-[#A8A29E] mb-1">검색 옵션</div>
-          <select
-            value={routePreference}
-            onChange={(e) => setRoutePreference(e.target.value as RoutePreference)}
-            className="w-full text-sm border border-[#FDECC8] rounded-lg px-2 py-1.5 bg-white text-[#1B3A6B] focus:outline-none"
-          >
-            <option value="recommended">서울로의 추천경로 받기</option>
-            <option value="fastest">가장 빠른길 찾기</option>
-            <option value="smoothest">가장 원활한 길찾기</option>
-          </select>
+          <div className="text-[12px] font-semibold text-[#8B8678] mb-2">검색 옵션</div>
+          <div className="flex gap-2">
+            {routeOptions.map((opt) => {
+              const active = routePreference === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setRoutePreference(opt.value)}
+                  className={`flex-1 px-3 py-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all ${
+                    active
+                      ? "bg-[#16243C] text-white shadow-[0_3px_10px_rgba(22,36,60,0.18)]"
+                      : "bg-white text-[#5C5950] border border-[#ECE8E0] hover:border-[#D6D1C7]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* 검색 버튼 */}
         <button
           onClick={searchRoute}
           disabled={loading || (!origin && !originQuery.trim()) || (!dest && !destQuery.trim())}
-          className="w-full py-2.5 rounded-xl text-sm font-bold bg-[#1B3A6B] text-white disabled:opacity-40 hover:bg-[#2563EB] transition-colors"
+          className="w-full py-3 rounded-2xl text-[14px] font-bold bg-[#16243C] text-white disabled:opacity-40 hover:bg-[#1E2F4D] transition-colors shadow-[0_3px_10px_rgba(22,36,60,0.18)]"
         >
           {loading ? "탐색 중…" : "길찾기 실행"}
         </button>
 
         {/* 상태 메시지 */}
         {status && (
-          <div className="text-[11px] text-[#A8A29E] text-center">{status}</div>
+          <div className="text-[12px] text-[#A8A398] text-center">{status}</div>
         )}
 
         {/* 결과: 선택 경로 */}
         {alternatives.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-[#A8A29E] font-medium">추천 경로</div>
+          <div className="space-y-2.5">
+            <div className="text-[12px] text-[#8B8678] font-semibold">추천 경로</div>
             {alternatives.map((alt, idx) => (
               <button
                 key={idx}
                 onClick={() => selectAlt(idx)}
-                className={`w-full text-left rounded-xl p-2.5 border transition-all ${idx === selectedIdx ? "border-[#1B3A6B] bg-[#EFF6FF]" : "border-[#FDECC8] bg-white hover:bg-[#FFF8E7]"}`}
+                className={`w-full text-left rounded-[22px] p-4 transition-all duration-200 ${
+                  idx === selectedIdx
+                    ? "bg-white shadow-[0_14px_40px_rgba(20,30,50,0.14)] ring-1 ring-[#16243C]"
+                    : "bg-white shadow-[0_6px_24px_rgba(20,30,50,0.07)] hover:-translate-y-0.5 hover:shadow-[0_14px_40px_rgba(20,30,50,0.14)]"
+                }`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   {renderAlternativeLabel(alt.alternativeLabel)}
-                  <span className="text-[11px] text-[#A8A29E]">{alt.time}분</span>
+                  <span className="text-[13px] font-semibold text-[#16243C]">{alt.time}분</span>
                 </div>
-                <div className="text-[10px] text-[#A8A29E] mt-0.5">
+                <div className="text-[12px] text-[#9A958A] mt-1.5">
                   {summarizeModes(alt)} · 환승 {countRouteTransfers(alt)}회
                   {alt.congestion && ` · 혼잡도 ${alt.congestion.label}`}
                 </div>
@@ -1081,8 +1101,8 @@ export default function SearchRoadPanel({
 
         {/* 선택된 경로 단계 */}
         {currentRoute && (
-          <div className="space-y-1.5">
-            <div className="text-[11px] text-[#A8A29E] font-medium">이동 단계</div>
+          <div className="space-y-2">
+            <div className="text-[12px] text-[#8B8678] font-semibold">이동 단계</div>
             {origin && (
               <StepItem icon="출발" label={origin.label} detail="" color="#16A34A" />
             )}
@@ -1127,12 +1147,12 @@ export default function SearchRoadPanel({
                     />
                   )}
                   {isTransfer && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] animate-fade-in">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EFF6FF] animate-fade-in">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
-                      <span className="text-[10px] font-bold text-[#1E40AF]">
+                      <span className="text-[11px] font-semibold text-[#1E40AF]">
                         {fromStation} 하차 후 {transferLabel(step)}
                       </span>
-                      <span className="ml-auto text-[8px] text-[#2563EB] bg-[#EFF6FF] border border-[#BFDBFE] px-1 rounded font-bold">하차 & 환승</span>
+                      <span className="ml-auto text-[9px] text-white bg-[#2563EB] px-1.5 py-0.5 rounded-full font-semibold">하차 & 환승</span>
                     </div>
                   )}
                   <StepItem
@@ -1158,12 +1178,12 @@ export default function SearchRoadPanel({
                     nowMs={nowMs}
                   />
                   {isLastTransit && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F3F4F6] border border-[#D1D5DB] animate-fade-in">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#4B5563]" />
-                      <span className="text-[10px] font-bold text-[#374151]">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F4F2EC] animate-fade-in">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#5C5950]" />
+                      <span className="text-[11px] font-semibold text-[#5C5950]">
                         {lastStation} 하차
                       </span>
-                      <span className="ml-auto text-[8px] text-[#4B5563] bg-[#F3F4F6] border border-[#D1D5DB] px-1 rounded font-bold">하차</span>
+                      <span className="ml-auto text-[9px] text-white bg-[#5C5950] px-1.5 py-0.5 rounded-full font-semibold">하차</span>
                     </div>
                   )}
                 </div>
@@ -1183,7 +1203,7 @@ export default function SearchRoadPanel({
           </div>
         )}
       </div>
-    </div>
+    </FeedShell>
   );
 }
 
@@ -1205,39 +1225,47 @@ function PlaceInput({
 }) {
   return (
     <div>
-      <div className="text-[11px] text-[#A8A29E] mb-1">{label}</div>
-      <div className="flex gap-1.5">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+        <span className="text-[12px] font-semibold" style={{ color }}>{label}</span>
+      </div>
+      <div className="flex gap-2">
         <input
           value={query}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onSearch()}
           placeholder={placeholder}
-          className="flex-1 text-sm border border-[#FDECC8] rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#1B3A6B]"
+          className="flex-1 text-[14px] bg-white border border-[#ECE8E0] rounded-2xl px-3.5 py-2.5 text-[#16243C] placeholder:text-[#B8B3A8] focus:outline-none transition-colors"
+          onFocus={(e) => (e.currentTarget.style.borderColor = color)}
+          onBlur={(e) => (e.currentTarget.style.borderColor = "#ECE8E0")}
         />
         <button
           onClick={onSearch}
-          className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border border-[#FDECC8] text-[#1B3A6B] hover:bg-[#EFF6FF] transition-colors"
+          className="px-4 py-2.5 rounded-2xl text-[13px] font-semibold bg-white border border-[#ECE8E0] text-[#5C5950] hover:border-[#D6D1C7] transition-colors shrink-0"
         >
           검색
         </button>
       </div>
       {selected && (
-        <div className="mt-1 flex items-center gap-1">
+        <div
+          className="mt-2 flex items-center gap-2 rounded-2xl px-3.5 py-2.5"
+          style={{ background: `${color}12` }}
+        >
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-          <span className="text-[11px] text-[#1B3A6B] font-medium truncate flex-1">{selected.label}</span>
-          <button onClick={onClear} className="text-[10px] text-[#A8A29E] hover:text-[#DC2626]">✕</button>
+          <span className="text-[13px] font-semibold truncate flex-1" style={{ color }}>{selected.label}</span>
+          <button onClick={onClear} className="text-[13px] text-[#A8A398] hover:text-[#DC2626] shrink-0">✕</button>
         </div>
       )}
       {candidates.length > 0 && (
-        <div className="mt-1 space-y-0.5">
+        <div className="mt-2 space-y-1 rounded-2xl bg-white p-1.5 shadow-[0_6px_24px_rgba(20,30,50,0.07)]">
           {candidates.map((c, idx) => (
             <button
               key={idx}
               onClick={() => onSelect(c)}
-              className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] hover:bg-[#FFF8E7] border border-transparent hover:border-[#FDECC8] transition-all"
+              className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#F4F2EC] transition-colors"
             >
-              <span className="font-medium text-[#1B3A6B]">{c.placeName || c.label}</span>
-              {c.address && <span className="text-[#A8A29E] ml-1">{c.address}</span>}
+              <span className="text-[14px] font-semibold text-[#16243C]">{c.placeName || c.label}</span>
+              {c.address && <span className="text-[12px] text-[#9A958A] ml-1.5">{c.address}</span>}
             </button>
           ))}
         </div>
@@ -1261,28 +1289,28 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
   const nextRemaining = realtimeInfo ? remainingArrivalSeconds(realtimeInfo, "nextArrivalSeconds", renderNowMs) : undefined;
 
   return (
-    <div className="flex gap-2 p-2 rounded-lg bg-white border border-[#FDECC8]">
+    <div className="flex gap-2.5 p-3 rounded-2xl bg-white shadow-[0_4px_16px_rgba(20,30,50,0.06)]">
       <span
-        className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white leading-none self-start mt-0.5"
+        className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full text-white leading-none self-start mt-0.5"
         style={{ background: color }}
       >
         {icon}
       </span>
       <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-medium text-[#1B3A6B] truncate">{label}</div>
-        {detail && <div className="text-[10px] text-[#A8A29E]">{detail}</div>}
+        <div className="text-[13px] font-semibold text-[#16243C] truncate">{label}</div>
+        {detail && <div className="text-[12px] text-[#9A958A] mt-0.5">{detail}</div>}
         {realtimeInfo?.arrivalMsg && (
-          <div className="mt-1 space-y-0.5">
+          <div className="mt-1.5 space-y-1">
             <div className="flex items-center gap-1.5">
-              <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white shrink-0" style={{ background: color }}>현재</span>
-              <span className="text-[10px] font-medium text-[#1B3A6B] truncate">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: color }}>현재</span>
+              <span className="text-[12px] font-semibold text-[#16243C] truncate">
                 {currentRemaining !== undefined ? formatCountdown(currentRemaining) : realtimeInfo.arrivalMsg}
               </span>
             </div>
             {realtimeInfo.nextArrivalMsg && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white shrink-0 opacity-60" style={{ background: color }}>다음</span>
-                <span className="text-[10px] text-[#A8A29E] truncate">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0 opacity-60" style={{ background: color }}>다음</span>
+                <span className="text-[12px] text-[#9A958A] truncate">
                   {nextRemaining !== undefined ? formatCountdown(nextRemaining) : realtimeInfo.nextArrivalMsg || "곧 도착"}
                 </span>
               </div>
@@ -1290,12 +1318,12 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
           </div>
         )}
         {!realtimeInfo?.arrivalMsg && !!arrivals?.length && (
-          <div className="mt-1 space-y-0.5">
+          <div className="mt-1.5 space-y-1">
             {arrivals.map((arrival, idx) => (
-              <div key={idx} className="flex items-center gap-1 text-[10px] text-[#1B3A6B]">
+              <div key={idx} className="flex items-center gap-1.5 text-[12px] text-[#16243C]">
                 <span className="font-bold text-[#FE9C00]">도착</span>
                 <span className="truncate">{arrival.primary}</span>
-                {arrival.secondary && <span className="text-[#A8A29E] truncate">{arrival.secondary}</span>}
+                {arrival.secondary && <span className="text-[#9A958A] truncate">{arrival.secondary}</span>}
               </div>
             ))}
           </div>
@@ -1308,12 +1336,12 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
 
 function CongestionBar({ congestion, showPercentage = true }: { congestion: CongestionInfo; showPercentage?: boolean }) {
   return (
-    <div className="mt-1">
-      <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[10px] font-bold" style={{ color: congestion.color }}>{congestion.label}</span>
-        {showPercentage && <span className="text-[10px] text-[#A8A29E]">{congestion.score}%</span>}
+    <div className="mt-1.5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] font-bold" style={{ color: congestion.color }}>{congestion.label}</span>
+        {showPercentage && <span className="text-[11px] text-[#A8A398]">{congestion.score}%</span>}
       </div>
-      <div className="h-1 bg-[#F3F4F6] rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[#F4F2EC] rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${Math.min(congestion.score, 100)}%`, background: congestion.color }}

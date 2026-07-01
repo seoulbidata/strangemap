@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import path from "path";
 import { normalizeCategory, type CultureCategory } from "@/lib/cultureCategories";
+import type { NightCategory } from "@/lib/nightCategories";
 
 export interface POIItem {
   id: string;
   name: string;
   category: string;
   normalizedCategory?: CultureCategory;
+  /** 야경명소 풍경 유형 (source === "nightview"일 때) */
+  nightCategory?: NightCategory;
   source: "culture" | "nightview" | "theme_course";
   lat: number;
   lng: number;
@@ -114,6 +117,7 @@ export async function GET() {
     id: "nightview_" + r.id,
     name: r.name,
     category: r.category,
+    nightCategory: r.nightCategory,
     source: "nightview" as const,
     lat: r.lat,
     lng: r.lng,

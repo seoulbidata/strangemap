@@ -1,5 +1,6 @@
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { CATEGORY_META, type CourseCategory, type ThemeCourse } from "@/data/themeCourses";
+import { planCourse } from "@/lib/courseRouting";
 
 /** /api/ai-recommend 응답 1건의 형태 */
 export interface AISuggestion {
@@ -41,39 +42,17 @@ function findPlace(name: string) {
   );
 }
 
-function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const R = 6371;
-  const dLat = ((bLat - aLat) * Math.PI) / 180;
-  const dLng = ((bLng - aLng) * Math.PI) / 180;
-  const x =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
+/** 코스 생성 제약 — "나만의 코스 만들기" 기본 정책 */
+export const COURSE_MAX_STOPS = 5;
+export const COURSE_MIN_STOPS = 3;
+export const COURSE_MAX_TOTAL_KM = 10;
 
-/**
- * 첫 stop을 출발점으로 두고 가장 가까운 곳을 차례로 잇는 최근접 탐욕 정렬.
- * AI가 돌려준 순서가 지그재그여도 지도 동선이 한 방향으로 흐르게 만든다.
- */
-function orderByProximity<T extends { lat: number; lng: number }>(stops: T[]): T[] {
-  if (stops.length <= 2) return stops;
-  const remaining = stops.slice(1);
-  const ordered: T[] = [stops[0]];
-  while (remaining.length) {
-    const last = ordered[ordered.length - 1];
-    let bestIdx = 0;
-    let bestDist = Infinity;
-    remaining.forEach((s, i) => {
-      const d = haversineKm(last.lat, last.lng, s.lat, s.lng);
-      if (d < bestDist) {
-        bestDist = d;
-        bestIdx = i;
-      }
-    });
-    ordered.push(remaining.splice(bestIdx, 1)[0]);
-  }
-  return ordered;
-}
+/** 사용자가 고른 시간대 칩 → 코스 시작 시각(운영시간 시간창 평가용) */
+const TIME_TO_START_HOUR: Record<string, number> = {
+  오전: 10,
+  오후: 14,
+  밤: 19,
+};
 
 /**
  * AI 추천 결과를 지도·타임라인이 그대로 렌더할 수 있는 ThemeCourse(draft)로 변환한다.
@@ -91,6 +70,7 @@ export function buildDraftFromSuggestions(
         name: place.displayName,
         lat: place.lat,
         lng: place.lng,
+        operatingHours: place.operatingHours, // 시간창(운영시간) 평가용 — ThemeCourse 렌더엔 영향 없음
         preview: s.reason,
         description: s.description,
         duration: s.duration || "약 1시간",
@@ -101,14 +81,15 @@ export function buildDraftFromSuggestions(
 
   if (stops.length < 2) return null;
 
-  // 동선이 한 방향으로 흐르도록 최근접 순서로 재정렬
-  const ordered = orderByProximity(stops);
-
-  // 직선거리 합으로 대략 거리 추정
-  let km = 0;
-  for (let i = 1; i < ordered.length; i++) {
-    km += haversineKm(ordered[i - 1].lat, ordered[i - 1].lng, ordered[i].lat, ordered[i].lng);
-  }
+  // 동선 최적화: 오픈 패스 TSP(운영시간 시간창 포함) + 최대 5곳·총 10km 상한.
+  // AI는 "어떤 장소"만 고르고, "어떤 순서"는 여기서 결정적으로 푼다.
+  const { ordered, totalKm } = planCourse(stops, {
+    maxStops: COURSE_MAX_STOPS,
+    minStops: Math.min(COURSE_MIN_STOPS, stops.length),
+    maxTotalKm: COURSE_MAX_TOTAL_KM,
+    startHour: TIME_TO_START_HOUR[meta.time],
+  });
+  const km = totalKm;
 
   const category = PURPOSE_TO_CATEGORY[meta.purpose] ?? "역사";
   const color = CATEGORY_META[category].color;

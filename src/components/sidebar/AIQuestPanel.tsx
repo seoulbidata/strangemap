@@ -25,6 +25,8 @@ export interface AIQuestCache {
   purpose: PurposeType;
   region: RegionType;
   congestion: CongestionType;
+  /** "나만의 코스 만들기" 전용 — 코스에 담을 장소 수 칩 ("3곳"|"4곳"|"5곳") */
+  placeCount?: string;
   suggestions: Suggestion[] | null;
   source: "ai" | "mock" | null;
 }

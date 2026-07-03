@@ -273,6 +273,7 @@ type TimeType = "오전" | "오후" | "밤";
 type PurposeType = "힐링" | "놀거리" | "데이트" | "관광" | "문화생활";
 type RegionType = "강북" | "강서" | "강남" | "강동" | "상관없음";
 type CongestionType = "여유" | "보통" | "상관없음";
+type PlaceCountType = "3곳" | "4곳" | "5곳";
 
 function CourseCreateForm({
   cacheRef,
@@ -289,6 +290,7 @@ function CourseCreateForm({
   const [purpose, setPurpose] = useState<PurposeType>(() => (cacheRef?.current.purpose as PurposeType) ?? "관광");
   const [region, setRegion] = useState<RegionType>(() => (cacheRef?.current.region as RegionType) ?? "상관없음");
   const [congestion, setCongestion] = useState<CongestionType>(() => (cacheRef?.current.congestion as CongestionType) ?? "상관없음");
+  const [placeCount, setPlaceCount] = useState<PlaceCountType>(() => (cacheRef?.current.placeCount as PlaceCountType) ?? "3곳");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -304,7 +306,7 @@ function CourseCreateForm({
       const res = await fetch("/api/ai-recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companion, ageGroup, time, purpose, region, congestion }),
+        body: JSON.stringify({ companion, ageGroup, time, purpose, region, congestion, placeCount: parseInt(placeCount, 10) }),
       });
       if (!res.ok) throw new Error("api");
       const data = await res.json();
@@ -346,6 +348,7 @@ function CourseCreateForm({
         <ChipGroup label="목적" options={["힐링", "놀거리", "데이트", "관광", "문화생활"]} value={purpose} onChange={sync<PurposeType>(setPurpose, "purpose")} disabled={loading} />
         <ChipGroup label="위치" options={["강북", "강서", "강남", "강동", "상관없음"]} value={region} onChange={sync<RegionType>(setRegion, "region")} disabled={loading} />
         <ChipGroup label="혼잡도" options={["여유", "보통", "상관없음"]} value={congestion} onChange={sync<CongestionType>(setCongestion, "congestion")} disabled={loading} />
+        <ChipGroup label="장소 수" options={["3곳", "4곳", "5곳"]} value={placeCount} onChange={sync<PlaceCountType>(setPlaceCount, "placeCount")} disabled={loading} />
 
         <div>
           <p className="text-[12px] font-semibold text-[#8B8678] mb-2">직접 입력</p>

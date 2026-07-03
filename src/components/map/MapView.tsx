@@ -13,6 +13,7 @@ import CourseDetailPanel from "@/components/map/CourseDetailPanel";
 import { useCourseCollection } from "@/hooks/useCourseCollection";
 import { RouteFlowAnimator, type FlowNaverApi } from "@/lib/routeFlow";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
+import { fetchLibrarySegment } from "@/lib/segmentLibrary";
 import Sidebar from "@/components/sidebar/Sidebar";
 import CultureSpeedDial from "@/components/map/CultureSpeedDial";
 import MobileNavigation, { type MobileTabId } from "@/components/mobile/MobileNavigation";
@@ -481,6 +482,12 @@ export default function MapView() {
         const b = activeCourse.stops[i + 1];
 
         let pts: { lat: number; lng: number }[] = precomputed?.[i]?.points ?? [];
+
+        // 2순위: 장소쌍 세그먼트 라이브러리 — AI 코스(사이드카 없음)도 큐레이션 경로 재사용
+        if (pts.length < 2) {
+          pts = (await fetchLibrarySegment(a, b)) ?? [];
+          if (cancelled) return;
+        }
 
         // 사전 계산본이 없을 때만 라이브 라우팅 호출(폴백)
         if (pts.length < 2) {

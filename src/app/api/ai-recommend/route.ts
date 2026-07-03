@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { incrementAIUsage } from "@/lib/aiUsage";
+import { haversineKm, selectCluster } from "@/lib/courseRouting";
 import {
   extractJsonArrayText,
   generateGeminiJsonText,
@@ -92,17 +93,6 @@ function matchesRegion(lat: number, lng: number, regionPref: string): boolean {
   return getRegion(lat, lng) === regionPref;
 }
 
-// 두 좌표 간 직선거리(km)
-function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
-  const R = 6371;
-  const dLat = ((bLat - aLat) * Math.PI) / 180;
-  const dLng = ((bLng - aLng) * Math.PI) / 180;
-  const x =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-}
-
 // 시간대 → 영업시간(operatingHours) 적합성
 function isOpenForTime(hours: { start: number; end: number }, time: string): boolean {
   const { start, end } = hours;
@@ -135,39 +125,6 @@ export interface Candidate {
   congestion?: string;
 }
 
-// 가까운 장소끼리 군집을 만들어, 목적 적합도가 가장 높은 한 군집만 후보로 선택한다.
-// → AI가 고른 3곳이 흩어지지 않고 자연스러운 한 동선으로 이어지도록 "거리"를 사전 반영.
-function selectCluster<T extends { category: string; lat: number; lng: number }>(
-  cands: T[],
-  purpose: string
-): T[] {
-  // 5곳 이하만 군집 생략(이미 충분히 좁음). 그 이상은 항상 거리 군집으로 좁힌다
-  // — 권역 후보가 상한 이하라도 지리적으로 흩어졌을 수 있으므로.
-  if (cands.length <= 5) return cands;
-  const weight = PURPOSE_CATEGORY_WEIGHT[purpose] ?? {};
-  const wScore = (c: T) => weight[c.category] ?? 0;
-
-  // 각 후보를 앵커로 삼아 반경 내 이웃을 모으고, 군집 크기 + 목적 적합도로 점수화
-  let best: { members: T[]; anchor: T; score: number } | null = null;
-  for (const anchor of cands) {
-    const members = cands.filter(
-      (c) => haversineKm(anchor.lat, anchor.lng, c.lat, c.lng) <= CLUSTER_RADIUS_KM
-    );
-    const score = members.length + members.reduce((s, c) => s + wScore(c), 0) + wScore(anchor) * 2;
-    if (!best || score > best.score) best = { members, anchor, score };
-  }
-  const { members, anchor } = best!;
-  // 목적 적합 우선 → 앵커 근접 우선으로 정렬 후 상한 적용
-  return [...members]
-    .sort(
-      (a, b) =>
-        wScore(b) - wScore(a) ||
-        haversineKm(anchor.lat, anchor.lng, a.lat, a.lng) -
-          haversineKm(anchor.lat, anchor.lng, b.lat, b.lng)
-    )
-    .slice(0, CLUSTER_MAX);
-}
-
 // 후보 장소 필터링: 권역 → 시간대(영업시간) → 거리·목적 군집 → 실시간 혼잡도
 async function buildCandidatePlaces(
   regionPref: string,
@@ -184,8 +141,11 @@ async function buildCandidatePlaces(
   const timeFiltered = inRegion.filter((p) => isOpenForTime(p.operatingHours, time));
   const afterTime = timeFiltered.length >= 6 ? timeFiltered : inRegion;
 
-  // 3) 거리·목적 기반 군집 선택
-  const clustered = selectCluster(afterTime, purpose);
+  // 3) 거리·목적 기반 군집 선택 (가중치·반경은 목적 파라미터에서 유도)
+  const clustered = selectCluster(afterTime, PURPOSE_CATEGORY_WEIGHT[purpose] ?? {}, {
+    radiusKm: CLUSTER_RADIUS_KM,
+    max: CLUSTER_MAX,
+  });
 
   const toCand = (p: (typeof clustered)[number], congestion?: string): Candidate => ({
     areaName: p.areaName,
@@ -283,6 +243,7 @@ function buildPrompt(
   purpose: string,
   region: string,
   congestionPref: string,
+  placeCount: number,
   candidates: Candidate[],
   events: string[],
   kstCtx: { date: string; weekday: string; period: string }
@@ -309,7 +270,7 @@ function buildPrompt(
       ? `\n[현재 서울 진행 중인 문화행사 — 아래 목록에서 적합한 것을 추천에 포함해도 좋아]\n${events.join("\n")}`
       : "";
 
-  return `서울에서 오늘 할 수 있는 활동 3가지를 추천해줘. JSON 배열만 응답.
+  return `서울에서 오늘 할 수 있는 활동 ${placeCount}가지를 추천해줘. JSON 배열만 응답.
 
 [
   사용자 상황]
@@ -327,7 +288,7 @@ ${candidateLines}
 [규칙]
 - 위 장소 목록에서만 골라서 추천. 목록에 없는 장소명은 사용 금지.
 - place 필드에는 목록의 장소명을 그대로 사용해.
-- 위 장소들은 서로 가까우니, 도보나 한두 정거장 이동으로 자연스럽게 이어지는 3곳을 골라줘.
+- 위 장소들은 서로 가까우니, 도보나 한두 정거장 이동으로 자연스럽게 이어지는 ${placeCount}곳을 골라줘. 반드시 서로 다른 ${placeCount}곳이어야 해.
 - 동선이 왔다 갔다 하지 않고 한 방향으로 흐르도록, 첫 곳 → 마지막 곳 순서를 정해서 배열에 담아줘.
 - 선택한 곳은 모두 '${time}' 시간대에 실제로 문을 여는 곳이어야 해.
 - 사용자 상황(누구랑·나이대·시간대·목적)에 딱 맞는 장소 위주로 선택.
@@ -337,7 +298,7 @@ ${candidateLines}
 - reason: 현재 상황(시간대·동행인·목적)에 이 장소가 왜 찰떡궁합인지 다정하고 설득력 있게 딱 1문장으로 적어줘.
 - tags: 핵심 키워드 3~4개.
 
-[출력 형식 — 다른 텍스트 없이 JSON 배열만]
+[출력 형식 — 다른 텍스트 없이 원소 ${placeCount}개짜리 JSON 배열만]
 [
   {
     "title": "활동 제목",
@@ -347,31 +308,30 @@ ${candidateLines}
     "reason": "이 상황에 특히 좋은 이유 딱 1문장",
     "tags": ["태그1", "태그2", "태그3"]
   },
-  { ... },
-  { ... }
+  ...(총 ${placeCount}개)
 ]`;
 }
 
 // ── AI 호출 ──────────────────────────────────────────────────────────────────
 
-function parseAIResponse(text: string): Suggestion[] | null {
+function parseAIResponse(text: string, placeCount: number): Suggestion[] | null {
   const arrText = extractJsonArrayText(text);
   if (!arrText) return null;
   const parsed = parseJsonWithEscapedControlChars<unknown>(arrText);
   if (!Array.isArray(parsed) || parsed.length === 0) return null;
-  return parsed.slice(0, 3) as Suggestion[];
+  return parsed.slice(0, placeCount) as Suggestion[];
 }
 
-async function callGemini(prompt: string): Promise<Suggestion[] | null> {
+async function callGemini(prompt: string, placeCount: number): Promise<Suggestion[] | null> {
   const text = await generateGeminiJsonText({
     prompt,
     systemInstruction: SYSTEM_MSG,
-    maxOutputTokens: 2500,
+    maxOutputTokens: 2500 + (placeCount - 3) * 700, // 스톱 수에 비례해 출력 여유 확보
     responseSchema: SUGGESTION_SCHEMA,
   });
   if (!text) return null;
   console.log("[Gemini:recommend] raw:", text.slice(0, 200));
-  return parseAIResponse(text);
+  return parseAIResponse(text, placeCount);
 }
 
 // ── Mock fallback ─────────────────────────────────────────────────────────────
@@ -413,8 +373,10 @@ export async function POST(req: NextRequest) {
   const purpose: string    = body.purpose    ?? "관광";
   const region: string     = body.region     ?? "상관없음";
   const congestion: string = body.congestion ?? "상관없음";
+  // 코스에 담을 장소 수(3~5, 기본 3) — 미전달 시 기존 동작과 동일(하위 호환)
+  const placeCount: number = Math.min(5, Math.max(3, Number(body.placeCount) || 3));
 
-  const cacheKey = `${companion}|${ageGroup}|${time}|${purpose}|${region}|${congestion}`;
+  const cacheKey = `${companion}|${ageGroup}|${time}|${purpose}|${region}|${congestion}|${placeCount}`;
   const cached = _suggestCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < SUGGEST_TTL) {
     return NextResponse.json({ suggestions: cached.data, cached: true });
@@ -429,9 +391,9 @@ export async function POST(req: NextRequest) {
   console.log(`[recommend] candidates: ${candidates.length}개, events: ${events.length}개, purpose: ${purpose}`);
 
   const kstCtx = getKSTContext();
-  const prompt = buildPrompt(companion, ageGroup, time, purpose, region, congestion, candidates, events, kstCtx);
+  const prompt = buildPrompt(companion, ageGroup, time, purpose, region, congestion, placeCount, candidates, events, kstCtx);
 
-  const suggestions = await callGemini(prompt).catch(() => null);
+  const suggestions = await callGemini(prompt, placeCount).catch(() => null);
 
   if (suggestions) {
     // 로컬 사용량 카운트 증가

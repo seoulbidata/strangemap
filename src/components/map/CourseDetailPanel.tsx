@@ -199,7 +199,7 @@ export default function CourseDetailPanel({
             isActive ? "bg-[#3A4860]" : "bg-[#16243C]"
           }`}
         >
-          {isActive ? "코스 종료" : "코스 시작"}
+          {isActive ? "종료하기" : "코스 보기"}
         </button>
       </div>
     </div>

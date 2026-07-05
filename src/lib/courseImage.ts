@@ -10,6 +10,8 @@ export const CATEGORY_IMAGE: Record<CourseCategory, string> = {
   "서울배경 컨텐츠": "/courses/drama.jpg",
   "Hot플레이스": "/courses/hotplace.jpg",
   "문화": "/courses/culture.jpg",
+  "로컬": "/courses/local.jpg",
+  "운동": "/courses/workout.jpg",
 };
 
 /**

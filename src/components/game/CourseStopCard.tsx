@@ -1,6 +1,9 @@
 "use client";
 
 import { CATEGORY_META, type ThemeCourse, type CourseStop } from "@/data/themeCourses";
+import { useLocale } from "@/i18n/LocaleContext";
+import { categoryLabel } from "@/i18n/enums";
+import { getCourseText } from "@/i18n/courseText";
 
 interface Props {
   course: ThemeCourse;
@@ -11,7 +14,10 @@ interface Props {
   onNext: () => void;
 }
 
-export default function CourseStopCard({ course, stop, stopIndex, onClose, onPrev, onNext }: Props) {
+export default function CourseStopCard({ course: rawCourse, stop: rawStop, stopIndex, onClose, onPrev, onNext }: Props) {
+  const { t, locale } = useLocale();
+  const course = getCourseText(rawCourse, locale);
+  const stop = course.stops[stopIndex] ?? rawStop;
   const catMeta = CATEGORY_META[course.category];
   const total = course.stops.length;
 
@@ -30,7 +36,7 @@ export default function CourseStopCard({ course, stop, stopIndex, onClose, onPre
                   className="text-[10px] font-medium px-1.5 py-0.5 rounded border"
                   style={{ background: catMeta.bg, color: catMeta.color, borderColor: catMeta.border }}
                 >
-                  {catMeta.label}
+                  {categoryLabel(catMeta.label, locale)}
                 </span>
                 <span className="text-[10px] text-[#9CA3AF] truncate">{course.title}</span>
               </div>
@@ -53,7 +59,7 @@ export default function CourseStopCard({ course, stop, stopIndex, onClose, onPre
               <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
               <path d="M6 3.5V6L7.5 7.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
             </svg>
-            <span className="text-[11px] text-[#6B7280]">권장 체류 {stop.duration}</span>
+            <span className="text-[11px] text-[#6B7280]">{t("stopCard.dwell", { d: stop.duration })}</span>
           </div>
 
           {/* 추천 이유 / 이 장소에서 느낄 것 */}
@@ -73,7 +79,7 @@ export default function CourseStopCard({ course, stop, stopIndex, onClose, onPre
               disabled={stopIndex === 0}
               className="text-[12px] py-2 rounded-lg border font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-[#F5F2EC] border-[#E5E1D8] text-[#4B5563] hover:bg-[#E5E1D8]"
             >
-              ← 이전 코스
+              {t("stopCard.prev")}
             </button>
             <button
               onClick={onNext}
@@ -81,7 +87,7 @@ export default function CourseStopCard({ course, stop, stopIndex, onClose, onPre
               className="text-[12px] py-2 rounded-lg border font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-white hover:opacity-90"
               style={{ background: course.color, borderColor: course.color }}
             >
-              다음 코스 →
+              {t("stopCard.next")}
             </button>
           </div>
         </div>

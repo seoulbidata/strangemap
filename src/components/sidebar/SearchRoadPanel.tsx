@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { FeedShell } from "./_feedKit";
+import { useLocale } from "@/i18n/LocaleContext";
+import { congestionLabel, stepIconLabel, ROUTE_ALT_LABEL_EN, TRANSIT_MODE_EN, type Locale } from "@/i18n/enums";
 
 /* ---- 타입 ---- */
 interface PlaceCandidate {
@@ -142,10 +144,12 @@ function cleanBusRouteName(v: string) {
   return v.includes(":") ? v.split(":").at(-1)!.trim() : v.trim();
 }
 
-function transferLabel(step: TransitPath) {
-  if (step.mode === "bus") return `버스 ${cleanBusRouteName(step.lineName)} 환승`;
-  if (step.mode === "subway") return `${normalizeLineName(step.lineName)} 환승`;
-  return "환승";
+type TFn = ReturnType<typeof useLocale>["t"];
+
+function transferLabel(step: TransitPath, t: TFn) {
+  if (step.mode === "bus") return t("route.transfer.bus", { name: cleanBusRouteName(step.lineName) });
+  if (step.mode === "subway") return t("route.transfer.subway", { name: normalizeLineName(step.lineName) });
+  return t("route.transfer.generic");
 }
 
 async function fetchStepArrivals(step: TransitPath): Promise<ArrivalInfo[]> {
@@ -459,13 +463,13 @@ function busCongestionCodeToInfo(code: number): CongestionInfo | undefined {
   return undefined;
 }
 
-function formatCountdown(seconds: number) {
+function formatCountdown(seconds: number, t: TFn) {
   const safeSeconds = Math.max(0, Math.floor(seconds));
-  if (safeSeconds <= 0) return "곧 도착";
+  if (safeSeconds <= 0) return t("route.soon");
   const minutes = Math.floor(safeSeconds / 60);
   const remainSeconds = safeSeconds % 60;
-  if (minutes <= 0) return `${remainSeconds}초 후`;
-  return `${minutes}분 ${remainSeconds}초 후`;
+  if (minutes <= 0) return t("route.countdown.sec", { s: remainSeconds });
+  return t("route.countdown.minSec", { m: minutes, s: remainSeconds });
 }
 
 function remainingArrivalSeconds(info: RealtimeInfo, key: "arrivalSeconds" | "nextArrivalSeconds", now: number) {
@@ -681,8 +685,9 @@ function decorateAlternatives(routes: TransitRoute[], preference: RoutePreferenc
   const [route, label] = selectedByPreference[preference];
   return [{ ...deepClone(route), alternativeLabel: label }];
 }
-function renderAlternativeLabel(label?: string) {
+function renderAlternativeLabel(label: string | undefined, locale: Locale) {
   if (!label) return null;
+  // label 값 자체는 한글 고정(=== 비교용) — 표시만 locale에 따라 변환
   let bgClass = "bg-[#F4F2EC] text-[#5C5950]";
   if (label === "서울로의 추천경로 안내") {
     bgClass = "bg-[#16243C] text-white";
@@ -694,7 +699,7 @@ function renderAlternativeLabel(label?: string) {
 
   return (
     <span className={`px-2.5 py-1 text-[11px] font-semibold rounded-full ${bgClass}`}>
-      {label}
+      {locale === "en" ? ROUTE_ALT_LABEL_EN[label] ?? label : label}
     </span>
   );
 }
@@ -709,6 +714,7 @@ export default function SearchRoadPanel({
   onClearDest,
   routeCacheRef,
 }: Props) {
+  const { t, locale } = useLocale();
   const [originQuery, setOriginQuery] = useState("");
   const [destQuery, setDestQuery] = useState("");
   const [originCandidates, setOriginCandidates] = useState<PlaceCandidate[]>([]);
@@ -791,7 +797,7 @@ export default function SearchRoadPanel({
       }
       return;
     }
-    setStatus("장소 검색 중…");
+    setStatus(t("route.status.searchingPlace"));
     try {
       const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
       const data = await res.json();
@@ -802,11 +808,12 @@ export default function SearchRoadPanel({
       } else {
         setDestCandidates(candidates);
       }
-      setStatus(candidates.length ? "후보를 선택해 주세요." : "검색 결과가 없습니다.");
+      setStatus(candidates.length ? t("route.status.pickCandidate") : t("route.status.noResults"));
     } catch {
-      setStatus("장소 검색 오류가 발생했습니다.");
+      setStatus(t("route.status.placeError"));
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
 
   const selectPlace = (kind: "origin" | "dest", place: PlaceCandidate) => {
     if (kind === "origin") {
@@ -857,21 +864,21 @@ export default function SearchRoadPanel({
     const seq = ++preferenceApplySeqRef.current;
     const decorated = decorateAlternatives(routes, preference);
 
-    setStatus("실시간 혼잡도를 확인하는 중…");
+    setStatus(t("route.status.checkingCongestion"));
     const routesWithCongestion = await Promise.all(decorated.map(enrichRouteCongestion));
     if (seq !== preferenceApplySeqRef.current) return;
 
-    setStatus("지하철 노선 동선을 불러오는 중…");
+    setStatus(t("route.status.loadingGeometry"));
     const routesWithGeometry = await Promise.all(routesWithCongestion.map((route) => enrichRouteGeometry(route, "rail")));
     if (seq !== preferenceApplySeqRef.current) return;
 
-    setStatus("실시간 도착 정보를 확인하는 중…");
+    setStatus(t("route.status.checkingArrivals"));
     const routesWithArrivals = (await Promise.all(routesWithGeometry.map(enrichRouteArrivals))).map((route) => withRouteCongestion(route));
     if (seq !== preferenceApplySeqRef.current) return;
 
     setAlternatives(routesWithArrivals);
     setSelectedIdx(0);
-    setStatus(`${resolvedOrigin.label} → ${resolvedDest.label} 경로를 찾았습니다.`);
+    setStatus(t("route.status.found", { origin: resolvedOrigin.label, dest: resolvedDest.label }));
 
     if (routesWithArrivals[0]) {
       onRouteFound?.({ origin: resolvedOrigin, destination: resolvedDest, route: routesWithArrivals[0] });
@@ -886,7 +893,7 @@ export default function SearchRoadPanel({
 
   const searchRoute = async () => {
     setLoading(true);
-    setStatus("출발·도착지 확인 중…");
+    setStatus(t("route.status.checkingEndpoints"));
     setRoutePool([]);
     setAlternatives([]);
     setStepArrivals({});
@@ -897,21 +904,21 @@ export default function SearchRoadPanel({
     let resolvedDest: PlaceCandidate | null = dest;
 
     if (!resolvedOrigin && originQuery.trim()) {
-      setStatus("출발지 검색 중…");
+      setStatus(t("route.status.searchingOrigin"));
       resolvedOrigin = await autoResolvePlace("origin", originQuery);
     }
     if (!resolvedDest && destQuery.trim()) {
-      setStatus("목적지 검색 중…");
+      setStatus(t("route.status.searchingDest"));
       resolvedDest = await autoResolvePlace("dest", destQuery);
     }
 
     if (!resolvedOrigin || !resolvedDest) {
-      setStatus("출발지와 목적지를 모두 입력해 주세요.");
+      setStatus(t("route.status.needBoth"));
       setLoading(false);
       return;
     }
 
-    setStatus("경로를 탐색하는 중…");
+    setStatus(t("route.status.searchingRoute"));
 
     try {
       const params = new URLSearchParams({
@@ -934,7 +941,7 @@ export default function SearchRoadPanel({
       )));
 
       if (!allRoutes.length) {
-        setStatus("경로를 찾지 못했습니다. 출발/도착지를 다시 확인해 주세요.");
+        setStatus(t("route.status.noRoute"));
         setLoading(false);
         return;
       }
@@ -942,7 +949,7 @@ export default function SearchRoadPanel({
       setRoutePool(allRoutes);
       await applyRoutePreference(allRoutes, routePreference, resolvedOrigin, resolvedDest);
     } catch (e) {
-      setStatus("경로 탐색 중 오류가 발생했습니다.");
+      setStatus(t("route.status.routeError"));
       console.error(e);
     } finally {
       setLoading(false);
@@ -958,7 +965,7 @@ export default function SearchRoadPanel({
     applyRoutePreference(routePool, routePreference, origin, dest)
       .catch((error) => {
         if (!cancelled) {
-          setStatus("경로 옵션 변경 중 오류가 발생했습니다.");
+          setStatus(t("route.status.preferenceError"));
           console.error(error);
         }
       })
@@ -981,23 +988,29 @@ export default function SearchRoadPanel({
   const currentRoute = alternatives[selectedIdx];
 
   const routeOptions: { value: RoutePreference; label: string }[] = [
-    { value: "recommended", label: "추천경로" },
-    { value: "fastest", label: "빠른길" },
-    { value: "smoothest", label: "원활한길" },
+    { value: "recommended", label: t("route.opt.recommended") },
+    { value: "fastest", label: t("route.opt.fastest") },
+    { value: "smoothest", label: t("route.opt.smoothest") },
   ];
+
+  // 역/정류장 접미사: 이미 붙어있으면 그대로, 없으면 로케일 접미사 부착 (역명 자체는 한글 유지)
+  const stationLabel = (name: string, mode: TransitPath["mode"]) =>
+    name.endsWith("역") || name.endsWith("정류장") || name.endsWith("정류소")
+      ? name
+      : name + (mode === "subway" ? t("route.suffix.station") : t("route.suffix.busStop"));
 
   return (
     <FeedShell>
       {/* 헤더 */}
       <div className="px-6 pt-7 pb-5 md:block hidden">
-        <h2 className="text-[22px] font-bold text-[#16243C] leading-tight tracking-[-0.01em]">길찾기</h2>
-        <p className="text-[13px] text-[#8B8678] mt-1">버스·지하철 환승 경로 탐색</p>
+        <h2 className="text-[22px] font-bold text-[#16243C] leading-tight tracking-[-0.01em]">{t("route.title")}</h2>
+        <p className="text-[13px] text-[#8B8678] mt-1">{t("route.subtitle")}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 md:pt-0 pt-5 pb-4 space-y-4">
         {/* 출발/도착 입력 */}
         <PlaceInput
-          label="출발지"
+          label={t("route.origin")}
           query={originQuery}
           onChange={setOriginQuery}
           onSearch={() => searchPlaces("origin", originQuery)}
@@ -1010,12 +1023,12 @@ export default function SearchRoadPanel({
             setOriginCandidates([]);
             onClearOrigin?.();
           }}
-          placeholder="예: 홍대입구역, 서울시청"
+          placeholder={t("route.originPh")}
           color="#16A34A"
         />
 
         <PlaceInput
-          label="목적지"
+          label={t("route.dest")}
           query={destQuery}
           onChange={setDestQuery}
           onSearch={() => searchPlaces("dest", destQuery)}
@@ -1028,13 +1041,13 @@ export default function SearchRoadPanel({
             setDestCandidates([]);
             onClearDest?.();
           }}
-          placeholder="예: 강남역, 코엑스"
+          placeholder={t("route.destPh")}
           color="#DC2626"
         />
 
         {/* 검색 옵션 */}
         <div>
-          <div className="text-[12px] font-semibold text-[#8B8678] mb-2">검색 옵션</div>
+          <div className="text-[12px] font-semibold text-[#8B8678] mb-2">{t("route.options")}</div>
           <div className="flex gap-2">
             {routeOptions.map((opt) => {
               const active = routePreference === opt.value;
@@ -1061,7 +1074,7 @@ export default function SearchRoadPanel({
           disabled={loading || (!origin && !originQuery.trim()) || (!dest && !destQuery.trim())}
           className="w-full py-3 rounded-2xl text-[14px] font-bold bg-[#16243C] text-white disabled:opacity-40 hover:bg-[#1E2F4D] transition-colors shadow-[0_3px_10px_rgba(22,36,60,0.18)]"
         >
-          {loading ? "탐색 중…" : "길찾기 실행"}
+          {loading ? t("route.running") : t("route.run")}
         </button>
 
         {/* 상태 메시지 */}
@@ -1072,7 +1085,7 @@ export default function SearchRoadPanel({
         {/* 결과: 선택 경로 */}
         {alternatives.length > 0 && (
           <div className="space-y-2.5">
-            <div className="text-[12px] text-[#8B8678] font-semibold">추천 경로</div>
+            <div className="text-[12px] text-[#8B8678] font-semibold">{t("route.results")}</div>
             {alternatives.map((alt, idx) => (
               <button
                 key={idx}
@@ -1084,12 +1097,15 @@ export default function SearchRoadPanel({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  {renderAlternativeLabel(alt.alternativeLabel)}
-                  <span className="text-[13px] font-semibold text-[#16243C]">{alt.time}분</span>
+                  {renderAlternativeLabel(alt.alternativeLabel, locale)}
+                  <span className="text-[13px] font-semibold text-[#16243C]">{t("route.minutes", { n: alt.time })}</span>
                 </div>
                 <div className="text-[12px] text-[#9A958A] mt-1.5">
-                  {summarizeModes(alt)} · 환승 {countRouteTransfers(alt)}회
-                  {alt.congestion && ` · 혼잡도 ${alt.congestion.label}`}
+                  {t("route.summary", {
+                    modes: locale === "en" ? TRANSIT_MODE_EN[summarizeModes(alt)] ?? summarizeModes(alt) : summarizeModes(alt),
+                    n: countRouteTransfers(alt),
+                  })}
+                  {alt.congestion && t("route.congestionSuffix", { label: congestionLabel(alt.congestion.label, locale) })}
                 </div>
                 {alt.congestion && (
                   <CongestionBar congestion={alt.congestion} showPercentage={false} />
@@ -1102,14 +1118,14 @@ export default function SearchRoadPanel({
         {/* 선택된 경로 단계 */}
         {currentRoute && (
           <div className="space-y-2">
-            <div className="text-[12px] text-[#8B8678] font-semibold">이동 단계</div>
+            <div className="text-[12px] text-[#8B8678] font-semibold">{t("route.steps")}</div>
             {origin && (
               <StepItem icon="출발" label={origin.label} detail="" color="#16A34A" />
             )}
             {currentRoute.paths.map((step, idx) => {
               const rt = stepArrivals[realtimeKey(step)];
               const stopLabel = step.railLinkCount > 0
-                ? ` · ${step.railLinkCount}개 ${step.mode === "subway" ? "역" : "정류장"} 이동 후 도착`
+                ? t(step.mode === "subway" ? "route.stopsToGo.subway" : "route.stopsToGo.bus", { n: step.railLinkCount })
                 : "";
               const detailText = `${step.lineName}${stopLabel}`;
               const prevTransitStep = currentRoute.paths
@@ -1119,30 +1135,22 @@ export default function SearchRoadPanel({
               const isTransfer = step.mode !== "walk" && prevTransitStep && 
                 (prevTransitStep.lineName !== step.lineName);
 
-              const fromStation = prevTransitStep && (
-                prevTransitStep.toName.endsWith("역") || prevTransitStep.toName.endsWith("정류장")
-                  ? prevTransitStep.toName
-                  : prevTransitStep.toName + (prevTransitStep.mode === "subway" ? "역" : " 정류장")
-              );
+              const fromStation = prevTransitStep && stationLabel(prevTransitStep.toName, prevTransitStep.mode);
 
               const nextTransitStep = currentRoute.paths
                 .slice(idx + 1)
                 .find((s) => s.mode !== "walk");
               const isLastTransit = step.mode !== "walk" && !nextTransitStep;
 
-              const lastStation = isLastTransit && (
-                step.toName.endsWith("역") || step.toName.endsWith("정류장")
-                  ? step.toName
-                  : step.toName + (step.mode === "subway" ? "역" : " 정류장")
-              );
+              const lastStation = isLastTransit && stationLabel(step.toName, step.mode);
 
               return (
                 <div key={idx} className="space-y-1.5 animate-fade-in">
                   {step.walkTimeBefore != null && step.walkTimeBefore > 0 && (
                     <StepItem
                       icon="도보"
-                      label="도보 이동"
-                      detail={`약 ${step.walkTimeBefore}분 (${step.walkDistanceBefore}m)`}
+                      label={t("route.walkMove")}
+                      detail={t("route.walkDetail", { min: step.walkTimeBefore, m: step.walkDistanceBefore ?? 0 })}
                       color="#8a968e"
                     />
                   )}
@@ -1150,25 +1158,20 @@ export default function SearchRoadPanel({
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EFF6FF] animate-fade-in">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB]" />
                       <span className="text-[11px] font-semibold text-[#1E40AF]">
-                        {fromStation} 하차 후 {transferLabel(step)}
+                        {t("route.transferChip", { station: fromStation ?? "", transfer: transferLabel(step, t) })}
                       </span>
-                      <span className="ml-auto text-[9px] text-white bg-[#2563EB] px-1.5 py-0.5 rounded-full font-semibold">하차 & 환승</span>
+                      <span className="ml-auto text-[9px] text-white bg-[#2563EB] px-1.5 py-0.5 rounded-full font-semibold">{t("route.badge.alightTransfer")}</span>
                     </div>
                   )}
                   <StepItem
                     icon={step.mode === "walk" ? "도보" : step.mode === "subway" ? "지하철" : "버스"}
                     label={
                       step.mode === "walk"
-                        ? "도보 이동"
-                        : `${
-                            step.fromName.endsWith("역") || step.fromName.endsWith("정류장") || step.fromName.endsWith("정류소")
-                              ? step.fromName
-                              : step.fromName + (step.mode === "subway" ? "역" : " 정류장")
-                          } 탑승 → ${
-                            step.toName.endsWith("역") || step.toName.endsWith("정류장") || step.toName.endsWith("정류소")
-                              ? step.toName
-                              : step.toName + (step.mode === "subway" ? "역" : " 정류장")
-                          } 하차`
+                        ? t("route.walkMove")
+                        : t("route.boardAlight", {
+                            from: stationLabel(step.fromName, step.mode),
+                            to: stationLabel(step.toName, step.mode),
+                          })
                     }
                     detail={detailText}
                     color={getLineColor(step)}
@@ -1181,9 +1184,9 @@ export default function SearchRoadPanel({
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F4F2EC] animate-fade-in">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#5C5950]" />
                       <span className="text-[11px] font-semibold text-[#5C5950]">
-                        {lastStation} 하차
+                        {t("route.alightStation", { station: lastStation || "" })}
                       </span>
-                      <span className="ml-auto text-[9px] text-white bg-[#5C5950] px-1.5 py-0.5 rounded-full font-semibold">하차</span>
+                      <span className="ml-auto text-[9px] text-white bg-[#5C5950] px-1.5 py-0.5 rounded-full font-semibold">{t("route.badge.alight")}</span>
                     </div>
                   )}
                 </div>
@@ -1192,8 +1195,8 @@ export default function SearchRoadPanel({
             {currentRoute.walkTimeAfter != null && currentRoute.walkTimeAfter > 0 && (
               <StepItem
                 icon="도보"
-                label="도보 이동"
-                detail={`약 ${currentRoute.walkTimeAfter}분 (${currentRoute.walkDistanceAfter}m)`}
+                label={t("route.walkMove")}
+                detail={t("route.walkDetail", { min: currentRoute.walkTimeAfter, m: currentRoute.walkDistanceAfter ?? 0 })}
                 color="#8a968e"
               />
             )}
@@ -1223,6 +1226,8 @@ function PlaceInput({
   placeholder: string;
   color: string;
 }) {
+  const { t } = useLocale();
+  const searchLabel = t("common.search");
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1.5">
@@ -1243,7 +1248,7 @@ function PlaceInput({
           onClick={onSearch}
           className="px-4 py-2.5 rounded-2xl text-[13px] font-semibold bg-white border border-[#ECE8E0] text-[#5C5950] hover:border-[#D6D1C7] transition-colors shrink-0"
         >
-          검색
+          {searchLabel}
         </button>
       </div>
       {selected && (
@@ -1284,6 +1289,7 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
   realtimeInfo?: RealtimeInfo;
   nowMs?: number;
 }) {
+  const { t, locale } = useLocale();
   const renderNowMs = nowMs ?? Date.now();
   const currentRemaining = realtimeInfo ? remainingArrivalSeconds(realtimeInfo, "arrivalSeconds", renderNowMs) : undefined;
   const nextRemaining = realtimeInfo ? remainingArrivalSeconds(realtimeInfo, "nextArrivalSeconds", renderNowMs) : undefined;
@@ -1294,7 +1300,7 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
         className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-full text-white leading-none self-start mt-0.5"
         style={{ background: color }}
       >
-        {icon}
+        {stepIconLabel(icon, locale)}
       </span>
       <div className="flex-1 min-w-0">
         <div className="text-[13px] font-semibold text-[#16243C] truncate">{label}</div>
@@ -1302,16 +1308,16 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
         {realtimeInfo?.arrivalMsg && (
           <div className="mt-1.5 space-y-1">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: color }}>현재</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0" style={{ background: color }}>{t("route.current")}</span>
               <span className="text-[12px] font-semibold text-[#16243C] truncate">
-                {currentRemaining !== undefined ? formatCountdown(currentRemaining) : realtimeInfo.arrivalMsg}
+                {currentRemaining !== undefined ? formatCountdown(currentRemaining, t) : realtimeInfo.arrivalMsg}
               </span>
             </div>
             {realtimeInfo.nextArrivalMsg && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0 opacity-60" style={{ background: color }}>다음</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0 opacity-60" style={{ background: color }}>{t("route.next")}</span>
                 <span className="text-[12px] text-[#9A958A] truncate">
-                  {nextRemaining !== undefined ? formatCountdown(nextRemaining) : realtimeInfo.nextArrivalMsg || "곧 도착"}
+                  {nextRemaining !== undefined ? formatCountdown(nextRemaining, t) : realtimeInfo.nextArrivalMsg || t("route.soon")}
                 </span>
               </div>
             )}
@@ -1321,7 +1327,7 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
           <div className="mt-1.5 space-y-1">
             {arrivals.map((arrival, idx) => (
               <div key={idx} className="flex items-center gap-1.5 text-[12px] text-[#16243C]">
-                <span className="font-bold text-[#FE9C00]">도착</span>
+                <span className="font-bold text-[#FE9C00]">{t("route.arrival")}</span>
                 <span className="truncate">{arrival.primary}</span>
                 {arrival.secondary && <span className="text-[#9A958A] truncate">{arrival.secondary}</span>}
               </div>
@@ -1335,10 +1341,11 @@ function StepItem({ icon, label, detail, color, congestion, arrivals, realtimeIn
 }
 
 function CongestionBar({ congestion, showPercentage = true }: { congestion: CongestionInfo; showPercentage?: boolean }) {
+  const { locale } = useLocale();
   return (
     <div className="mt-1.5">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] font-bold" style={{ color: congestion.color }}>{congestion.label}</span>
+        <span className="text-[11px] font-bold" style={{ color: congestion.color }}>{congestionLabel(congestion.label, locale)}</span>
         {showPercentage && <span className="text-[11px] text-[#A8A398]">{congestion.score}%</span>}
       </div>
       <div className="h-1.5 bg-[#F4F2EC] rounded-full overflow-hidden">

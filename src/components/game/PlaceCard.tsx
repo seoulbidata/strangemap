@@ -1,6 +1,9 @@
 "use client";
 
 import type { POIItem } from "@/app/api/poi/route";
+import { useLocale } from "@/i18n/LocaleContext";
+import { categoryLabel } from "@/i18n/enums";
+import { localizedPlaceName } from "@/i18n/placeNames";
 
 interface Props {
   poi: POIItem;
@@ -11,6 +14,7 @@ interface Props {
 }
 
 export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTarget }: Props) {
+  const { t, locale } = useLocale();
   const isNight = poi.source === "nightview";
 
   return (
@@ -34,18 +38,18 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/85 backdrop-blur-sm"
                 style={{ color: isNight ? "#92400E" : "#1D4ED8" }}
               >
-                {isNight ? "야경명소" : "문화행사"}
+                {isNight ? t("placeCard.night") : t("placeCard.culture")}
               </span>
               {poi.category && (
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/35 text-white backdrop-blur-sm">
-                  {poi.category}
+                  {categoryLabel(poi.category, locale)}
                 </span>
               )}
             </div>
             {/* 우상단: 퀘스트 배지 */}
             {isQuestTarget && (
               <span className="absolute top-3 right-3 text-[10px] font-display font-bold bg-[#2563EB] text-white px-1.5 py-0.5 rounded">
-                퀘스트
+                {t("placeCard.quest")}
               </span>
             )}
           </div>
@@ -65,17 +69,17 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
                       border: `1px solid ${isNight ? "#FDE68A" : "#BFDBFE"}`,
                     }}
                   >
-                    {isNight ? "야경명소" : "문화행사"}
+                    {isNight ? t("placeCard.night") : t("placeCard.culture")}
                   </span>
-                  <span className="text-[10px] text-[#9CA3AF]">{poi.category}</span>
+                  <span className="text-[10px] text-[#9CA3AF]">{categoryLabel(poi.category, locale)}</span>
                   {isQuestTarget && (
                     <span className="text-[10px] font-display font-bold bg-[#2563EB] text-white px-1.5 py-0.5 rounded">
-                      퀘스트
+                      {t("placeCard.quest")}
                     </span>
                   )}
                 </div>
               )}
-              <h3 className="text-base font-bold text-[#1A1E2E] leading-snug">{poi.name}</h3>
+              <h3 className="text-base font-bold text-[#1A1E2E] leading-snug">{localizedPlaceName(poi.name, locale)}</h3>
             </div>
             <button
               onClick={onClose}
@@ -88,30 +92,30 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
           {/* 상세 정보 */}
           <div className="mt-2.5 space-y-1 text-[12px] text-[#6B7280]">
             <div className="flex gap-1.5">
-              <span className="text-[#9CA3AF] w-12 shrink-0">위치</span>
+              <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.loc")}</span>
               <span className="text-[#1A1E2E]">{poi.place}</span>
             </div>
             {poi.date && (
               <div className="flex gap-1.5">
-                <span className="text-[#9CA3AF] w-12 shrink-0">일시</span>
+                <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.date")}</span>
                 <span className="text-[#1A1E2E]">{poi.date}</span>
               </div>
             )}
             {poi.operating_time && (
               <div className="flex gap-1.5">
-                <span className="text-[#9CA3AF] w-12 shrink-0">운영</span>
+                <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.hours")}</span>
                 <span className="text-[#1A1E2E]">{poi.operating_time}</span>
               </div>
             )}
             {poi.subway && (
               <div className="flex gap-1.5">
-                <span className="text-[#9CA3AF] w-12 shrink-0">지하철</span>
+                <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.subway")}</span>
                 <span className="text-[#1A1E2E]">{poi.subway}</span>
               </div>
             )}
             <div className="flex gap-1.5">
-              <span className="text-[#9CA3AF] w-12 shrink-0">요금</span>
-              <span className="text-[#1A1E2E]">{poi.fee || "정보 없음"}</span>
+              <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.fee")}</span>
+              <span className="text-[#1A1E2E]">{poi.fee || t("common.noInfo")}</span>
             </div>
           </div>
 
@@ -121,13 +125,13 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
               onClick={onAskAI}
               className="w-full h-[36px] rounded-xl text-sm font-semibold bg-[#FE9C00] text-white hover:bg-[#E08800] transition-colors"
             >
-              서울로에 물어보기
+              {t("placeCard.askAI")}
             </button>
             <button
               onClick={onSetDest}
               className="w-full h-[36px] rounded-xl text-sm font-medium bg-[#FFF1F2] border border-[#FECDD3] text-[#DC2626] hover:bg-[#FFE4E6] transition-colors"
             >
-              목적지로 설정하기
+              {t("placeCard.setDest")}
             </button>
           </div>
         </div>

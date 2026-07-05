@@ -4,6 +4,9 @@ import { useState } from "react";
 import Image from "next/image";
 import type { MobileTabId } from "@/components/mobile/MobileNavigation";
 import { CULTURE_CATEGORIES, CATEGORY_COLOR, type CultureCategory } from "@/lib/cultureCategories";
+import LanguageToggle from "@/components/LanguageToggle";
+import { useLocale } from "@/i18n/LocaleContext";
+import { categoryLabel } from "@/i18n/enums";
 
 interface Props {
   showNight: boolean;
@@ -24,6 +27,7 @@ export default function MobileMapControls({
   onSelectCultureCategory,
   onRequestLocation,
 }: Props) {
+  const { t, locale } = useLocale();
   const [isCultureOpen, setIsCultureOpen] = useState(false);
   const isLocationGranted = locationStatus === "granted";
   const isLocationRequesting = locationStatus === "requesting";
@@ -72,15 +76,15 @@ export default function MobileMapControls({
       <div className="pointer-events-none fixed inset-x-0 top-3 z-30 px-4 md:hidden flex flex-col gap-2">
         
         {/* 검색창 및 길찾기 버튼 그룹 */}
-        <div className="flex gap-2 w-full">
+        <div className="flex gap-2 w-full items-center">
           {/* 검색창 */}
           <button
             onClick={() => onOpenTab("search")}
             className="pointer-events-auto flex-1 h-14 rounded-full bg-white/95 border border-[#FDECC8] shadow-[0_4px_20px_rgba(0,0,0,0.08)] px-4 flex items-center gap-3 active:scale-[0.98] transition-transform backdrop-blur-md"
           >
-            <Image src="/icons/logo.png" alt="서울로 로고" width={28} height={28} className="rounded-lg shrink-0" />
+            <Image src="/icons/logo.png" alt="Seoulro" width={28} height={28} className="rounded-lg shrink-0" />
             <span className="min-w-0 flex-1 text-left text-base font-semibold text-[#6B7280]">
-              서울로 검색
+              {t("mobile.searchBar")}
             </span>
             <svg className="w-5 h-5 text-[#FE9C00] shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -91,17 +95,20 @@ export default function MobileMapControls({
           <button
             onClick={() => onOpenTab("route")}
             className="pointer-events-auto w-14 h-14 shrink-0 rounded-full bg-white/95 border border-[#FDECC8] shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex items-center justify-center active:scale-[0.98] transition-transform backdrop-blur-md"
-            title="길찾기"
-            aria-label="길찾기 열기"
+            title={t("sidebar.tab.route")}
+            aria-label={t("mobile.routeOpen")}
           >
             <Image
               src="/sidebaricons/route.png"
-              alt="길찾기"
+              alt={t("sidebar.tab.route")}
               width={24}
               height={24}
               className="object-contain"
             />
           </button>
+
+          {/* 언어 전환 (모바일 컴팩트) */}
+          <LanguageToggle size="sm" />
         </div>
 
         {/* 필터 알약 버튼 (네이버 레퍼런스 스타일) */}
@@ -117,7 +124,9 @@ export default function MobileMapControls({
                 className="w-1.5 h-1.5 rounded-full inline-block shrink-0"
                 style={{ background: spanBg }}
               />
-              {activeCultureCategory ? `문화: ${activeCultureCategory}` : "문화행사"}
+              {activeCultureCategory
+                ? t("mobile.culturePrefix", { cat: categoryLabel(activeCultureCategory, locale) })
+                : t("sidebar.tab.culture")}
               <span className={`text-[8px] transition-transform duration-200 ${isCultureOpen ? "rotate-180" : ""}`}>
                 ▼
               </span>
@@ -136,7 +145,7 @@ export default function MobileMapControls({
                 className="w-1.5 h-1.5 rounded-full inline-block shrink-0"
                 style={{ background: showNight ? "#fff" : "#FE9C00" }}
               />
-              야경명소
+              {t("sidebar.tab.night")}
             </button>
           </div>
 
@@ -157,7 +166,7 @@ export default function MobileMapControls({
                       borderColor: isActive ? color.active : "#FDECC8",
                     }}
                   >
-                    {cat}
+                    {categoryLabel(cat, locale)}
                   </button>
                 );
               })}
@@ -177,8 +186,8 @@ export default function MobileMapControls({
               ? "bg-[#DC2626] border-[#B91C1C] text-white"
               : "bg-white/95 border-[#FDECC8] text-[#4B5563]"
           } ${isLocationRequesting ? "animate-pulse bg-red-100 border-[#DC2626] text-[#DC2626]" : ""}`}
-          title="내 위치 찾기"
-          aria-label="내 위치 찾기"
+          title={t("mobile.myLocation")}
+          aria-label={t("mobile.myLocation")}
         >
           <svg className={`w-6 h-6 ${isLocationRequesting ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m14 0a5 5 0 11-10 0 5 5 0 0110 0z" />

@@ -22,6 +22,8 @@ import MobileMapControls from "@/components/mobile/MobileMapControls";
 import type { RouteDrawPayload, RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
 import { CATEGORY_MARKER, type CultureCategory } from "@/lib/cultureCategories";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useLocale } from "@/i18n/LocaleContext";
+import LanguageToggle from "@/components/LanguageToggle";
 
 declare global {
   interface Window { naver: NaverApi; }
@@ -105,6 +107,7 @@ function getReverseGeocodeAddress(response: NaverReverseGeocodeResponse, fallbac
 }
 
 export default function MapView() {
+  const { t } = useLocale();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<NaverMap | null>(null);
   const allPOIs = useRef<POIItem[]>([]);
@@ -565,7 +568,7 @@ export default function MapView() {
         position: new naver.maps.LatLng(origin.lat, origin.lng),
         map: mapInstance.current,
         icon: {
-          content: `<div style="background:#16A34A;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">출발</div>`,
+          content: `<div style="background:#16A34A;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">${t("map.marker.origin")}</div>`,
           anchor: new naver.maps.Point(20, 12),
         },
       });
@@ -576,12 +579,12 @@ export default function MapView() {
         position: new naver.maps.LatLng(dest.lat, dest.lng),
         map: mapInstance.current,
         icon: {
-          content: `<div style="background:#DC2626;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">도착</div>`,
+          content: `<div style="background:#DC2626;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">${t("map.marker.dest")}</div>`,
           anchor: new naver.maps.Point(16, 12),
         },
       });
     }
-  }, [origin, dest, mapReady]);
+  }, [origin, dest, mapReady, t]);
 
   // 사용자 현재 위치 마커 + GPS 정확도 원
   useEffect(() => {
@@ -748,6 +751,11 @@ export default function MapView() {
       "김포골드라인": "#A17800", "인천1호선": "#7CA8D5", "인천2호선": "#ED8B00",
       "의정부경전철": "#FDA600", "용인경전철": "#509F22",
     };
+    // 역/정류장 접미사: 이미 붙어있으면 그대로, 없으면 로케일 접미사 부착
+    const stationLabel = (name: string, mode: string) =>
+      name.endsWith("역") || name.endsWith("정류장") || name.endsWith("정류소")
+        ? name
+        : name + (mode === "subway" ? t("route.suffix.station") : t("route.suffix.busStop"));
     const normalizeLineName = (v: string) =>
       v.replace(/\s+/g, "").replace(/·/g, "").replace(/^(수도권|지하철)/, "").replace(/\(급행\)$/, "");
     const formatRouteColor = (color?: string) => {
@@ -758,14 +766,14 @@ export default function MapView() {
     const cleanBusRouteName = (name: string) =>
       (name.includes(":") ? name.split(":").at(-1)! : name).replace(/\s+/g, "");
     const routeLabel = (step: RouteDrawPayload["route"]["paths"][number]) => {
-      if (step.mode === "bus") return `버스 ${cleanBusRouteName(step.lineName)}`;
+      if (step.mode === "bus") return t("map.marker.busPrefix", { name: cleanBusRouteName(step.lineName) });
       if (step.mode === "subway") return normalizeLineName(step.lineName);
-      return "도보";
+      return t("map.marker.walk");
     };
     const transferLabel = (step: RouteDrawPayload["route"]["paths"][number]) => {
-      if (step.mode === "bus") return `버스 ${cleanBusRouteName(step.lineName)} 환승`;
-      if (step.mode === "subway") return `${normalizeLineName(step.lineName)} 환승`;
-      return "환승";
+      if (step.mode === "bus") return t("route.transfer.bus", { name: cleanBusRouteName(step.lineName) });
+      if (step.mode === "subway") return t("route.transfer.subway", { name: normalizeLineName(step.lineName) });
+      return t("route.transfer.generic");
     };
     const getBusColor = (name: string, type?: string) => {
       const routeName = cleanBusRouteName(name);
@@ -891,7 +899,7 @@ export default function MapView() {
       // 도보 이동 뱃지 추가 (도보 거리 40m 초과 시 중앙에 띄움)
       const midPoint = walkPoints[Math.floor(walkPoints.length / 2)];
       if (midPoint && distanceMeters(prev, { lat: step.fromLat, lng: step.fromLng }) > 40) {
-        addMarker(midPoint.lat, midPoint.lng, markerHtml("도보 이동", "#8a968e"), {
+        addMarker(midPoint.lat, midPoint.lng, markerHtml(t("map.marker.walkMove"), "#8a968e"), {
           anchorX: 28,
           anchorY: 14,
           zIndex: 110,
@@ -907,7 +915,7 @@ export default function MapView() {
 
       if (step.mode === "walk") {
         addLine(pts, color, 4, 0.75, "dash");
-        addMarker(step.fromLat, step.fromLng, markerHtml("도보", color), { anchorX: 12, anchorY: 24, zIndex: 125 });
+        addMarker(step.fromLat, step.fromLng, markerHtml(t("map.marker.walk"), color), { anchorX: 12, anchorY: 24, zIndex: 125 });
         prev = { lat: step.toLat ?? step.fromLat, lng: step.toLng ?? step.fromLng };
         continue;
       }
@@ -924,7 +932,7 @@ export default function MapView() {
       if (isTransfer) {
         labelHtml = markerHtml(transferLabel(step), color, true);
       } else {
-        labelHtml = markerHtml(`${routeLabel(step)}${isFirstTransit ? " 탑승" : ""}`, color);
+        labelHtml = markerHtml(`${routeLabel(step)}${isFirstTransit ? t("map.marker.board") : ""}`, color);
       }
 
       addMarker(labelPoint.lat, labelPoint.lng, labelHtml, {
@@ -937,10 +945,10 @@ export default function MapView() {
       // 하차 마커 추가 (각 대중교통 하차 지점에 하차 뱃지 띄움)
       if (step.toLat != null && step.toLng != null) {
         const isLastTransit = idx === route.paths.length - 1;
-        const formattedToName = step.toName.endsWith("역") || step.toName.endsWith("정류장") || step.toName.endsWith("정류소")
-          ? step.toName
-          : step.toName + (step.mode === "subway" ? "역" : " 정류장");
-        const alightingLabel = isLastTransit ? `${formattedToName} 하차` : `${formattedToName} 하차 (환승)`;
+        const formattedToName = stationLabel(step.toName, step.mode);
+        const alightingLabel = isLastTransit
+          ? t("map.marker.alight", { name: formattedToName })
+          : t("map.marker.alightTransfer", { name: formattedToName });
         addMarker(step.toLat, step.toLng, markerHtml(alightingLabel, "#4B5563"), {
           anchorX: 30,
           anchorY: 14,
@@ -958,15 +966,15 @@ export default function MapView() {
     // 최종 도보 이동 뱃지 추가
     const finalMidPoint = finalWalkPoints[Math.floor(finalWalkPoints.length / 2)];
     if (finalMidPoint && distanceMeters(prev, { lat: dst.lat, lng: dst.lng }) > 40) {
-      addMarker(finalMidPoint.lat, finalMidPoint.lng, markerHtml("도보 이동", "#8a968e"), {
+      addMarker(finalMidPoint.lat, finalMidPoint.lng, markerHtml(t("map.marker.walkMove"), "#8a968e"), {
         anchorX: 28,
         anchorY: 14,
         zIndex: 110,
       });
     }
 
-    addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">출발</div>`, { anchorX: 40, anchorY: 8, zIndex: 190 });
-    addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">도착</div>`, { anchorX: 4, anchorY: 8, zIndex: 190 });
+    addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">${t("map.marker.origin")}</div>`, { anchorX: 40, anchorY: 8, zIndex: 190 });
+    addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">${t("map.marker.dest")}</div>`, { anchorX: 4, anchorY: 8, zIndex: 190 });
 
     setPresetOrigin({ label: org.label, lat: org.lat, lng: org.lng });
     setPresetDest({ label: dst.label, lat: dst.lat, lng: dst.lng });
@@ -978,7 +986,7 @@ export default function MapView() {
         ? { top: 80, right: 32, bottom: 300, left: 32 }
         : { top: 80, right: 80, bottom: 80, left: 460 }
     );
-  }, [clearRouteOverlay, isMobile, setPresetOrigin, setPresetDest]);
+  }, [clearRouteOverlay, isMobile, setPresetOrigin, setPresetDest, t]);
 
   // 사이드바에서 POI 선택 → 지도 이동 + 카드 열기
   const handleSelectPOI = (poi: POIItem) => {
@@ -1053,7 +1061,7 @@ export default function MapView() {
     if (!mapReady || !map) return;
     if (!("geolocation" in navigator)) {
       setLocationStatus("unavailable");
-      setLocationMessage("이 브라우저에서는 위치 정보를 사용할 수 없습니다.");
+      setLocationMessage(t("map.loc.unsupported"));
       triggerMessageTimeout();
       return;
     }
@@ -1062,7 +1070,7 @@ export default function MapView() {
       clearTimeout(locationTimeoutRef.current);
     }
     setLocationStatus("requesting");
-    setLocationMessage("현재 위치를 확인하는 중입니다.");
+    setLocationMessage(t("map.loc.requesting"));
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -1077,20 +1085,20 @@ export default function MapView() {
 
         setUserLocation(nextLocation);
         setLocationStatus("granted");
-        setLocationMessage(`현재 위치를 표시했습니다. 오차 약 ${Math.round(accuracy)}m`);
+        setLocationMessage(t("map.loc.shown", { m: Math.round(accuracy) }));
         triggerMessageTimeout();
 
         map.panTo(latlng);
         map.setZoom(16);
       },
       (error) => {
-        let msg = "위치 확인 시간이 초과되었습니다. 다시 시도해 주세요.";
+        let msg = t("map.loc.timeout");
         if (error.code === error.PERMISSION_DENIED) {
           setLocationStatus("denied");
-          msg = "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 접근을 허용해 주세요.";
+          msg = t("map.loc.denied");
         } else if (error.code === error.POSITION_UNAVAILABLE) {
           setLocationStatus("unavailable");
-          msg = "현재 위치를 가져올 수 없습니다. GPS 또는 네트워크 상태를 확인해 주세요.";
+          msg = t("map.loc.unavailable");
         } else {
           setLocationStatus("error");
         }
@@ -1103,7 +1111,7 @@ export default function MapView() {
         maximumAge: 30000,
       }
     );
-  }, [mapReady, triggerMessageTimeout]);
+  }, [mapReady, triggerMessageTimeout, t]);
 
   const resolveUserLocationForRoute = useCallback(() => {
     if (userLocation) {
@@ -1112,7 +1120,7 @@ export default function MapView() {
 
     if (!("geolocation" in navigator)) {
       setLocationStatus("unavailable");
-      setLocationMessage("이 브라우저에서는 위치 정보를 사용할 수 없습니다.");
+      setLocationMessage(t("map.loc.unsupported"));
       triggerMessageTimeout();
       return Promise.reject(new Error("Geolocation unavailable"));
     }
@@ -1121,7 +1129,7 @@ export default function MapView() {
       clearTimeout(locationTimeoutRef.current);
     }
     setLocationStatus("requesting");
-    setLocationMessage("출발지 설정을 위해 현재 위치를 확인하는 중입니다.");
+    setLocationMessage(t("map.loc.routeRequesting"));
 
     return new Promise<UserLocation>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
@@ -1136,18 +1144,18 @@ export default function MapView() {
 
           setUserLocation(nextLocation);
           setLocationStatus("granted");
-          setLocationMessage("현재 위치를 출발지로 설정했습니다.");
+          setLocationMessage(t("map.loc.originSet"));
           triggerMessageTimeout();
           resolve(nextLocation);
         },
         (error) => {
-          let msg = "현재 위치를 확인할 수 없어 목적지만 먼저 설정했습니다.";
+          let msg = t("map.loc.destOnly");
           if (error.code === error.PERMISSION_DENIED) {
             setLocationStatus("denied");
-            msg = "위치 권한이 거부되어 목적지만 먼저 설정했습니다.";
+            msg = t("map.loc.destOnlyDenied");
           } else if (error.code === error.POSITION_UNAVAILABLE) {
             setLocationStatus("unavailable");
-            msg = "현재 위치를 가져올 수 없어 목적지만 먼저 설정했습니다.";
+            msg = t("map.loc.destOnlyUnavailable");
           } else {
             setLocationStatus("error");
           }
@@ -1162,7 +1170,7 @@ export default function MapView() {
         }
       );
     });
-  }, [triggerMessageTimeout, userLocation]);
+  }, [triggerMessageTimeout, userLocation, t]);
 
   const setPlaceAsRouteDestination = useCallback(
     async (poi: POIItem) => {
@@ -1174,12 +1182,12 @@ export default function MapView() {
       try {
         const currentLocation = await resolveUserLocationForRoute();
         setOrigin({ lat: currentLocation.lat, lng: currentLocation.lng });
-        setPresetOrigin({ label: "내 위치", lat: currentLocation.lat, lng: currentLocation.lng });
+        setPresetOrigin({ label: t("map.myLocationLabel"), lat: currentLocation.lat, lng: currentLocation.lng });
       } catch {
         setPresetOrigin(null);
       }
     },
-    [resolveUserLocationForRoute]
+    [resolveUserLocationForRoute, t]
   );
 
 
@@ -1308,12 +1316,12 @@ export default function MapView() {
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: showNight ? "#fff" : "#fae633", border: `2px solid ${showNight ? "rgba(228, 202, 83, 0.89)" : "#fde409"}` }} />
-            야경명소 위치
+            {t("map.nightToggle")}
           </button>
           <button
             onClick={requestUserLocation}
             disabled={!mapReady || locationStatus === "requesting"}
-            title="현재 위치로 이동"
+            title={t("map.moveToMyLocation")}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all whitespace-nowrap disabled:opacity-60 ${
               locationStatus === "granted"
                 ? "bg-[#DC2626] text-white border-[#B91C1C]"
@@ -1327,8 +1335,13 @@ export default function MapView() {
                 border: `2px solid ${locationStatus === "granted" ? "rgba(255,255,255,0.55)" : "#FCA5A5"}`,
               }}
             />
-            {locationStatus === "requesting" ? "위치 확인 중" : "내 위치"}
+            {locationStatus === "requesting" ? t("map.locating") : t("map.myLocation")}
           </button>
+        </div>
+
+        {/* 우상단 언어 전환 버튼 (데스크톱) */}
+        <div className="absolute top-3 right-3 z-20 max-md:hidden">
+          <LanguageToggle />
         </div>
 
         {locationMessage && locationStatus !== "idle" && (
@@ -1423,14 +1436,14 @@ export default function MapView() {
                 onClick={() => applyContextMenu("origin", contextMenu.lat, contextMenu.lng)}
                 className="w-full px-4 py-2.5 text-[13px] text-left text-[#1A1E2E] hover:bg-[#F0FDF4] hover:text-[#16A34A] transition-colors font-medium"
               >
-                출발지로 설정
+                {t("map.ctxSetOrigin")}
               </button>
               <div className="h-px bg-[#F0EDE8]" />
               <button
                 onClick={() => applyContextMenu("dest", contextMenu.lat, contextMenu.lng)}
                 className="w-full px-4 py-2.5 text-[13px] text-left text-[#1A1E2E] hover:bg-[#FFF1F2] hover:text-[#DC2626] transition-colors font-medium"
               >
-                목적지로 설정
+                {t("map.ctxSetDest")}
               </button>
             </div>
           </>
@@ -1440,8 +1453,8 @@ export default function MapView() {
         {!mapReady && (
           <div className="absolute inset-0 flex items-center justify-center z-30 bg-[#FFFBF0]">
             <div className="text-center space-y-2">
-              <div className="text-[#FE9C00] font-display tracking-[0.2em] text-sm animate-pulse">서울로 가는중</div>
-              <div className="text-[#9CA3AF] text-xs">잠시만 기다려 주세요</div>
+              <div className="text-[#FE9C00] font-display tracking-[0.2em] text-sm animate-pulse">{t("map.loadingTitle")}</div>
+              <div className="text-[#9CA3AF] text-xs">{t("map.loadingSub")}</div>
             </div>
           </div>
         )}

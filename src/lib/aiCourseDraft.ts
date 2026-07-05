@@ -1,6 +1,8 @@
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { CATEGORY_META, type CourseCategory, type ThemeCourse } from "@/data/themeCourses";
 import { planCourse } from "@/lib/courseRouting";
+import { placeNameEn } from "@/i18n/placeNames";
+import { COMPANION_EN, PURPOSE_EN, REGION_EN, TIME_EN, type Locale } from "@/i18n/enums";
 
 /** /api/ai-recommend 응답 1건의 형태 */
 export interface AISuggestion {
@@ -57,23 +59,27 @@ const TIME_TO_START_HOUR: Record<string, number> = {
 /**
  * AI 추천 결과를 지도·타임라인이 그대로 렌더할 수 있는 ThemeCourse(draft)로 변환한다.
  * 좌표를 찾지 못한 장소는 제외하며, 좌표 있는 stop이 2곳 미만이면 null을 반환한다.
+ * locale이 en이면 제목/부제 템플릿과 기본값을 영문으로 채운다(장소 매칭은 한글 원문 기준).
  */
 export function buildDraftFromSuggestions(
   suggestions: AISuggestion[],
-  meta: DraftMeta
+  meta: DraftMeta,
+  locale: Locale = "ko"
 ): ThemeCourse | null {
+  const en = locale === "en";
   const stops = suggestions
     .map((s) => {
       const place = findPlace(s.place);
       if (!place) return null;
       return {
-        name: place.displayName,
+        // 영문 모드에선 스탑 이름을 로마자 표기로 저장 — 드래프트는 생성 언어로 고정 노출
+        name: en ? placeNameEn(place.displayName) : place.displayName,
         lat: place.lat,
         lng: place.lng,
         operatingHours: place.operatingHours, // 시간창(운영시간) 평가용 — ThemeCourse 렌더엔 영향 없음
         preview: s.reason,
         description: s.description,
-        duration: s.duration || "약 1시간",
+        duration: s.duration || (en ? "About 1 hour" : "약 1시간"),
         tip: undefined as string | undefined,
       };
     })
@@ -94,6 +100,27 @@ export function buildDraftFromSuggestions(
   const category = PURPOSE_TO_CATEGORY[meta.purpose] ?? "역사";
   const color = CATEGORY_META[category].color;
   const tags = Array.from(new Set(suggestions.flatMap((s) => s.tags))).slice(0, 4);
+
+  if (en) {
+    const purposeEn = PURPOSE_EN[meta.purpose] ?? meta.purpose;
+    const regionEn = meta.region !== "상관없음" ? `${REGION_EN[meta.region] ?? meta.region} ` : "";
+    return {
+      id: `${AI_DRAFT_PREFIX}${Date.now()}`,
+      title: `${regionEn}${purposeEn} course starting at ${ordered[0].name}`,
+      subtitle: `Built by AI for ${COMPANION_EN[meta.companion] ?? meta.companion} · ${TIME_EN[meta.time] ?? meta.time}`,
+      description: suggestions[0]?.description ?? "An AI-crafted course linking today's Seoul.",
+      totalDuration: `About ${Math.max(2, ordered.length)} hours`,
+      distance: `${km.toFixed(1)}km`,
+      difficulty: "쉬움",
+      tags: tags.length > 0 ? tags : ["AI pick", "Custom course"],
+      color,
+      category,
+      estimatedCost: "AI estimate",
+      bestTime: TIME_EN[meta.time] ?? meta.time,
+      stops: ordered,
+    };
+  }
+
   const regionLabel = meta.region !== "상관없음" ? `${meta.region} ` : "";
 
   return {

@@ -31,10 +31,13 @@ export function FilterPills<T extends string>({
   options,
   value,
   onChange,
+  renderLabel,
 }: {
   options: readonly T[];
   value: T;
   onChange: (v: T) => void;
+  /** 값은 한글 그대로 두고 표시 라벨만 바꿀 때(영문 모드) 사용 */
+  renderLabel?: (v: T) => string;
 }) {
   return (
     <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
@@ -50,7 +53,7 @@ export function FilterPills<T extends string>({
                 : "bg-white text-[#5C5950] border border-[#ECE8E0] hover:border-[#D6D1C7]"
             }`}
           >
-            {opt}
+            {renderLabel ? renderLabel(opt) : opt}
           </button>
         );
       })}

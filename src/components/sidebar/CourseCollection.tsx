@@ -6,6 +6,9 @@ import { buildDraftFromSuggestions, isAIDraft, type AISuggestion } from "@/lib/a
 import { courseHeroBackground } from "@/lib/courseImage";
 import { useCourseCollection } from "@/hooks/useCourseCollection";
 import type { AIQuestCache } from "./AIQuestPanel";
+import { useLocale, type Locale } from "@/i18n/LocaleContext";
+import { categoryLabel, chipLabel } from "@/i18n/enums";
+import { getCourseText } from "@/i18n/courseText";
 
 interface Props {
   /** 카드 클릭 시 우측 코스 디테일 패널을 연다 */
@@ -15,10 +18,11 @@ interface Props {
   cacheRef?: React.MutableRefObject<AIQuestCache>;
 }
 
-const CATEGORIES = ["전체", "역사", "야경/자연", "서울배경 컨텐츠", "Hot플레이스", "문화"] as const;
+const CATEGORIES = ["전체", "역사", "야경/자연", "서울배경 컨텐츠", "Hot플레이스", "문화", "로컬", "운동"] as const;
 type CatFilter = (typeof CATEGORIES)[number];
 
 export default function CourseCollection({ onOpenCourse, activeCourseId, cacheRef }: Props) {
+  const { t, locale } = useLocale();
   const { drafts, addDraft, removeDraft } = useCourseCollection();
   const [activeCategory, setActiveCategory] = useState<CatFilter>("전체");
   const [creating, setCreating] = useState(false);
@@ -44,11 +48,11 @@ export default function CourseCollection({ onOpenCourse, activeCourseId, cacheRe
     <div className="flex flex-col h-full bg-[#FBFAF7]">
       {/* 헤더 — 개인화 피드 */}
       <div className="px-6 pt-7 pb-5 md:block hidden">
-        <p className="text-[11px] font-semibold tracking-[0.18em] text-[#2563EB]">FOR YOU</p>
+        <p className="text-[11px] font-semibold tracking-[0.18em] text-[#2563EB]">{t("course.forYou")}</p>
         <h2 className="text-[24px] font-bold text-[#16243C] mt-1.5 leading-tight tracking-[-0.01em]">
-          서울로가 추천하는 관광코스
+          {t("course.title")}
         </h2>
-        <p className="text-[14px] text-[#8B8678] mt-1">서울에서의 여행을 즐겨보세요</p>
+        <p className="text-[14px] text-[#8B8678] mt-1">{t("course.subtitle")}</p>
       </div>
 
       {/* 카테고리 필터 */}
@@ -66,7 +70,7 @@ export default function CourseCollection({ onOpenCourse, activeCourseId, cacheRe
                     : "bg-white text-[#5C5950] border border-[#ECE8E0] hover:border-[#D6D1C7]"
                 }`}
               >
-                {cat}
+                {categoryLabel(cat, locale)}
               </button>
             );
           })}
@@ -77,14 +81,14 @@ export default function CourseCollection({ onOpenCourse, activeCourseId, cacheRe
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-2 pb-4">
         {list.length === 0 ? (
           <p className="text-[13px] text-[#A8A398] text-center mt-16 leading-relaxed">
-            이 카테고리의 코스가 없어요.
+            {t("course.emptyCategory")}
           </p>
         ) : (
           <div className="space-y-5">
             {list.map((course) => (
               <CourseFeedCard
                 key={course.id}
-                course={course}
+                course={getCourseText(course, locale)}
                 isActive={activeCourseId === course.id}
                 onOpen={() => handleOpen(course)}
                 onDelete={isAIDraft(course) ? () => removeDraft(course.id) : undefined}
@@ -100,7 +104,7 @@ export default function CourseCollection({ onOpenCourse, activeCourseId, cacheRe
           onClick={() => setCreating(true)}
           className="w-full py-3.5 rounded-2xl bg-[#16243C] text-white text-[14px] font-semibold hover:bg-[#1E2F4D] transition-colors flex items-center justify-center gap-2 shadow-[0_6px_20px_rgba(22,36,60,0.22)]"
         >
-          나만의 코스 만들기
+          {t("course.create")}
         </button>
       </div>
 
@@ -124,6 +128,7 @@ function CourseFeedCard({
   onOpen: () => void;
   onDelete?: () => void;
 }) {
+  const { t, locale } = useLocale();
   const catMeta = CATEGORY_META[course.category as CourseCategory];
   const ai = isAIDraft(course);
 
@@ -143,7 +148,7 @@ function CourseFeedCard({
         >
           <div className="absolute top-3.5 left-3.5">
             <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/85 backdrop-blur-sm text-[#16243C]">
-              {catMeta.label}
+              {categoryLabel(catMeta.label, locale)}
             </span>
           </div>
           <div className="absolute top-3.5 right-3.5 flex items-center gap-1.5">
@@ -153,7 +158,7 @@ function CourseFeedCard({
               </span>
             )}
             {isActive && (
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#16243C] text-white">진행중</span>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#16243C] text-white">{t("course.badge.active")}</span>
             )}
           </div>
         </div>
@@ -167,9 +172,9 @@ function CourseFeedCard({
 
           {/* 작은 스탯 카드 — 거리 / 소요시간 / 총 코스 */}
           <div className="grid grid-cols-3 gap-2 mt-3.5">
-            <MiniStat icon={<RouteIcon />} value={shortDistance(course.distance)} label="예상 거리" />
-            <MiniStat icon={<ClockIcon />} value={shortDuration(course.totalDuration)} label="소요시간" />
-            <MiniStat icon={<PinIcon />} value={`${course.stops.length}곳`} label="총 코스" />
+            <MiniStat icon={<RouteIcon />} value={shortDistance(course.distance)} label={t("course.stat.distance")} />
+            <MiniStat icon={<ClockIcon />} value={shortDuration(course.totalDuration, locale)} label={t("course.stat.duration")} />
+            <MiniStat icon={<PinIcon />} value={t("course.stopsUnit", { n: course.stops.length })} label={t("course.stat.stops")} />
           </div>
 
           <div className="mt-3.5 flex gap-1.5 flex-wrap">
@@ -187,7 +192,7 @@ function CourseFeedCard({
         <button
           onClick={onDelete}
           className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-white border border-[#ECE8E0] text-[#C4BDB4] hover:bg-[#FEE2E2] hover:border-[#FECACA] hover:text-[#DC2626] flex items-center justify-center transition-all duration-150 opacity-0 group-hover:opacity-100 shadow-sm z-10"
-          aria-label="코스 삭제"
+          aria-label={t("course.delete")}
         >
           <TrashIcon />
         </button>
@@ -212,19 +217,21 @@ function shortDistance(s: string): string {
   return s.split(/[\s(]/)[0] || s;
 }
 
-function shortDuration(s: string): string {
-  if (s.includes("일")) {
-    const d = s.match(/(\d+)\s*일/);
-    return d ? `${d[1]}일` : s.replace(/^약\s*/, "");
-  }
-  const h = s.match(/(\d+)\s*시간/);
-  const m = s.match(/(\d+)\s*분/);
+function shortDuration(s: string, locale: Locale): string {
+  const hourUnit = locale === "en" ? "h" : "시간";
+  const dayUnit = locale === "en" ? "d" : "일";
+  // ko/en 표기 모두 파싱 (en 코스 텍스트는 "About 4 hours" 형태)
+  const d = s.match(/(\d+)\s*(?:일|day)/i);
+  if (d) return `${d[1]}${dayUnit}`;
+  const h = s.match(/(\d+(?:\.\d+)?)\s*(?:시간|hour|hr|h\b)/i);
+  const m = s.match(/(\d+)\s*(?:분|min)/i);
   if (h) {
-    const hours = parseInt(h[1], 10) + (m ? parseInt(m[1], 10) / 60 : 0);
+    const hours = parseFloat(h[1]) + (m ? parseInt(m[1], 10) / 60 : 0);
     const val = Number.isInteger(hours) ? `${hours}` : hours.toFixed(1);
-    return `${val}시간`;
+    return `${val}${hourUnit}`;
   }
-  return s.replace(/^약\s*/, "");
+  if (m) return locale === "en" ? `${m[1]}min` : `${m[1]}분`;
+  return s.replace(/^(약|About|Approx\.?)\s*/i, "");
 }
 
 function MiniStat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
@@ -284,6 +291,7 @@ function CourseCreateForm({
   onClose: () => void;
   onCreated: (course: ThemeCourse) => void;
 }) {
+  const { t, locale } = useLocale();
   const [companion, setCompanion] = useState<CompanionType>(() => (cacheRef?.current.companion as CompanionType) ?? "친구");
   const [ageGroup, setAgeGroup] = useState<AgeGroupType>(() => (cacheRef?.current.ageGroup as AgeGroupType) ?? "20-30대");
   const [time, setTime] = useState<TimeType>(() => (cacheRef?.current.time as TimeType) ?? "오후");
@@ -306,19 +314,19 @@ function CourseCreateForm({
       const res = await fetch("/api/ai-recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companion, ageGroup, time, purpose, region, congestion, placeCount: parseInt(placeCount, 10) }),
+        body: JSON.stringify({ companion, ageGroup, time, purpose, region, congestion, placeCount: parseInt(placeCount, 10), lang: locale }),
       });
       if (!res.ok) throw new Error("api");
       const data = await res.json();
       const suggestions = (data.suggestions ?? []) as AISuggestion[];
-      const draft = buildDraftFromSuggestions(suggestions, { companion, time, purpose, region });
+      const draft = buildDraftFromSuggestions(suggestions, { companion, time, purpose, region }, locale);
       if (!draft) {
-        setError("코스를 구성할 장소가 부족해요. 조건을 바꿔 다시 시도해주세요.");
+        setError(t("courseForm.errNotEnough"));
         return;
       }
       onCreated(draft);
     } catch {
-      setError("코스를 만들지 못했어요. 잠시 후 다시 시도해주세요.");
+      setError(t("courseForm.errFailed"));
     } finally {
       setLoading(false);
     }
@@ -328,37 +336,38 @@ function CourseCreateForm({
     <div className="absolute inset-0 z-20 bg-[#FBFAF7] flex flex-col animate-slide-in">
       <div className="px-6 pt-6 pb-4 flex items-start justify-between shrink-0">
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.18em] text-[#2563EB]">CREATE</p>
-          <h3 className="text-[20px] font-bold text-[#16243C] mt-1">나만의 코스</h3>
-          <p className="text-[13px] text-[#8B8678] mt-0.5">조건을 고르면 서울로가 동선을 이어드려요</p>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-[#2563EB]">{t("courseForm.kicker")}</p>
+          <h3 className="text-[20px] font-bold text-[#16243C] mt-1">{t("courseForm.title")}</h3>
+          <p className="text-[13px] text-[#8B8678] mt-0.5">{t("courseForm.subtitle")}</p>
         </div>
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-full bg-[#F1EFEA] hover:bg-[#E7E3DA] text-[#8B8678] flex items-center justify-center text-sm transition-colors"
-          aria-label="닫기"
+          aria-label={t("common.close")}
         >
           ✕
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto thin-scroll px-6 py-2 space-y-5">
-        <ChipGroup label="누구랑" options={["혼자", "친구", "커플", "가족"]} value={companion} onChange={sync<CompanionType>(setCompanion, "companion")} disabled={loading} />
-        <ChipGroup label="나이대" options={["10-20대", "20-30대", "30-40대", "40-50대", "60대 이상"]} value={ageGroup} onChange={sync<AgeGroupType>(setAgeGroup, "ageGroup")} disabled={loading} />
-        <ChipGroup label="시간대" options={["오전", "오후", "밤"]} value={time} onChange={sync<TimeType>(setTime, "time")} disabled={loading} />
-        <ChipGroup label="목적" options={["힐링", "놀거리", "데이트", "관광", "문화생활"]} value={purpose} onChange={sync<PurposeType>(setPurpose, "purpose")} disabled={loading} />
-        <ChipGroup label="위치" options={["강북", "강서", "강남", "강동", "상관없음"]} value={region} onChange={sync<RegionType>(setRegion, "region")} disabled={loading} />
-        <ChipGroup label="혼잡도" options={["여유", "보통", "상관없음"]} value={congestion} onChange={sync<CongestionType>(setCongestion, "congestion")} disabled={loading} />
-        <ChipGroup label="장소 수" options={["3곳", "4곳", "5곳"]} value={placeCount} onChange={sync<PlaceCountType>(setPlaceCount, "placeCount")} disabled={loading} />
+        {/* 칩 값은 한글 그대로 API로 전송되고, 표시 라벨만 renderLabel로 지역화한다 */}
+        <ChipGroup label={t("courseForm.companion")} options={["혼자", "친구", "커플", "가족"]} value={companion} onChange={sync<CompanionType>(setCompanion, "companion")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
+        <ChipGroup label={t("courseForm.age")} options={["10-20대", "20-30대", "30-40대", "40-50대", "60대 이상"]} value={ageGroup} onChange={sync<AgeGroupType>(setAgeGroup, "ageGroup")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
+        <ChipGroup label={t("courseForm.time")} options={["오전", "오후", "밤"]} value={time} onChange={sync<TimeType>(setTime, "time")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
+        <ChipGroup label={t("courseForm.purpose")} options={["힐링", "놀거리", "데이트", "관광", "문화생활"]} value={purpose} onChange={sync<PurposeType>(setPurpose, "purpose")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
+        <ChipGroup label={t("courseForm.region")} options={["강북", "강서", "강남", "강동", "상관없음"]} value={region} onChange={sync<RegionType>(setRegion, "region")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
+        <ChipGroup label={t("courseForm.congestion")} options={["여유", "보통", "상관없음"]} value={congestion} onChange={sync<CongestionType>(setCongestion, "congestion")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
+        <ChipGroup label={t("courseForm.placeCount")} options={["3곳", "4곳", "5곳"]} value={placeCount} onChange={sync<PlaceCountType>(setPlaceCount, "placeCount")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
 
         <div>
-          <p className="text-[12px] font-semibold text-[#8B8678] mb-2">직접 입력</p>
+          <p className="text-[12px] font-semibold text-[#8B8678] mb-2">{t("courseForm.freeInput")}</p>
           <div className="w-full rounded-2xl bg-[#F4F2EC] border border-dashed border-[#DDD8CE] px-4 py-3.5 flex items-start gap-2.5">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="mt-0.5 shrink-0 text-[#BDB8AD]">
               <rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.7" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             </svg>
             <p className="text-[13px] text-[#9A958A] leading-relaxed">
-              자유 입력은 아직 이용하실 수 없어요. 곧 업데이트 됩니다.
+              {t("courseForm.freeInputNotice")}
             </p>
           </div>
         </div>
@@ -381,10 +390,10 @@ function CourseCreateForm({
           {loading ? (
             <>
               <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-              코스를 잇는 중...
+              {t("courseForm.generating")}
             </>
           ) : (
-            "코스 만들기"
+            t("courseForm.generate")
           )}
         </button>
       </div>
@@ -398,12 +407,15 @@ function ChipGroup<T extends string>({
   value,
   onChange,
   disabled,
+  renderLabel,
 }: {
   label: string;
   options: T[];
   value: T;
   onChange: (v: T) => void;
   disabled?: boolean;
+  /** 값은 한글 그대로 두고 표시 라벨만 바꿀 때(영문 모드) 사용 */
+  renderLabel?: (v: T) => string;
 }) {
   return (
     <div>
@@ -420,7 +432,7 @@ function ChipGroup<T extends string>({
                 : "bg-white text-[#5C5950] border border-[#ECE8E0] hover:border-[#D6D1C7]"
             }`}
           >
-            {opt}
+            {renderLabel ? renderLabel(opt) : opt}
           </button>
         ))}
       </div>

@@ -11,6 +11,8 @@ import CourseCollection from "./CourseCollection";
 import NowRecommendPanel from "./NowRecommendPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "./SearchRoadPanel";
 import type { AIQuestCache } from "./AIQuestPanel";
+import { useLocale } from "@/i18n/LocaleContext";
+import type { UIKey } from "@/i18n/ui.ko";
 
 interface Props {
   pois: POIItem[];
@@ -31,13 +33,13 @@ interface Props {
 
 type TabId = "search" | "culture" | "night" | "course" | "now" | "route";
 
-const TABS: { id: TabId; label: string; icon: string }[] = [
-  { id: "search", label: "검색", icon: "/sidebaricons/search.png" },
-  { id: "route", label: "길찾기", icon: "/sidebaricons/route.png" },
-  { id: "course", label: "관광코스", icon: "/sidebaricons/course.png" },
-  { id: "culture", label: "문화행사", icon: "/sidebaricons/culture.png" },
-  { id: "night", label: "야경명소", icon: "/sidebaricons/night.png" },
-  { id: "now", label: "혼잡도", icon: "/sidebaricons/now.png" },
+const TABS: { id: TabId; labelKey: UIKey; icon: string }[] = [
+  { id: "search", labelKey: "sidebar.tab.search", icon: "/sidebaricons/search.png" },
+  { id: "route", labelKey: "sidebar.tab.route", icon: "/sidebaricons/route.png" },
+  { id: "course", labelKey: "sidebar.tab.course", icon: "/sidebaricons/course.png" },
+  { id: "culture", labelKey: "sidebar.tab.culture", icon: "/sidebaricons/culture.png" },
+  { id: "night", labelKey: "sidebar.tab.night", icon: "/sidebaricons/night.png" },
+  { id: "now", labelKey: "sidebar.tab.now", icon: "/sidebaricons/now.png" },
 ];
 
 export default function Sidebar({
@@ -56,6 +58,7 @@ export default function Sidebar({
   activeTab,
   onActiveTabChange,
 }: Props) {
+  const { t } = useLocale();
   const toggle = (id: TabId) => onActiveTabChange(activeTab === id ? null : id);
 
   const prevPresetDest = useRef(presetDest);
@@ -86,20 +89,21 @@ export default function Sidebar({
         <div className="flex-1 flex flex-col items-center py-3 gap-1">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
+            const label = t(tab.labelKey);
             return (
               <button
                 key={tab.id}
                 onClick={() => toggle(tab.id)}
-                title={tab.label}
+                title={label}
                 className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center gap-1 transition-all ${
                   isActive
                     ? "bg-[#FE9C00] shadow-md"
                     : "hover:bg-[#FFF8E7]"
                 }`}
               >
-                <Image src={tab.icon} alt={tab.label} width={28} height={28} className="object-contain" />
-                <span className="text-[10px] font-medium leading-none truncate w-full text-center px-1 text-[#2F4F4F]">
-                  {tab.label}
+                <Image src={tab.icon} alt={label} width={28} height={28} className="object-contain" />
+                <span className="text-[10px] font-medium leading-tight line-clamp-2 w-full text-center px-0.5 text-[#2F4F4F]">
+                  {label}
                 </span>
               </button>
             );

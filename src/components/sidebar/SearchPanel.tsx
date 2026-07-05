@@ -3,6 +3,10 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import type { POIItem } from "@/app/api/poi/route";
 import { FeedShell } from "./_feedKit";
+import { useLocale } from "@/i18n/LocaleContext";
+import type { UIKey } from "@/i18n/ui.ko";
+import { categoryLabel, type Locale } from "@/i18n/enums";
+import { localizedPlaceName } from "@/i18n/placeNames";
 
 interface Props {
   pois: POIItem[];
@@ -32,11 +36,11 @@ function getTimeContext(now: Date): TimeContext {
   return { now, bucket, isWeekend: day === 0 || day === 6 };
 }
 
-const BUCKET_HEADLINE: Record<TimeBucket, { title: string; subtitle: string }> = {
-  morning: { title: "오늘 둘러볼 만한 곳", subtitle: "아침에 가볍게 다녀오기 좋은 장소" },
-  day: { title: "지금 즐기는 전시·문화행사", subtitle: "한낮에 둘러보기 좋은 문화행사" },
-  dusk: { title: "해질 무렵, 노을 명소", subtitle: "노을과 함께 보기 좋은 곳" },
-  night: { title: "오늘 밤 가기 좋은 야경", subtitle: "밤에 빛나는 서울의 야경 명소" },
+const BUCKET_HEADLINE: Record<TimeBucket, { title: UIKey; subtitle: UIKey }> = {
+  morning: { title: "search.headline.morning", subtitle: "search.headline.morningSub" },
+  day: { title: "search.headline.day", subtitle: "search.headline.daySub" },
+  dusk: { title: "search.headline.dusk", subtitle: "search.headline.duskSub" },
+  night: { title: "search.headline.night", subtitle: "search.headline.nightSub" },
 };
 
 /* ───────────────────────── 운영시간 / 날짜 파싱 (best-effort) ───────────────────────── */
@@ -120,14 +124,14 @@ function timeScore(poi: POIItem, ctx: TimeContext): number {
   return s;
 }
 
-function reasonChips(poi: POIItem, ctx: TimeContext): string[] {
-  const chips: string[] = [];
+function reasonChipKeys(poi: POIItem, ctx: TimeContext): UIKey[] {
+  const chips: UIKey[] = [];
   const op = openNow(poi.operating_time, ctx.now);
-  if (op === "open" || op === "always") chips.push("운영 중");
-  if (poi.source === "culture" && isEndingSoon(poi, ctx.now)) chips.push("마감임박");
-  if (poi.fee === "무료") chips.push("무료");
+  if (op === "open" || op === "always") chips.push("search.chip.open");
+  if (poi.source === "culture" && isEndingSoon(poi, ctx.now)) chips.push("search.chip.endingSoon");
+  if (poi.fee === "무료") chips.push("common.free");
   if (poi.source === "nightview" && (ctx.bucket === "night" || ctx.bucket === "dusk")) {
-    chips.push(ctx.bucket === "dusk" ? "노을" : "야경");
+    chips.push(ctx.bucket === "dusk" ? "search.chip.sunset" : "search.chip.night");
   }
   return chips.slice(0, 2);
 }
@@ -154,6 +158,7 @@ function formatDistance(m: number): string {
 type LocStatus = "idle" | "requesting" | "granted" | "denied" | "unavailable";
 
 export default function SearchPanel({ pois, onSelectPOI }: Props) {
+  const { t, locale } = useLocale();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [now, setNow] = useState(() => new Date());
@@ -226,17 +231,17 @@ export default function SearchPanel({ pois, onSelectPOI }: Props) {
   }, [recoPool, userLoc]);
 
   const FILTERS: { id: FilterType; label: string }[] = [
-    { id: "all", label: "전체" },
-    { id: "culture", label: "문화행사" },
-    { id: "nightview", label: "야경명소" },
+    { id: "all", label: categoryLabel("전체", locale) },
+    { id: "culture", label: t("sidebar.tab.culture") },
+    { id: "nightview", label: t("sidebar.tab.night") },
   ];
 
   return (
     <FeedShell>
       {/* 헤더 */}
       <div className="px-6 pt-7 pb-5 md:block hidden">
-        <h2 className="text-[22px] font-bold text-[#16243C] leading-tight tracking-[-0.01em]">검색</h2>
-        <p className="text-[13px] text-[#8B8678] mt-1">장소, 행사, 명소를 찾아보세요</p>
+        <h2 className="text-[22px] font-bold text-[#16243C] leading-tight tracking-[-0.01em]">{t("search.title")}</h2>
+        <p className="text-[13px] text-[#8B8678] mt-1">{t("search.subtitle")}</p>
       </div>
 
       {/* 검색 입력 + 필터 */}
@@ -247,7 +252,7 @@ export default function SearchPanel({ pois, onSelectPOI }: Props) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="장소명 또는 카테고리 검색"
+            placeholder={t("search.placeholder")}
             className="w-full pl-10 pr-9 py-2.5 text-[14px] rounded-2xl bg-white border border-[#ECE8E0] text-[#16243C] placeholder:text-[#B8B3A8] focus:outline-none focus:border-[#16243C] transition-colors"
           />
           {query && (
@@ -286,15 +291,15 @@ export default function SearchPanel({ pois, onSelectPOI }: Props) {
         {query.trim() ? (
           results.length === 0 ? (
             <div className="py-16 text-center space-y-1">
-              <p className="text-[14px] text-[#7C7870] font-medium">검색 결과가 없습니다</p>
-              <p className="text-[12px] text-[#A8A398]">다른 검색어를 시도해 보세요</p>
+              <p className="text-[14px] text-[#7C7870] font-medium">{t("search.noResults")}</p>
+              <p className="text-[12px] text-[#A8A398]">{t("search.tryOther")}</p>
             </div>
           ) : (
             <div className="pt-1">
-              <p className="text-[12px] text-[#8B8678] font-semibold pb-2">검색 결과 {results.length}개</p>
+              <p className="text-[12px] text-[#8B8678] font-semibold pb-2">{t("search.resultCount", { n: results.length })}</p>
               <div className="space-y-2.5">
                 {results.map((poi) => (
-                  <SearchResultRow key={poi.id} poi={poi} onSelect={() => onSelectPOI(poi)} />
+                  <SearchResultRow key={poi.id} poi={poi} locale={locale} onSelect={() => onSelectPOI(poi)} />
                 ))}
               </div>
             </div>
@@ -303,13 +308,14 @@ export default function SearchPanel({ pois, onSelectPOI }: Props) {
           <div className="space-y-6 pt-1">
             {/* 내 주변 (위치 기반) */}
             <section className="space-y-3">
-              <SectionHeading title="내 주변" subtitle="현재 위치에서 가까운 순" />
+              <SectionHeading title={t("search.nearby")} subtitle={t("search.nearbySubtitle")} />
               {locStatus === "granted" && nearbyRecos.length > 0 ? (
                 <div className="space-y-4">
                   {nearbyRecos.map(({ poi, dist }) => (
                     <RecoCard
                       key={poi.id}
                       poi={poi}
+                      locale={locale}
                       chips={[formatDistance(dist)]}
                       onSelect={() => onSelectPOI(poi)}
                     />
@@ -323,18 +329,19 @@ export default function SearchPanel({ pois, onSelectPOI }: Props) {
             {/* 지금 추천 (시간 기반) */}
             <section className="space-y-3">
               <SectionHeading
-                title={BUCKET_HEADLINE[ctx.bucket].title}
-                subtitle={BUCKET_HEADLINE[ctx.bucket].subtitle}
+                title={t(BUCKET_HEADLINE[ctx.bucket].title)}
+                subtitle={t(BUCKET_HEADLINE[ctx.bucket].subtitle)}
               />
               {timeRecos.length === 0 ? (
-                <p className="text-[13px] text-[#A8A398] py-2">추천할 장소가 없습니다</p>
+                <p className="text-[13px] text-[#A8A398] py-2">{t("search.noReco")}</p>
               ) : (
                 <div className="space-y-4">
                   {timeRecos.map((poi) => (
                     <RecoCard
                       key={poi.id}
                       poi={poi}
-                      chips={reasonChips(poi, ctx)}
+                      locale={locale}
+                      chips={reasonChipKeys(poi, ctx).map((k) => t(k))}
                       onSelect={() => onSelectPOI(poi)}
                     />
                   ))}
@@ -360,18 +367,19 @@ function SectionHeading({ title, subtitle }: { title: string; subtitle: string }
 }
 
 function LocationPrompt({ status, onRequest }: { status: LocStatus; onRequest: () => void }) {
+  const { t } = useLocale();
   if (status === "denied") {
     return (
       <div className="rounded-[22px] bg-white p-5 text-center shadow-[0_6px_24px_rgba(20,30,50,0.07)]">
-        <p className="text-[13px] text-[#7C7870]">위치 권한이 거부되었습니다</p>
-        <p className="text-[12px] text-[#A8A398] mt-1">브라우저 설정에서 위치 접근을 허용해 주세요</p>
+        <p className="text-[13px] text-[#7C7870]">{t("search.locDenied")}</p>
+        <p className="text-[12px] text-[#A8A398] mt-1">{t("search.locDeniedHint")}</p>
       </div>
     );
   }
   if (status === "unavailable") {
     return (
       <div className="rounded-[22px] bg-white p-5 text-center shadow-[0_6px_24px_rgba(20,30,50,0.07)]">
-        <p className="text-[13px] text-[#7C7870]">현재 위치를 사용할 수 없습니다</p>
+        <p className="text-[13px] text-[#7C7870]">{t("search.locUnavailable")}</p>
       </div>
     );
   }
@@ -382,7 +390,7 @@ function LocationPrompt({ status, onRequest }: { status: LocStatus; onRequest: (
       className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white border border-[#ECE8E0] text-[13px] font-semibold text-[#5C5950] hover:border-[#D6D1C7] transition-colors disabled:opacity-60"
     >
       <PinIcon className="w-4 h-4 text-[#16243C]" />
-      {status === "requesting" ? "위치 확인 중..." : "내 주변 추천 받기"}
+      {status === "requesting" ? t("search.locRequesting") : t("search.locRequest")}
     </button>
   );
 }
@@ -390,10 +398,12 @@ function LocationPrompt({ status, onRequest }: { status: LocStatus; onRequest: (
 function RecoCard({
   poi,
   chips,
+  locale,
   onSelect,
 }: {
   poi: POIItem;
   chips: string[];
+  locale: Locale;
   onSelect: () => void;
 }) {
   const isNightview = poi.source === "nightview";
@@ -415,13 +425,13 @@ function RecoCard({
               isNightview ? "bg-black/40 text-white/90" : "bg-white/90 text-[#16243C]"
             }`}
           >
-            {isNightview ? poi.category : poi.normalizedCategory ?? poi.category}
+            {categoryLabel(isNightview ? poi.category : poi.normalizedCategory ?? poi.category, locale)}
           </span>
         </div>
 
         <div className="px-5 py-3.5 max-md:py-3">
           <p className="text-[15px] font-semibold text-[#16243C] leading-snug line-clamp-2 group-hover:text-[#1E2F4D] transition-colors">
-            {poi.name}
+            {localizedPlaceName(poi.name, locale)}
           </p>
           <p className="text-[12.5px] text-[#9A958A] mt-1 truncate">{poi.place}</p>
           {poi.date && <p className="text-[11.5px] text-[#A8A398] mt-0.5 truncate">{poi.date}</p>}
@@ -443,7 +453,8 @@ function RecoCard({
   );
 }
 
-function SearchResultRow({ poi, onSelect }: { poi: POIItem; onSelect: () => void }) {
+function SearchResultRow({ poi, locale, onSelect }: { poi: POIItem; locale: Locale; onSelect: () => void }) {
+  const { t } = useLocale();
   return (
     <button
       onClick={onSelect}
@@ -454,13 +465,13 @@ function SearchResultRow({ poi, onSelect }: { poi: POIItem; onSelect: () => void
         style={{ background: poi.source === "nightview" ? "#D97706" : "#2563EB" }}
       />
       <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold text-[#16243C] truncate">{poi.name}</p>
+        <p className="text-[14px] font-semibold text-[#16243C] truncate">{localizedPlaceName(poi.name, locale)}</p>
         <p className="text-[12px] text-[#9A958A] mt-0.5 truncate">
-          {poi.category} · {poi.place}
+          {categoryLabel(poi.category, locale)} · {poi.place}
         </p>
       </div>
       <span className="text-[11px] font-semibold text-[#A8A398] shrink-0 mt-0.5">
-        {poi.source === "nightview" ? "야경" : "문화"}
+        {poi.source === "nightview" ? t("search.badge.night") : t("search.badge.culture")}
       </span>
     </button>
   );

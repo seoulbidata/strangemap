@@ -5,6 +5,9 @@ import type { POIItem } from "@/app/api/poi/route";
 import { SEOUL_PLACES, CATEGORIES, isPlaceOpen, type CategoryFilter } from "@/lib/seoulPlaces";
 import type { CongestionData } from "@/app/api/places/congestion/route";
 import { FeedShell, FilterPills } from "./_feedKit";
+import { useLocale } from "@/i18n/LocaleContext";
+import { categoryLabel, congestionLabel, SORT_ORDER_EN, type Locale } from "@/i18n/enums";
+import { localizedPlaceDesc, localizedPlaceName } from "@/i18n/placeNames";
 
 interface Props {
   onSelectPOI: (poi: POIItem) => void;
@@ -36,7 +39,8 @@ function estimatePpltn(c: CongestionData): number {
   return c.ppltnMax || c.ppltnMin || 0;
 }
 
-function formatPpltn(n: number): string {
+function formatPpltn(n: number, locale: Locale): string {
+  if (locale === "en") return `~${n.toLocaleString("en-US")} people expected`;
   if (n >= 10000) {
     const man = n / 10000;
     return `예상인원 약 ${Number.isInteger(man) ? `${man}만` : `${man.toFixed(1)}만`}명`;
@@ -55,6 +59,7 @@ function UsersIcon() {
 }
 
 export default function NowRecommendPanel({ onSelectPOI }: Props) {
+  const { t, locale } = useLocale();
   const [now, setNow] = useState(new Date());
   const [category, setCategory] = useState<CategoryFilter>("전체");
   const [sortOrder, setSortOrder] = useState<SortOrder>("여유순");
@@ -92,8 +97,9 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
     return () => clearInterval(id);
   }, []);
 
+  const timeLocale = locale === "en" ? "en-US" : "ko-KR";
   const hour = now.getHours();
-  const timeStr = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  const timeStr = now.toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" });
 
   const visiblePlaces = SEOUL_PLACES.filter((p) => {
     if (!isPlaceOpen(p, hour)) return false;
@@ -115,21 +121,21 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
   }).length;
 
   const updatedStr = lastUpdated
-    ? lastUpdated.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+    ? lastUpdated.toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit" })
     : null;
 
   return (
     <FeedShell>
       {/* 헤더 */}
       <div className="px-6 pt-7 pb-5 md:block hidden">
-        <h2 className="text-[22px] font-bold text-[#16243C] leading-tight tracking-[-0.01em]">실시간 혼잡도</h2>
+        <h2 className="text-[22px] font-bold text-[#16243C] leading-tight tracking-[-0.01em]">{t("now.title")}</h2>
         <div className="flex items-center justify-between mt-1">
           <p className="text-[13px] text-[#8B8678]">
             {loading
-              ? "실시간 데이터 로딩 중..."
+              ? t("now.loading")
               : error
-              ? "데이터 로드 실패 · 새로고침 해주세요"
-              : `${visiblePlaces.length}곳 운영중 · ${uncrowdedCount}곳 여유`}
+              ? t("now.loadError")
+              : t("now.statusLine", { open: visiblePlaces.length, calm: uncrowdedCount })}
           </p>
           <div className="flex items-center gap-1.5 text-[12px] text-[#16243C] font-semibold">
             <span
@@ -144,13 +150,18 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
 
       {/* 카테고리 필터 */}
       <div className="px-5 pb-3 md:pt-0 pt-5">
-        <FilterPills options={CATEGORIES} value={category} onChange={setCategory} />
+        <FilterPills
+          options={CATEGORIES}
+          value={category}
+          onChange={setCategory}
+          renderLabel={(v) => categoryLabel(v, locale)}
+        />
       </div>
 
       {/* 정렬 / 업데이트 시각 */}
       <div className="px-5 pb-2 flex items-center justify-between">
         <p className="text-[11px] text-[#A8A398]">
-          {updatedStr ? `${updatedStr} 기준 실시간 혼잡도` : "서울시 실시간 도시데이터"}
+          {updatedStr ? t("now.updatedAt", { time: updatedStr }) : t("now.source")}
         </p>
         <div className="flex gap-1">
           {(["여유순", "혼잡순"] as SortOrder[]).map((s) => (
@@ -161,7 +172,7 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
                 sortOrder === s ? "bg-[#16243C] text-white" : "text-[#8B8678] hover:bg-[#F1EFEA]"
               }`}
             >
-              {s}
+              {locale === "en" ? SORT_ORDER_EN[s] ?? s : s}
             </button>
           ))}
         </div>
@@ -184,8 +195,8 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
           </div>
         ) : sortedPlaces.length === 0 ? (
           <div className="py-16 text-center space-y-1">
-            <p className="text-[14px] text-[#7C7870] font-medium">현재 운영 중인 장소가 없습니다</p>
-            <p className="text-[12px] text-[#A8A398]">다른 카테고리를 선택하거나 잠시 후 다시 확인하세요</p>
+            <p className="text-[14px] text-[#7C7870] font-medium">{t("now.empty")}</p>
+            <p className="text-[12px] text-[#A8A398]">{t("now.emptyHint")}</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -194,7 +205,7 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
               const level = cData?.level;
               const cStyle = level ? LEVEL_STYLE[level] : null;
               const ppltn = cData ? estimatePpltn(cData) : 0;
-              const ppltnText = ppltn > 0 ? formatPpltn(ppltn) : null;
+              const ppltnText = ppltn > 0 ? formatPpltn(ppltn, locale) : null;
               return (
                 <div
                   key={place.areaName}
@@ -217,7 +228,7 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[18px] font-semibold text-[#16243C] leading-snug tracking-[-0.01em] truncate group-hover:text-[#1E2F4D] transition-colors">
-                        {place.displayName}
+                        {localizedPlaceName(place.displayName, locale)}
                       </p>
                       {cStyle && level ? (
                         <span
@@ -225,20 +236,22 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
                           style={{ background: cStyle.bg, color: cStyle.text }}
                         >
                           <span className="w-1.5 h-1.5 rounded-full" style={{ background: cStyle.text }} />
-                          {LEVEL_LABEL[level]}
+                          {congestionLabel(LEVEL_LABEL[level], locale)}
                         </span>
                       ) : (
                         !loading && (
                           <span className="shrink-0 text-[12px] font-semibold px-2.5 py-1 rounded-full bg-[#F4F2EC] text-[#A8A398]">
-                            정보없음
+                            {t("now.noData")}
                           </span>
                         )
                       )}
                     </div>
                     <p className="text-[13px] text-[#9A958A] mt-1">
-                      {place.category} · {place.place}
+                      {categoryLabel(place.category, locale)} · {place.place}
                     </p>
-                    <p className="text-[13.5px] text-[#5C5950] mt-2.5 leading-[1.6]">{place.description}</p>
+                    <p className="text-[13.5px] text-[#5C5950] mt-2.5 leading-[1.6]">
+                      {localizedPlaceDesc(place.displayName, place.description, locale)}
+                    </p>
                     {ppltnText && (
                       <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#F4F2EC] px-3 py-1.5">
                         <UsersIcon />
@@ -260,7 +273,7 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
           disabled={refreshing || loading}
           className="w-full py-3 rounded-2xl bg-white border border-[#ECE8E0] text-[13px] font-semibold text-[#5C5950] hover:border-[#D6D1C7] transition-colors disabled:opacity-50"
         >
-          {refreshing ? "업데이트 중..." : "새로고침"}
+          {refreshing ? t("common.refreshing") : t("common.refresh")}
         </button>
       </div>
     </FeedShell>

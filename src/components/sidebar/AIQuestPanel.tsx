@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale } from "@/i18n/LocaleContext";
+import { chipLabel } from "@/i18n/enums";
+import { localizedPlaceName } from "@/i18n/placeNames";
 
 interface Suggestion {
   title: string;
@@ -29,6 +32,8 @@ export interface AIQuestCache {
   placeCount?: string;
   suggestions: Suggestion[] | null;
   source: "ai" | "mock" | null;
+  /** 캐시된 suggestions가 생성된 언어 — locale 전환 시 무효화 판정에 사용 */
+  lang?: "ko" | "en";
 }
 
 // 카테고리별 파스텔 선택 색상 (bg, text, border)
@@ -47,6 +52,7 @@ interface AIQuestPanelProps {
 }
 
 export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPanelProps) {
+  const { t, locale } = useLocale();
   const [companion, setCompanionState] = useState<CompanionType>(() => cacheRef?.current.companion ?? "친구");
   const [ageGroup, setAgeGroupState] = useState<AgeGroupType>(() => cacheRef?.current.ageGroup ?? "20-30대");
   const [time, setTimeState] = useState<TimeType>(() => cacheRef?.current.time ?? "오후");
@@ -54,7 +60,12 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
   const [region, setRegionState] = useState<RegionType>(() => cacheRef?.current.region ?? "상관없음");
   const [congestion, setCongestionState] = useState<CongestionType>(() => cacheRef?.current.congestion ?? "상관없음");
 
-  const [suggestions, setSuggestionsState] = useState<Suggestion[] | null>(() => cacheRef?.current.suggestions ?? null);
+  // 다른 언어로 생성된 캐시는 재사용하지 않는다 (locale별 캐시 분리)
+  const [suggestions, setSuggestionsState] = useState<Suggestion[] | null>(() =>
+    cacheRef && cacheRef.current.lang !== undefined && cacheRef.current.lang !== locale
+      ? null
+      : cacheRef?.current.suggestions ?? null
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [source, setSourceState] = useState<"ai" | "mock" | null>(() => cacheRef?.current.source ?? null);
@@ -65,7 +76,13 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
   const setPurpose = (v: PurposeType) => { setPurposeState(v); if (cacheRef) cacheRef.current.purpose = v; };
   const setRegion = (v: RegionType) => { setRegionState(v); if (cacheRef) cacheRef.current.region = v; };
   const setCongestion = (v: CongestionType) => { setCongestionState(v); if (cacheRef) cacheRef.current.congestion = v; };
-  const setSuggestions = (v: Suggestion[] | null) => { setSuggestionsState(v); if (cacheRef) cacheRef.current.suggestions = v; };
+  const setSuggestions = (v: Suggestion[] | null) => {
+    setSuggestionsState(v);
+    if (cacheRef) {
+      cacheRef.current.suggestions = v;
+      cacheRef.current.lang = locale;
+    }
+  };
   const setSource = (v: "ai" | "mock" | null) => { setSourceState(v); if (cacheRef) cacheRef.current.source = v; };
 
   const handleRecommend = async () => {
@@ -78,7 +95,7 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
       const res = await fetch("/api/ai-recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companion, ageGroup, time, purpose, region, congestion }),
+        body: JSON.stringify({ companion, ageGroup, time, purpose, region, congestion, lang: locale }),
       });
 
       if (!res.ok) throw new Error("API 오류");
@@ -87,13 +104,20 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
       setSuggestions(data.suggestions ?? []);
       setSource(data._source ?? null);
     } catch {
-      setError("추천을 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
+      setError(t("aiQuest.error"));
     } finally {
       setLoading(false);
     }
   };
 
-  const summaryLabel = [companion, ageGroup, time, purpose, region !== "상관없음" ? region : null, congestion !== "상관없음" ? `혼잡도 ${congestion}` : null]
+  const summaryLabel = [
+    chipLabel(companion, locale),
+    chipLabel(ageGroup, locale),
+    chipLabel(time, locale),
+    chipLabel(purpose, locale),
+    region !== "상관없음" ? chipLabel(region, locale) : null,
+    congestion !== "상관없음" ? t("aiQuest.congestionPrefix", { v: chipLabel(congestion, locale) }) : null,
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -103,62 +127,69 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
       <div className="px-4 pt-5 pb-4 border-b border-[#E5E1D8] md:block hidden">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse" />
-          <span className="text-[10px] font-display tracking-wider text-[#9CA3AF] uppercase">AI 추천</span>
+          <span className="text-[10px] font-display tracking-wider text-[#9CA3AF] uppercase">{t("aiQuest.kicker")}</span>
         </div>
-        <h2 className="text-base font-bold text-[#1A1E2E] mt-1">오늘 뭐 할까요?</h2>
-        <p className="text-xs text-[#9CA3AF] mt-0.5">상황을 알려주시면 맞춤 활동을 추천해드립니다</p>
+        <h2 className="text-base font-bold text-[#1A1E2E] mt-1">{t("aiQuest.title")}</h2>
+        <p className="text-xs text-[#9CA3AF] mt-0.5">{t("aiQuest.subtitle")}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto thin-scroll">
         {/* 상황 선택 */}
         <div className="px-4 py-4 space-y-3.5 border-b border-[#E5E1D8]">
+          {/* 칩 값은 한글 그대로 API로 전송, 표시 라벨만 지역화 */}
           <ChipGroup
-            label="누구랑"
+            label={t("courseForm.companion")}
             options={["혼자", "친구", "커플", "가족"] as CompanionType[]}
             value={companion}
             onChange={(v) => setCompanion(v as CompanionType)}
             colorKey="companion"
             disabled={loading}
+            renderLabel={(v) => chipLabel(v, locale)}
           />
           <ChipGroup
-            label="나이대"
+            label={t("courseForm.age")}
             options={["10-20대", "20-30대", "30-40대", "40-50대", "60대 이상"] as AgeGroupType[]}
             value={ageGroup}
             onChange={(v) => setAgeGroup(v as AgeGroupType)}
             colorKey="ageGroup"
             disabled={loading}
+            renderLabel={(v) => chipLabel(v, locale)}
           />
           <ChipGroup
-            label="시간대"
+            label={t("courseForm.time")}
             options={["오전", "오후", "밤"] as TimeType[]}
             value={time}
             onChange={(v) => setTime(v as TimeType)}
             colorKey="time"
             disabled={loading}
+            renderLabel={(v) => chipLabel(v, locale)}
           />
           <ChipGroup
-            label="목적"
+            label={t("courseForm.purpose")}
             options={["힐링", "놀거리", "데이트", "관광", "운동", "문화생활"] as PurposeType[]}
             value={purpose}
             onChange={(v) => setPurpose(v as PurposeType)}
             colorKey="purpose"
             disabled={loading}
+            renderLabel={(v) => chipLabel(v, locale)}
           />
           <ChipGroup
-            label="위치"
+            label={t("courseForm.region")}
             options={["강북", "강서", "강남", "강동", "상관없음"] as RegionType[]}
             value={region}
             onChange={(v) => setRegion(v as RegionType)}
             colorKey="place"
             disabled={loading}
+            renderLabel={(v) => chipLabel(v, locale)}
           />
           <ChipGroup
-            label="혼잡도"
+            label={t("courseForm.congestion")}
             options={["여유", "보통", "상관없음"] as CongestionType[]}
             value={congestion}
             onChange={(v) => setCongestion(v as CongestionType)}
             colorKey="congestion"
             disabled={loading}
+            renderLabel={(v) => chipLabel(v, locale)}
           />
         </div>
 
@@ -172,11 +203,11 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
             {loading ? (
               <>
                 <span className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                서울로가 컨텐츠를 생성중이에요...
+                {t("aiQuest.generating")}
               </>
             ) : (
               <>
-                서울로 추천 받기
+                {t("aiQuest.recommend")}
               </>
             )}
           </button>
@@ -195,8 +226,8 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
               </div>
               {/* 텍스트 */}
               <div className="text-center space-y-1">
-                <p className="text-sm font-semibold text-[#1A1E2E]">오늘의 추천은...?</p>
-                <p className="text-[11px] text-[#9CA3AF]">{summaryLabel} 기준으로 생성하고 있어요</p>
+                <p className="text-sm font-semibold text-[#1A1E2E]">{t("aiQuest.loadingTitle")}</p>
+                <p className="text-[11px] text-[#9CA3AF]">{t("aiQuest.loadingDesc", { summary: summaryLabel })}</p>
               </div>
               {/* 점 애니메이션 */}
               <div className="flex gap-1.5">
@@ -229,7 +260,7 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
               {source === "ai" && (
                 <span className="flex items-center gap-1 text-[9px] text-[#2563EB]">
                   <span className="w-1 h-1 rounded-full bg-[#2563EB] animate-pulse" />
-                  AI 생성
+                  {t("aiQuest.aiGenerated")}
                 </span>
               )}
             </div>
@@ -239,7 +270,7 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-bold text-[#1A1E2E] leading-snug">{s.title}</p>
-                      <p className="text-[11px] text-[#2563EB] mt-0.5">{s.place}</p>
+                      <p className="text-[11px] text-[#2563EB] mt-0.5">{localizedPlaceName(s.place, locale)}</p>
                     </div>
                     <span className="text-[10px] text-[#9CA3AF] shrink-0 mt-0.5">{s.duration}</span>
                   </div>
@@ -260,7 +291,7 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
                       className="mt-3 w-full py-2 rounded-lg bg-[#FE9C00] text-white text-[12px] font-semibold hover:bg-[#E58900] transition-colors flex items-center justify-center gap-1.5"
                     >
                       <RouteIcon className="w-3.5 h-3.5" />
-                      목적지로 설정하기
+                      {t("aiQuest.setDest")}
                     </button>
                   )}
                 </div>
@@ -275,8 +306,8 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
             <div className="w-12 h-12 rounded-xl bg-[#F5F2EC] flex items-center justify-center mb-3">
               <AIIcon className="w-6 h-6" />
             </div>
-            <p className="text-sm">상황을 선택하고 추천을 받아보세요</p>
-            <p className="text-[11px] mt-1 text-[#C4BFB8]">현재 서울 행사도 반영됩니다</p>
+            <p className="text-sm">{t("aiQuest.initial")}</p>
+            <p className="text-[11px] mt-1 text-[#C4BFB8]">{t("aiQuest.initialHint")}</p>
           </div>
         )}
       </div>
@@ -291,6 +322,7 @@ function ChipGroup({
   onChange,
   colorKey,
   disabled,
+  renderLabel,
 }: {
   label: string;
   options: string[];
@@ -298,6 +330,8 @@ function ChipGroup({
   onChange: (v: string) => void;
   colorKey: keyof typeof CHIP_COLORS;
   disabled?: boolean;
+  /** 값은 한글 그대로 두고 표시 라벨만 바꿀 때(영문 모드) 사용 */
+  renderLabel?: (v: string) => string;
 }) {
   const active = CHIP_COLORS[colorKey];
   return (
@@ -316,7 +350,7 @@ function ChipGroup({
                 : { background: "#F5F2EC", color: "#6B7280", borderColor: "#E5E1D8" }
             }
           >
-            {opt}
+            {renderLabel ? renderLabel(opt) : opt}
           </button>
         ))}
       </div>

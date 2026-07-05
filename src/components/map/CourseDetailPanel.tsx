@@ -5,6 +5,9 @@ import { CATEGORY_META, type CourseCategory, type ThemeCourse } from "@/data/the
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { isAIDraft } from "@/lib/aiCourseDraft";
 import { courseHeroBackground } from "@/lib/courseImage";
+import { useLocale } from "@/i18n/LocaleContext";
+import { categoryLabel, congestionLabel, difficultyLabel, ADTAG_EN } from "@/i18n/enums";
+import { getCourseText } from "@/i18n/courseText";
 
 interface Props {
   course: ThemeCourse;
@@ -36,7 +39,7 @@ function areaNameFor(stopName: string): string | null {
 }
 
 export default function CourseDetailPanel({
-  course,
+  course: rawCourse,
   isActive,
   saved,
   onClose,
@@ -44,10 +47,14 @@ export default function CourseDetailPanel({
   onToggleSave,
   onSelectStop,
 }: Props) {
+  const { t, locale } = useLocale();
+  // 표시는 로케일 병합본, 혼잡도 매칭 등 로직은 한글 원본(rawCourse) 기준
+  const course = getCourseText(rawCourse, locale);
   const catMeta = CATEGORY_META[course.category as CourseCategory];
   const ai = isAIDraft(course);
 
-  const [congestion, setCongestion] = useState<Record<string, CongestionLevel>>({});
+  // 혼잡도는 스탑 index로 보관 — 영문 모드에서도 한글 원본 name으로 매칭한다
+  const [congestion, setCongestion] = useState<Record<number, CongestionLevel>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -57,10 +64,10 @@ export default function CourseDetailPanel({
         if (!res.ok) return;
         const map = (await res.json()) as Record<string, { level: CongestionLevel }>;
         if (cancelled) return;
-        const next: Record<string, CongestionLevel> = {};
-        course.stops.forEach((s) => {
+        const next: Record<number, CongestionLevel> = {};
+        rawCourse.stops.forEach((s, i) => {
           const area = areaNameFor(s.name);
-          if (area && map[area]) next[s.name] = map[area].level;
+          if (area && map[area]) next[i] = map[area].level;
         });
         setCongestion(next);
       } catch {
@@ -70,7 +77,7 @@ export default function CourseDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [course]);
+  }, [rawCourse]);
 
   return (
     <div className="fixed z-30 bg-white flex flex-col inset-0 md:inset-y-0 md:right-0 md:left-auto md:w-[440px] shadow-[-12px_0_40px_rgba(20,30,50,0.12)] animate-slide-in pointer-events-auto">
@@ -82,17 +89,17 @@ export default function CourseDetailPanel({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/85 backdrop-blur-sm hover:bg-white text-[#16243C] flex items-center justify-center shadow-sm transition-colors"
-          aria-label="닫기"
+          aria-label={t("common.close")}
         >
           ✕
         </button>
         <div className="absolute top-4 left-5 flex items-center gap-1.5">
           <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/85 backdrop-blur-sm text-[#16243C]">
-            {catMeta.label}
+            {categoryLabel(catMeta.label, locale)}
           </span>
           {ai && (
             <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#2563EB] text-white flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-white" /> AI 생성
+              <span className="w-1 h-1 rounded-full bg-white" /> {t("courseDetail.aiGenerated")}
             </span>
           )}
         </div>
@@ -111,11 +118,11 @@ export default function CourseDetailPanel({
         {/* 요약 스탯 */}
         <div className="px-6 pt-6">
           <div className="flex items-stretch rounded-2xl bg-[#F7F5F0]">
-            <Stat label="거리" value={course.distance} />
+            <Stat label={t("courseDetail.stat.distance")} value={course.distance} />
             <Divider />
-            <Stat label="소요시간" value={course.totalDuration} />
+            <Stat label={t("courseDetail.stat.duration")} value={course.totalDuration} />
             <Divider />
-            <Stat label="난이도" value={course.difficulty} />
+            <Stat label={t("courseDetail.stat.difficulty")} value={difficultyLabel(course.difficulty, locale)} />
           </div>
 
           {course.description && (
@@ -126,12 +133,12 @@ export default function CourseDetailPanel({
         {/* 체크포인트 타임라인 */}
         <div className="px-6 pt-7 pb-6">
           <h3 className="text-[13px] font-bold tracking-[0.04em] text-[#16243C] mb-4">
-            코스 체크포인트 <span className="text-[#B5B0A6] font-semibold">{course.stops.length}</span>
+            {t("courseDetail.checkpoints")} <span className="text-[#B5B0A6] font-semibold">{course.stops.length}</span>
           </h3>
 
           <div>
             {course.stops.map((stop, i) => {
-              const level = congestion[stop.name];
+              const level = congestion[i];
               const cStyle = level ? CONGESTION_STYLE[level] : null;
               const isLast = i === course.stops.length - 1;
               return (
@@ -158,7 +165,7 @@ export default function CourseDetailPanel({
                             className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
                             style={{ background: course.color }}
                           >
-                            {stop.adTag.label}
+                            {locale === "en" ? ADTAG_EN[stop.adTag.label] ?? stop.adTag.label : stop.adTag.label}
                           </span>
                         )}
                       </p>
@@ -171,7 +178,7 @@ export default function CourseDetailPanel({
                         style={{ background: cStyle.bg, color: cStyle.text }}
                       >
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: cStyle.text }} />
-                        실시간 {level}
+                        {t("courseDetail.realtime", { level: congestionLabel(level, locale) })}
                       </span>
                     )}
                   </div>
@@ -191,7 +198,7 @@ export default function CourseDetailPanel({
           }`}
         >
           <BookmarkIcon className="w-4 h-4" filled={saved} />
-          {saved ? "저장됨" : "저장하기"}
+          {saved ? t("courseDetail.saved") : t("courseDetail.save")}
         </button>
         <button
           onClick={onToggleStart}
@@ -199,7 +206,7 @@ export default function CourseDetailPanel({
             isActive ? "bg-[#3A4860]" : "bg-[#16243C]"
           }`}
         >
-          {isActive ? "종료하기" : "코스 보기"}
+          {isActive ? t("courseDetail.end") : t("courseDetail.view")}
         </button>
       </div>
     </div>

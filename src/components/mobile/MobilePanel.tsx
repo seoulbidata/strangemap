@@ -10,6 +10,7 @@ import SearchPanel from "@/components/sidebar/SearchPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
 import CourseCollection from "@/components/sidebar/CourseCollection";
 import type { MobileTabId } from "@/components/mobile/MobileNavigation";
+import { useLocale } from "@/i18n/LocaleContext";
 
 interface Props {
   activeTab: MobileTabId | null;
@@ -44,6 +45,7 @@ export default function MobilePanel({
   onClearDest,
   routeCacheRef,
 }: Props) {
+  const { t } = useLocale();
   const [lastActiveTab, setLastActiveTab] = useState<MobileTabId | null>(null);
   const [snap, setSnap] = useState<SnapState>("closed");
   const [dragY, setDragY] = useState(0);
@@ -149,17 +151,17 @@ export default function MobilePanel({
   const getTitle = () => {
     switch (displayTab) {
       case "search":
-        return "검색 결과";
+        return t("mobile.title.search");
       case "route":
-        return "길찾기";
+        return t("mobile.title.route");
       case "culture":
-        return "문화행사 정보";
+        return t("mobile.title.culture");
       case "night":
-        return "야경명소 정보";
+        return t("mobile.title.night");
       case "course":
-        return "코스";
+        return t("mobile.title.course");
       case "now":
-        return "실시간 혼잡도 추천";
+        return t("mobile.title.now");
       default:
         return "";
     }
@@ -190,7 +192,7 @@ export default function MobilePanel({
         <button
           onClick={onClose}
           className="absolute right-4 top-4 w-7 h-7 rounded-full bg-[#F5F2EC] hover:bg-[#E5E1D8] text-[#6B7280] flex items-center justify-center text-xs transition-colors"
-          aria-label="닫기"
+          aria-label={t("common.close")}
         >
           ✕
         </button>

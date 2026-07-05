@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { AIPlaceInfo } from "@/types/quest";
 import type { POIItem } from "@/app/api/poi/route";
+import { useLocale } from "@/i18n/LocaleContext";
+import type { UIKey } from "@/i18n/ui.ko";
+import { localizedPlaceName } from "@/i18n/placeNames";
 
 interface Props {
   poi: POIItem | null;
@@ -18,16 +21,17 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const LOADING_STEPS = [
-  "장소를 살펴보는 중",
-  "방문자 데이터 분석 중",
-  "역사·문화 자료 탐색 중",
-  "볼거리·추천 코스 정리 중",
-  "안내 문구 작성 중",
-  "최적의 방문 정보 준비 중"
+const LOADING_STEP_KEYS: UIKey[] = [
+  "aiInfo.step1",
+  "aiInfo.step2",
+  "aiInfo.step3",
+  "aiInfo.step4",
+  "aiInfo.step5",
+  "aiInfo.step6",
 ];
 
 function AILoadingState({ placeName }: { placeName: string }) {
+  const { t } = useLocale();
   const [stepIdx, setStepIdx] = useState(0);
   const [dotCount, setDotCount] = useState(1);
   const [fade, setFade] = useState(true);
@@ -43,7 +47,7 @@ function AILoadingState({ placeName }: { placeName: string }) {
     const stepTimer = setInterval(() => {
       setFade(false);
       setTimeout(() => {
-        setStepIdx((i) => (i + 1) % LOADING_STEPS.length);
+        setStepIdx((i) => (i + 1) % LOADING_STEP_KEYS.length);
         setFade(true);
       }, 200);
     }, 1800);
@@ -65,10 +69,10 @@ function AILoadingState({ placeName }: { placeName: string }) {
         </div>
         <div className="text-center">
           <p className="text-[11px] font-display tracking-[0.15em] text-[#FE9C00] uppercase font-semibold">
-            서울로 AI
+            {t("aiInfo.brand")}
           </p>
           <p className="text-[12px] text-[#78716C] mt-0.5 font-medium">
-            <span className="text-[#1A1E2E] font-bold">{placeName}</span>을(를) 조사 중
+            {t("aiInfo.researching", { place: placeName })}
           </p>
         </div>
       </div>
@@ -79,13 +83,13 @@ function AILoadingState({ placeName }: { placeName: string }) {
         style={{ opacity: fade ? 1 : 0 }}
       >
         <span className="text-[11px] text-[#92400E] font-medium">
-          {LOADING_STEPS[stepIdx]}{dots}
+          {t(LOADING_STEP_KEYS[stepIdx])}{dots}
         </span>
       </div>
 
       {/* 진행 단계 인디케이터 */}
       <div className="flex justify-center gap-1.5">
-        {LOADING_STEPS.map((_, i) => (
+        {LOADING_STEP_KEYS.map((_, i) => (
           <div
             key={i}
             className="rounded-full transition-all duration-300"
@@ -115,24 +119,26 @@ function AILoadingState({ placeName }: { placeName: string }) {
       </div>
 
       <p className="text-center text-[10px] text-[#A8A29E]">
-        서울로가 최적의 방문 정보를 준비하고 있어요
+        {t("aiInfo.preparing")}
       </p>
     </div>
   );
 }
 
 export default function AIInfoPanel({ poi, onClose }: Props) {
+  const { t, locale } = useLocale();
   const [info, setInfo] = useState<AIPlaceInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [displayed, setDisplayed] = useState("");
 
-  // Client-side session cache: 재클릭 시 즉시 표시
+  // Client-side session cache: 재클릭 시 즉시 표시 (locale별로 분리)
   const sessionCache = useRef<Map<string, AIPlaceInfo>>(new Map());
 
   useEffect(() => {
     if (!poi) return;
 
-    const cached = sessionCache.current.get(poi.id);
+    const cacheKey = `${locale}|${poi.id}`;
+    const cached = sessionCache.current.get(cacheKey);
     if (cached) {
       setInfo(cached);
       setDisplayed(cached.summary);
@@ -144,7 +150,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
     setDisplayed("");
     setLoading(true);
 
-    const params = new URLSearchParams({ place: poi.name });
+    const params = new URLSearchParams({ place: poi.name, lang: locale });
     if (poi.source === "culture") params.set("type", "culture");
     if (poi.operating_time) params.set("operating_time", poi.operating_time);
     if (poi.fee) params.set("fee", poi.fee);
@@ -158,10 +164,10 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
       .then((r) => r.json())
       .then((d) => {
         setInfo(d.info);
-        sessionCache.current.set(poi.id, d.info);
+        sessionCache.current.set(cacheKey, d.info);
       })
       .finally(() => setLoading(false));
-  }, [poi]);
+  }, [poi, locale]);
 
   // Typewriter effect for summary
   useEffect(() => {
@@ -192,10 +198,10 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
                   <span className="relative inline-flex w-2 h-2 rounded-full bg-[#2563EB]" />
                 </span>
                 <span className="text-[10px] font-display tracking-[0.2em] text-[#9CA3AF] uppercase">
-                  AI 장소 안내
+                  {t("aiInfo.header")}
                 </span>
               </div>
-              <h2 className="text-lg font-bold text-[#1A1E2E] mt-1.5">{poi.name}</h2>
+              <h2 className="text-lg font-bold text-[#1A1E2E] mt-1.5">{localizedPlaceName(poi.name, locale)}</h2>
               <p className="text-[11px] text-[#9CA3AF] mt-0.5 truncate">{poi.place}</p>
             </div>
             <button
@@ -213,24 +219,24 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
           {/* 정적 정보 */}
           <div className="rounded-xl bg-[#F9F8F5] border border-[#E5E1D8] p-3.5 space-y-2.5">
             <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">
-              장소 정보
+              {t("aiInfo.placeInfo")}
             </p>
-            {poi.operating_time && <InfoRow label="운영시간" value={poi.operating_time} />}
-            {poi.fee && <InfoRow label="요금" value={poi.fee} />}
-            {poi.subway && <InfoRow label="지하철" value={poi.subway} />}
-            {poi.bus && <InfoRow label="버스" value={poi.bus} />}
-            {poi.tel && <InfoRow label="전화" value={poi.tel} />}
-            {poi.parking && <InfoRow label="주차" value={poi.parking} />}
+            {poi.operating_time && <InfoRow label={t("aiInfo.hours")} value={poi.operating_time} />}
+            {poi.fee && <InfoRow label={t("aiInfo.fee")} value={poi.fee} />}
+            {poi.subway && <InfoRow label={t("aiInfo.subway")} value={poi.subway} />}
+            {poi.bus && <InfoRow label={t("aiInfo.bus")} value={poi.bus} />}
+            {poi.tel && <InfoRow label={t("aiInfo.tel")} value={poi.tel} />}
+            {poi.parking && <InfoRow label={t("aiInfo.parking")} value={poi.parking} />}
             {poi.link && (
               <div className="flex gap-3 text-[12px]">
-                <span className="shrink-0 font-bold text-[#374151] w-14">홈페이지</span>
+                <span className="shrink-0 font-bold text-[#374151] w-14">{t("aiInfo.homepage")}</span>
                 <a
                   href={poi.link}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[#2563EB] underline truncate"
                 >
-                  공식 홈페이지
+                  {t("aiInfo.officialSite")}
                 </a>
               </div>
             )}
@@ -240,7 +246,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
           {poi.viewpoint && poi.viewpoint.length > 0 && (
             <div className="rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] p-3.5">
               <p className="text-[10px] font-semibold text-[#1D4ED8] uppercase tracking-wider mb-2">
-                추천 뷰포인트
+                {t("aiInfo.viewpoints")}
               </p>
               <ul className="space-y-1.5">
                 {poi.viewpoint.map((v, i) => (
@@ -253,7 +259,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
           )}
 
           {/* AI 로딩 */}
-          {loading && <AILoadingState placeName={poi.name} />}
+          {loading && <AILoadingState placeName={localizedPlaceName(poi.name, locale)} />}
 
           {info && (
             <>
@@ -286,7 +292,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {info.right_now && (
                 <div className="rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] p-3.5">
                   <p className="text-[10px] font-semibold text-[#15803D] uppercase tracking-wider mb-1">
-                    지금 방문하기
+                    {t("aiInfo.rightNow")}
                   </p>
                   <p className="text-[12px] text-[#166534] leading-relaxed">{info.right_now}</p>
                 </div>
@@ -295,7 +301,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {/* 요약 — 타이프라이터 */}
               <div>
                 <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-2">
-                  서울로의 소개
+                  {t("aiInfo.intro")}
                 </p>
                 <p className="text-[13px] text-[#1A1E2E] leading-relaxed">
                   {displayed}
@@ -308,7 +314,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {/* 주요 볼거리 */}
               <div>
                 <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-2">
-                  행동 추천
+                  {t("aiInfo.actions")}
                 </p>
                 <ul className="space-y-2">
                   {(info.highlights ?? []).map((h, i) => (
@@ -328,7 +334,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {info.viewpoint_guide && (
                 <div className="rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] p-3.5">
                   <p className="text-[10px] font-semibold text-[#15803D] uppercase tracking-wider mb-1.5">
-                    야경 감상 가이드
+                    {t("aiInfo.nightGuide")}
                   </p>
                   <p className="text-[12px] text-[#166534] leading-relaxed">
                     {info.viewpoint_guide}
@@ -340,7 +346,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {(info.best_time || info.crowd_tip) && (
                 <div className="rounded-xl bg-[#FFFBEB] border border-[#FDE68A] p-3.5 space-y-2.5">
                   <p className="text-[10px] font-semibold text-[#92400E] uppercase tracking-wider">
-                    방문 Tip
+                    {t("aiInfo.visitTip")}
                   </p>
                   {info.best_time && (
                     <div className="flex gap-2 text-[12px] text-[#78350F]">
@@ -358,7 +364,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {/* 탐험 팁 */}
               <div className="rounded-xl bg-[#F0F9FF] border border-[#BAE6FD] p-3.5">
                 <p className="text-[10px] font-semibold text-[#0369A1] uppercase tracking-wider mb-1.5">
-                  현지인이 알려주는 Tip
+                  {t("aiInfo.localTip")}
                 </p>
                 <p className="text-[12px] text-[#0C4A6E] leading-relaxed">{info.tip}</p>
               </div>
@@ -367,7 +373,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {info.nearby && info.nearby.length > 0 && (
                 <div>
                   <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-2">
-                    함께 가볼 만한 곳
+                    {t("aiInfo.nearby")}
                   </p>
                   <div className="flex gap-2 flex-wrap">
                     {info.nearby.map((n, i) => (
@@ -387,7 +393,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               {info.event_pick && (
                 <div className="rounded-xl bg-[#FFFBEB] border border-[#FDE68A] p-3.5">
                   <p className="text-[10px] font-semibold text-[#92400E] uppercase tracking-wider mb-1.5">
-                    서울로의 행사 추천
+                    {t("aiInfo.eventPick")}
                   </p>
                   <p className="text-[12px] text-[#78350F] leading-relaxed">{info.event_pick}</p>
                 </div>
@@ -398,10 +404,10 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wider">
-                      인근 문화 행사
+                      {t("aiInfo.nearbyEvents")}
                     </p>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#DCFCE7] text-[#15803D]">
-                      서울시 공공데이터
+                      {t("aiInfo.publicData")}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -440,7 +446,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
                               rel="noopener noreferrer"
                               className="text-[10px] text-[#2563EB] underline"
                             >
-                              상세보기
+                              {t("aiInfo.details")}
                             </a>
                           )}
                         </div>
@@ -451,7 +457,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
               )}
 
               <p className="text-[9px] text-[#D1CEC7] text-center pt-1">
-                AI 생성 콘텐츠 · 참고용 · 문화행사는 서울시 공공데이터 기준
+                {t("aiInfo.disclaimer")}
               </p>
             </>
           )}

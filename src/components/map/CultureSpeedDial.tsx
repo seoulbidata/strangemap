@@ -2,21 +2,16 @@
 
 import { useState, useRef, useEffect } from "react";
 import { CULTURE_CATEGORIES, CATEGORY_COLOR, type CultureCategory } from "@/lib/cultureCategories";
+import { useLocale } from "@/i18n/LocaleContext";
+import { categoryLabel } from "@/i18n/enums";
 
 interface Props {
   activeCategory: CultureCategory | null;
   onSelectCategory: (cat: CultureCategory | null) => void;
 }
 
-const CATEGORY_LABEL: Record<CultureCategory, string> = {
-  공연: "공연",
-  전시: "전시",
-  "교육/체험": "교육/체험",
-  축제: "축제",
-  음악: "음악",
-};
-
 export default function CultureSpeedDial({ activeCategory, onSelectCategory }: Props) {
+  const { t, locale } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -76,7 +71,7 @@ export default function CultureSpeedDial({ activeCategory, onSelectCategory }: P
             border: `2px solid ${spanBorder}`,
           }}
         />
-        {activeCategory ? CATEGORY_LABEL[activeCategory] : "문화행사 위치"}
+        {activeCategory ? categoryLabel(activeCategory, locale) : t("map.cultureToggle")}
         <span
           className="text-[10px] ml-0.5 transition-transform duration-200 inline-block"
           style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
@@ -110,7 +105,7 @@ export default function CultureSpeedDial({ activeCategory, onSelectCategory }: P
                   : "ease-in",
               }}
             >
-              {CATEGORY_LABEL[cat]}
+              {categoryLabel(cat, locale)}
             </button>
           );
         })}

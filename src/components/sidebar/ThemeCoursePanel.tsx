@@ -14,7 +14,7 @@ const DIFFICULTY_STYLE = {
   "어려움": { bg: "#FFF1F2", text: "#DC2626", border: "#FECDD3" },
 };
 
-const CATEGORIES = ["전체", "역사", "야경/자연", "서울배경 컨텐츠", "Hot플레이스", "문화"] as const;
+const CATEGORIES = ["전체", "역사", "야경/자연", "서울배경 컨텐츠", "Hot플레이스", "문화", "로컬", "운동"] as const;
 type FilterCategory = (typeof CATEGORIES)[number];
 
 export default function ThemeCoursePanel({ onSelectCourse, activeCourseId }: Props) {

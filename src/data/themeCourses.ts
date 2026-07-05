@@ -1,4 +1,4 @@
-export type CourseCategory = "역사" | "야경/자연" | "서울배경 컨텐츠" | "Hot플레이스" | "문화" ;
+export type CourseCategory = "역사" | "야경/자연" | "서울배경 컨텐츠" | "Hot플레이스" | "문화" | "로컬" | "운동";
 
 /**
  * 광고 효과 태그 (수익화: 코스 동선 내 소상공인 매장 간접 광고)
@@ -61,6 +61,8 @@ export const CATEGORY_META: Record<CourseCategory | "전체", { label: string; c
   "서울배경 컨텐츠":{ label: "서울배경 컨텐츠", color: "#6D28D9", bg: "#F5F3FF", border: "#DDD6FE" },
   "Hot플레이스":    { label: "Hot플레이스",    color: "#B45309", bg: "#FFFBEB", border: "#FDE68A" },
   "문화":           { label: "문화",           color: "#0F766E", bg: "#F0FDFA", border: "#99F6E4" },
+  "로컬":           { label: "로컬",           color: "#BE185D", bg: "#FDF2F8", border: "#FBCFE8" },
+  "운동":           { label: "운동",           color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
 };
 
 // 코스 데이터 본체 — /dev/route-editor 에디터가 저장 시 재직렬화하는 생성 파일로 분리됨.

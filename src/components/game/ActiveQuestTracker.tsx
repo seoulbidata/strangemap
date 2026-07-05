@@ -1,6 +1,7 @@
 "use client";
 
 import type { StoryQuest } from "@/types/quest";
+import { useLocale } from "@/i18n/LocaleContext";
 
 interface Props {
   quest: StoryQuest;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function ActiveQuestTracker({ quest, currentIndex, onFocusObjective, onAbandon }: Props) {
+  const { t } = useLocale();
   const current = quest.objectives[currentIndex];
   const progress = Math.round((currentIndex / quest.objectives.length) * 100);
 
@@ -19,11 +21,11 @@ export default function ActiveQuestTracker({ quest, currentIndex, onFocusObjecti
         {/* 헤더 */}
         <div className="px-4 pt-3 pb-2 border-b border-[#E5E1D8]">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-display tracking-[0.2em] text-[#9CA3AF] uppercase">진행 중인 퀘스트</span>
+            <span className="text-[9px] font-display tracking-[0.2em] text-[#9CA3AF] uppercase">{t("quest.active")}</span>
             <button
               onClick={onAbandon}
               className="text-[11px] text-[#9CA3AF] hover:text-[#6B7280] px-1 transition-colors"
-              title="퀘스트 종료"
+              title={t("quest.end")}
             >
               ✕
             </button>
@@ -48,7 +50,7 @@ export default function ActiveQuestTracker({ quest, currentIndex, onFocusObjecti
           <div className="px-4 py-3 bg-[#F0F9FF] border-b border-[#E0F2FE]">
             <div className="flex items-center gap-1.5 text-[10px] text-[#0369A1] font-semibold mb-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse inline-block" />
-              다음 목적지
+              {t("quest.nextDest")}
             </div>
             <div className="text-sm font-bold text-[#1A1E2E]">{current.title}</div>
             <div className="text-[11px] text-[#6B7280] mt-1 leading-relaxed">{current.hint}</div>

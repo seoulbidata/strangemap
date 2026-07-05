@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import type { POIItem } from "@/app/api/poi/route";
 import { CULTURE_CATEGORIES, type CultureCategory } from "@/lib/cultureCategories";
 import { FeedShell, FeedHeader, FilterPills, FeedCard, HeroChip } from "./_feedKit";
+import { useLocale } from "@/i18n/LocaleContext";
+import { categoryLabel } from "@/i18n/enums";
 
 interface Props {
   pois: POIItem[];
@@ -11,6 +13,7 @@ interface Props {
 }
 
 export default function CulturePanel({ pois, onSelectPOI }: Props) {
+  const { t, locale } = useLocale();
   const [activeCategory, setActiveCategory] = useState<CultureCategory | "전체">("전체");
   const [showFreeOnly, setShowFreeOnly] = useState(false);
 
@@ -34,11 +37,16 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
 
   return (
     <FeedShell>
-      <FeedHeader title="문화행사" subtitle="서울시 실시간 문화행사 정보" />
+      <FeedHeader title={t("culture.title")} subtitle={t("culture.subtitle")} />
 
       {/* 카테고리 필터 */}
       <div className="px-5 pb-3 md:pt-0 pt-5 space-y-3">
-        <FilterPills options={allCategories} value={activeCategory} onChange={setActiveCategory} />
+        <FilterPills
+          options={allCategories}
+          value={activeCategory}
+          onChange={setActiveCategory}
+          renderLabel={(v) => categoryLabel(v, locale)}
+        />
         <label className="flex items-center gap-2 cursor-pointer">
           <div
             onClick={() => setShowFreeOnly((v) => !v)}
@@ -48,7 +56,7 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
               className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${showFreeOnly ? "left-4" : "left-0.5"}`}
             />
           </div>
-          <span className="text-[12px] text-[#8B8678]">무료 행사만</span>
+          <span className="text-[12px] text-[#8B8678]">{t("culture.freeOnly")}</span>
         </label>
       </div>
 
@@ -56,11 +64,11 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-2 pb-4">
         {culturePOIs.length === 0 ? (
           <p className="text-[13px] text-[#A8A398] text-center mt-16 leading-relaxed">
-            해당 조건의 행사가 없습니다
+            {t("culture.empty")}
           </p>
         ) : (
           <>
-            <p className="text-[11px] text-[#A8A398] pb-3">{culturePOIs.length}개 행사</p>
+            <p className="text-[11px] text-[#A8A398] pb-3">{t("culture.count", { n: culturePOIs.length })}</p>
             <div className="space-y-5">
               {culturePOIs.map((poi) => {
                 const isFree = poi.fee === "무료" || !poi.fee;
@@ -72,12 +80,12 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={poi.thumbnail} alt={poi.name} className="w-full h-full object-cover" />
                         <div className="absolute top-3.5 left-3.5">
-                          <HeroChip>{poi.normalizedCategory ?? poi.category}</HeroChip>
+                          <HeroChip>{categoryLabel(poi.normalizedCategory ?? poi.category, locale)}</HeroChip>
                         </div>
                         {isFree && (
                           <div className="absolute top-3.5 right-3.5">
                             <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#16A34A] text-white">
-                              무료
+                              {t("common.free")}
                             </span>
                           </div>
                         )}
@@ -89,10 +97,10 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
                       {/* 썸네일이 없으면 카테고리/무료 배지를 본문 상단에 */}
                       {!poi.thumbnail && (
                         <div className="flex items-center gap-1.5 mb-2">
-                          <HeroChip>{poi.normalizedCategory ?? poi.category}</HeroChip>
+                          <HeroChip>{categoryLabel(poi.normalizedCategory ?? poi.category, locale)}</HeroChip>
                           {isFree && (
                             <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#16A34A] text-white">
-                              무료
+                              {t("common.free")}
                             </span>
                           )}
                         </div>

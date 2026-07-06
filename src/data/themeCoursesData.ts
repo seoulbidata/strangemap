@@ -862,44 +862,6 @@ export const THEME_COURSES_DATA: ThemeCourse[] = [
     ]
   },
   {
-    "id": "seongbuk-date-couese",
-    "title": "성북동 데이트코스",
-    "subtitle": "성북동에서 하는 데이트 총 집합!!",
-    "description": "추후작성",
-    "totalDuration": "6시간",
-    "distance": "약 5.9km",
-    "difficulty": "보통",
-    "tags": [
-      "데이트",
-      "성북동"
-    ],
-    "color": "#2563eb",
-    "category": "문화",
-    "estimatedCost": "5만원 내외",
-    "bestTime": "오후2시~",
-    "stops": [
-      {
-        "name": "바게트 빌리지",
-        "lat": 37.593888,
-        "lng": 127.0164253,
-        "preview": "데이트 시작전 가볍게 빵부터 먹고 가요.",
-        "description": "추후작성",
-        "duration": "30분",
-        "tip": "추후작성"
-      },
-      {
-        "name": "북악 팔각정",
-        "lat": 37.6012538,
-        "lng": 126.9800747,
-        "preview": "추후작성",
-        "description": "추후작성",
-        "duration": "30분",
-        "tip": "추후작성"
-      }
-    ],
-    "mediaTitle": "데이트 코스"
-  },
-  {
     "id": "aespa-recommend",
     "title": "에스파픽 성수 맛집 투어",
     "subtitle": "감성과 미식이 공존하는, 성수에서 즐기는 에스파픽 맛집 투어",

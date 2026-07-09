@@ -4,6 +4,7 @@ import type { POIItem } from "@/app/api/poi/route";
 import { useLocale } from "@/i18n/LocaleContext";
 import { categoryLabel } from "@/i18n/enums";
 import { localizedPlaceName } from "@/i18n/placeNames";
+import { localizedNightField } from "@/i18n/nightInfo";
 
 interface Props {
   poi: POIItem;
@@ -16,6 +17,15 @@ interface Props {
 export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTarget }: Props) {
   const { t, locale } = useLocale();
   const isNight = poi.source === "nightview";
+
+  // 야경명소는 상세 정보(주소·운영시간·지하철·요금)를 영문 오버레이로 치환한다.
+  // 미등록 장소·필드는 한글 원문이 그대로 유지된다(fallback).
+  const place = isNight ? localizedNightField(poi.name, "place", poi.place, locale) : poi.place;
+  const hours = isNight
+    ? localizedNightField(poi.name, "operating_time", poi.operating_time, locale)
+    : poi.operating_time;
+  const subway = isNight ? localizedNightField(poi.name, "subway", poi.subway, locale) : poi.subway;
+  const fee = isNight ? localizedNightField(poi.name, "fee", poi.fee, locale) : poi.fee;
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[360px] max-w-[92vw] z-20 animate-fade-up max-md:bottom-[92px] max-md:w-[calc(100vw-40px)] max-md:max-w-[340px]">
@@ -93,7 +103,7 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
           <div className="mt-2.5 space-y-1 text-[12px] text-[#6B7280]">
             <div className="flex gap-1.5">
               <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.loc")}</span>
-              <span className="text-[#1A1E2E]">{poi.place}</span>
+              <span className="text-[#1A1E2E]">{place}</span>
             </div>
             {poi.date && (
               <div className="flex gap-1.5">
@@ -101,21 +111,21 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
                 <span className="text-[#1A1E2E]">{poi.date}</span>
               </div>
             )}
-            {poi.operating_time && (
+            {hours && (
               <div className="flex gap-1.5">
                 <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.hours")}</span>
-                <span className="text-[#1A1E2E]">{poi.operating_time}</span>
+                <span className="text-[#1A1E2E]">{hours}</span>
               </div>
             )}
-            {poi.subway && (
+            {subway && (
               <div className="flex gap-1.5">
                 <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.subway")}</span>
-                <span className="text-[#1A1E2E]">{poi.subway}</span>
+                <span className="text-[#1A1E2E]">{subway}</span>
               </div>
             )}
             <div className="flex gap-1.5">
               <span className="text-[#9CA3AF] w-12 shrink-0">{t("placeCard.fee")}</span>
-              <span className="text-[#1A1E2E]">{poi.fee || t("common.noInfo")}</span>
+              <span className="text-[#1A1E2E]">{fee || t("common.noInfo")}</span>
             </div>
           </div>
 

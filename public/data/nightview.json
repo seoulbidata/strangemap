@@ -679,6 +679,23 @@
     "nightCategory": "한강·다리"
   },
   {
+    "id": "38",
+    "name": "흥인지문공원",
+    "category": "문화/체육",
+    "lat": 37.5719236,
+    "lng": 127.0090775,
+    "place": "서울특별시 종로구 종로6가 70",
+    "operating_time": "연중무휴",
+    "fee": "무료",
+    "subway": "지하철 1호선 동대문역 1번 출구, 4호선 동대문역 10번 출구 도보 이용",
+    "url": "https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=cdf4fd57-025d-4ba5-a4ee-78949b670d2c",
+    "tel": "(종로구청 문화관광과) 02-2148-1114",
+    "bus": "동대문 정류장 하차 도보 이용",
+    "parking": null,
+    "image": "/nightview/38.jpg",
+    "nightCategory": "공원·정원"
+  },
+  {
     "id": "39",
     "name": "서울식물원",
     "category": "공원/광장",

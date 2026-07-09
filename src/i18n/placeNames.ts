@@ -161,6 +161,7 @@ export const PLACE_NAME_EN: Record<string, string> = {
   "덕수궁 돌담길": "Deoksugung Stonewall Walkway",
   "동대문디자인플라자(DDP)": "Dongdaemun Design Plaza (DDP)",
   "동작대교": "Dongjak Bridge",
+  "흥인지문공원": "Heunginjimun Park",
   "뚝섬 공원": "Ttukseom Park",
   "마포대교": "Mapo Bridge",
   "마포새빛문화숲": "Mapo Saebit Culture Forest",

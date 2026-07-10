@@ -82,7 +82,7 @@ export default function MobileMapControls({
             onClick={() => onOpenTab("search")}
             className="pointer-events-auto flex-1 h-14 rounded-full bg-white/95 border border-[#FDECC8] shadow-[0_4px_20px_rgba(0,0,0,0.08)] px-4 flex items-center gap-3 active:scale-[0.98] transition-transform backdrop-blur-md"
           >
-            <Image src="/icons/logo.png" alt="Seoulro" width={28} height={28} className="rounded-lg shrink-0" />
+            <Image src="/icons/logo.png" alt="Seoulro" width={28} height={28} className="rounded-lg shrink-0" priority />
             <span className="min-w-0 flex-1 text-left text-base font-semibold text-[#6B7280]">
               {t("mobile.searchBar")}
             </span>

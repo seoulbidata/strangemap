@@ -189,6 +189,7 @@ export const PLACE_NAME_EN: Record<string, string> = {
   "이태원 부군당 역사공원": "Itaewon Bugundang History Park",
   "인왕산(무무대 전망대)": "Inwangsan (Mumudae Observatory)",
   "잠원한강공원 그라스정원": "Jamwon Hangang Park Grass Garden",
+  "테크노마트 하늘공원": "Technomart Sky Garden",
   "하늘공원(월드컵공원내)": "Haneul Park (World Cup Park)",
 };
 

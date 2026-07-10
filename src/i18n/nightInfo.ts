@@ -27,6 +27,14 @@ export const NIGHT_INFO_EN: Record<string, NightInfoEn> = {
       "Dongdaemun Stn. (Line 1) Exit 1, or Dongdaemun Stn. (Line 4) Exit 10, then a short walk",
     bus: "Get off at the Dongdaemun stop and walk",
   },
+  "테크노마트 하늘공원": {
+    place: "85 Gwangnaru-ro 56-gil, Gwangjin-gu, Seoul (Gangbyeon Technomart rooftop)",
+    operating_time: "10:00 – 22:00 (rooftop garden hours; may vary with building operations)",
+    fee: "Free",
+    subway:
+      "Gangbyeon Stn. (Line 2) Exit 1, via the connecting passage to Gangbyeon Technomart",
+    bus: "Get off at the Gangbyeon Stn. / Gangbyeon Technomart stop and walk",
+  },
 };
 
 /**

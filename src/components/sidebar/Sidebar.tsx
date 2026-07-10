@@ -82,7 +82,7 @@ export default function Sidebar({
       <div className="w-[72px] bg-white border-r border-[#FDECC8] flex flex-col shadow-sm pointer-events-auto">
         {/* 로고 */}
         <div className="h-16 flex items-center justify-center border-b border-[#FDECC8] shrink-0">
-          <Image src="/icons/logo.png" alt="서울로" width={48} height={48} className="rounded-lg" />
+          <Image src="/icons/logo.png" alt="서울로" width={48} height={48} className="rounded-lg" priority />
         </div>
 
         {/* 탭 버튼 */}

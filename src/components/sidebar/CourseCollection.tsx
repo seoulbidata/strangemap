@@ -6,6 +6,7 @@ import { buildDraftFromSuggestions, isAIDraft, type AISuggestion } from "@/lib/a
 import { courseHeroBackground } from "@/lib/courseImage";
 import { useCourseCollection } from "@/hooks/useCourseCollection";
 import type { AIQuestCache } from "./AIQuestPanel";
+import { SELECTABLE_ZONES, type SelectableZone } from "@/lib/seoulPlaces";
 import { useLocale, type Locale } from "@/i18n/LocaleContext";
 import { categoryLabel, chipLabel } from "@/i18n/enums";
 import { getCourseText } from "@/i18n/courseText";
@@ -278,7 +279,7 @@ type CompanionType = "혼자" | "친구" | "커플" | "가족";
 type AgeGroupType = "10-20대" | "20-30대" | "30-40대" | "40-50대" | "60대 이상";
 type TimeType = "오전" | "오후" | "밤";
 type PurposeType = "힐링" | "놀거리" | "데이트" | "관광" | "문화생활";
-type RegionType = "강북" | "강서" | "강남" | "강동" | "상관없음";
+type RegionType = SelectableZone | "상관없음";
 type CongestionType = "여유" | "보통" | "상관없음";
 type PlaceCountType = "3곳" | "4곳" | "5곳";
 
@@ -355,7 +356,7 @@ function CourseCreateForm({
         <ChipGroup label={t("courseForm.age")} options={["10-20대", "20-30대", "30-40대", "40-50대", "60대 이상"]} value={ageGroup} onChange={sync<AgeGroupType>(setAgeGroup, "ageGroup")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
         <ChipGroup label={t("courseForm.time")} options={["오전", "오후", "밤"]} value={time} onChange={sync<TimeType>(setTime, "time")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
         <ChipGroup label={t("courseForm.purpose")} options={["힐링", "놀거리", "데이트", "관광", "문화생활"]} value={purpose} onChange={sync<PurposeType>(setPurpose, "purpose")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
-        <ChipGroup label={t("courseForm.region")} options={["강북", "강서", "강남", "강동", "상관없음"]} value={region} onChange={sync<RegionType>(setRegion, "region")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
+        <ChipGroup label={t("courseForm.region")} options={[...SELECTABLE_ZONES, "상관없음"]} value={region} onChange={sync<RegionType>(setRegion, "region")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
         <ChipGroup label={t("courseForm.congestion")} options={["여유", "보통", "상관없음"]} value={congestion} onChange={sync<CongestionType>(setCongestion, "congestion")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
         <ChipGroup label={t("courseForm.placeCount")} options={["3곳", "4곳", "5곳"]} value={placeCount} onChange={sync<PlaceCountType>(setPlaceCount, "placeCount")} disabled={loading} renderLabel={(v) => chipLabel(v, locale)} />
 

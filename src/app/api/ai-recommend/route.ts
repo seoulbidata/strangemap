@@ -76,21 +76,11 @@ function isAcceptableCongestion(level: CongestionLevel, pref: string): boolean {
   return true;
 }
 
-// 좌표 기반 서울 권역 분류
-// 강동: lng >= 127.05 (성수, 건대, 잠실 등)
-// 강서: lng < 126.94  (홍대, 마포, 여의도 등)
-// 강남: lat < 37.52, 나머지 (강남역, 선릉, 서초 등)
-// 강북: lat >= 37.52, 나머지 (경복궁, 광화문, 인사동, 명동 등)
-function getRegion(lat: number, lng: number): string {
-  if (lng >= 127.05) return "강동";
-  if (lng < 126.94)  return "강서";
-  if (lat < 37.52)   return "강남";
-  return "강북";
-}
-
-function matchesRegion(lat: number, lng: number, regionPref: string): boolean {
+// 권역(존) 필터 — 장소별 명시 매핑(SeoulPlace.zone) 기준.
+// "상관없음"이면 외곽(zone: "기타") 장소까지 전부 후보에 포함된다.
+function matchesRegion(zone: string, regionPref: string): boolean {
   if (regionPref === "상관없음") return true;
-  return getRegion(lat, lng) === regionPref;
+  return zone === regionPref;
 }
 
 // 시간대 → 영업시간(operatingHours) 적합성
@@ -135,7 +125,7 @@ async function buildCandidatePlaces(
   const apiKey = process.env.SEOUL_API_KEY;
 
   // 1) 권역 필터
-  const inRegion = SEOUL_PLACES.filter((p) => matchesRegion(p.lat, p.lng, regionPref));
+  const inRegion = SEOUL_PLACES.filter((p) => matchesRegion(p.zone, regionPref));
 
   // 2) 시간대 필터(영업시간) — 너무 적게 남으면(6곳 미만) 완화해 빈손 방지
   const timeFiltered = inRegion.filter((p) => isOpenForTime(p.operatingHours, time));
@@ -280,11 +270,21 @@ export async function POST(req: NextRequest) {
     // 로컬 사용량 카운트 증가
     incrementAIUsage();
 
-    // 화이트리스트 검증: 응답 장소가 실제 후보 목록에 있는지 확인
+    // 화이트리스트 검증 + 중복 제거: 응답 장소를 후보 목록의 장소로 해석하고,
+    // 같은 장소로 해석되는 응답은 첫 번째만 남긴다(후보가 적으면 AI가 같은 곳을 반복 추천하는 경우가 있음).
     const validNames = new Set(candidates.map((c) => c.displayName));
-    const validated = suggestions.filter((s) =>
-      validNames.has(s.place) || candidates.some((c) => s.place.includes(c.displayName))
-    );
+    const resolvePlace = (name: string): string | null => {
+      if (validNames.has(name)) return name;
+      const hit = candidates.find((c) => name.includes(c.displayName));
+      return hit ? hit.displayName : null;
+    };
+    const seenPlaces = new Set<string>();
+    const validated = suggestions.filter((s) => {
+      const resolved = resolvePlace(s.place);
+      if (!resolved || seenPlaces.has(resolved)) return false;
+      seenPlaces.add(resolved);
+      return true;
+    });
 
     const final = validated.length > 0 ? validated : suggestions; // 검증 실패해도 AI 결과 사용
     _suggestCache.set(cacheKey, { data: final, ts: Date.now() });

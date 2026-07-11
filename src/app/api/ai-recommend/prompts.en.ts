@@ -50,8 +50,15 @@ const PURPOSE_PROMPT: Record<string, string> = {
   "관광": "sightseeing", "문화생활": "cultural experiences", "운동": "being active",
 };
 const REGION_PROMPT: Record<string, string> = {
-  "강북": "northern Seoul (Gangbuk)", "강서": "western Seoul (Gangseo)",
-  "강남": "southern Seoul (Gangnam)", "강동": "eastern Seoul (Gangdong)",
+  "종로·중구": "the Jongno & Jung-gu area (old-town palaces and downtown)",
+  "강북·성북": "the Gangbuk & Seongbuk area (northeastern Seoul)",
+  "홍대·마포": "the Hongdae & Mapo area",
+  "용산·이태원": "the Yongsan & Itaewon area",
+  "여의도·영등포": "the Yeouido & Yeongdeungpo area",
+  "강남·서초": "the Gangnam & Seocho area",
+  "성수·건대": "the Seongsu & Konkuk Univ. area",
+  "잠실·송파": "the Jamsil & Songpa area",
+  "관악·사당": "the Gwanak & Sadang area",
 };
 
 // ── Prompt builder ───────────────────────────────────────────────────────────

@@ -50,6 +50,90 @@ html, body {
   100% { box-shadow: 0 0 0 0 rgba(254, 156, 0, 0); }
 }
 
+/* 코스 시작점 마커 — 히어로 썸네일 원형 + 테마색 링(--c) + 크림 외곽 + 펄스 */
+.crs-start {
+  position: relative;
+  cursor: pointer;
+  filter: drop-shadow(0 3px 8px rgba(22, 36, 60, 0.28));
+  transition: transform 0.18s ease;
+  transform-origin: 50% 100%;
+}
+.crs-start:hover { transform: scale(1.15); }
+.crs-start-ring {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid var(--c);
+  box-shadow: 0 0 0 2.5px #FFFBF0;
+  overflow: hidden;
+  background: #16243C;
+  animation: crs-pulse 2.8s ease-out infinite;
+}
+.crs-start-img {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+}
+.crs-start-count {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FE9C00;
+  font-weight: 800;
+  font-size: 17px;
+  font-family: system-ui, sans-serif;
+}
+.crs-start-tail {
+  width: 0;
+  height: 0;
+  margin: -2px auto 0;
+  border: 7px solid transparent;
+  border-top: 9px solid var(--c);
+  border-bottom: 0;
+}
+.crs-start-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  background: #16243C;
+  color: #FFFBF0;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: system-ui, sans-serif;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1.5px solid #FE9C00;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.crs-start:hover .crs-start-label { opacity: 1; }
+.crs-start.is-dimmed { opacity: 0.55; }
+.crs-start.is-dimmed .crs-start-ring { animation: none; }
+/* 줌 아웃(≤10) 시 16px 테마색 dot로 축약 */
+.crs-start.is-tiny {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--c);
+  border: 2.5px solid #FFFBF0;
+  box-shadow: 0 1px 4px rgba(22, 36, 60, 0.35);
+}
+@keyframes crs-pulse {
+  0%   { box-shadow: 0 0 0 2.5px #FFFBF0, 0 0 0 2.5px color-mix(in srgb, var(--c) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 2.5px #FFFBF0, 0 0 0 12px transparent; }
+  100% { box-shadow: 0 0 0 2.5px #FFFBF0, 0 0 0 2.5px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crs-start-ring { animation: none; }
+  .crs-start { transition: none; }
+}
+
 .animate-fade-up { animation: fade-up 220ms ease-out both; }
 
 /* 깔끔한 카드 패널 */

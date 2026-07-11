@@ -85,6 +85,7 @@ export const en = {
   "map.marker.alightTransfer": "Get off at {name} (transfer)",
   "map.marker.transfer": "Transfer",
   "map.marker.busPrefix": "Bus {name}",
+  "map.marker.startCluster": "View {count} courses in this area",
 
   // ── 검색 패널 ─────────────────────────────────────────────────────────────
   "search.title": "Search",

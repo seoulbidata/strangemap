@@ -4,7 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import Script from "next/script";
 import type { POIItem } from "@/app/api/poi/route";
 import type { StoryQuest } from "@/types/quest";
-import type { ThemeCourse } from "@/data/themeCourses";
+import { THEME_COURSES, type ThemeCourse } from "@/data/themeCourses";
 import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
 import CourseStopCard from "@/components/game/CourseStopCard";
@@ -12,6 +12,14 @@ import AIInfoPanel from "@/components/game/AIInfoPanel";
 import CourseDetailPanel from "@/components/map/CourseDetailPanel";
 import { useCourseCollection } from "@/hooks/useCourseCollection";
 import { RouteFlowAnimator, type FlowNaverApi } from "@/lib/routeFlow";
+import {
+  buildStartMarkerHTML,
+  buildClusterMarkerHTML,
+  groupStartPoints,
+  startMarkerAnchor,
+  type StartCluster,
+} from "@/lib/courseStartMarkers";
+import { getCourseText } from "@/i18n/courseText";
 import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { fetchLibrarySegment } from "@/lib/segmentLibrary";
 import Sidebar from "@/components/sidebar/Sidebar";
@@ -61,6 +69,7 @@ type NaverProjection = {
 type NaverMap = {
   panTo: (position: NaverLatLng) => void;
   setZoom: (zoom: number) => void;
+  getZoom: () => number;
   setOptions: (options: Record<string, unknown>) => void;
   fitBounds: (bounds: NaverLatLngBounds, padding?: Record<string, number>) => void;
   getProjection: () => NaverProjection;
@@ -107,7 +116,7 @@ function getReverseGeocodeAddress(response: NaverReverseGeocodeResponse, fallbac
 }
 
 export default function MapView() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<NaverMap | null>(null);
   const allPOIs = useRef<POIItem[]>([]);
@@ -115,6 +124,7 @@ export default function MapView() {
   const cultureMarkersRef = useRef<NaverOverlay[]>([]);
   const questMarkersRef = useRef<NaverOverlay[]>([]);
   const courseMarkersRef = useRef<NaverOverlay[]>([]);
+  const startMarkersRef = useRef<NaverOverlay[]>([]);
   const coursePolylinesRef = useRef<NaverOverlay[]>([]);
   const courseArrowsRef = useRef<NaverOverlay[]>([]);
   const courseFlowRef = useRef<RouteFlowAnimator[]>([]);
@@ -135,6 +145,7 @@ export default function MapView() {
   const [detailCourse, setDetailCourse] = useState<ThemeCourse | null>(null);
   const { drafts: courseDrafts, addDraft, removeDraft } = useCourseCollection();
   const [mapReady, setMapReady] = useState(false);
+  const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM);
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   const [dest, setDest] = useState<{ lat: number; lng: number } | null>(null);
   const [presetDest, setPresetDest] = useState<{ label: string; lat: number; lng: number } | null>(null);
@@ -183,6 +194,11 @@ export default function MapView() {
       mapDataControl: false,
     });
 
+    const map = mapInstance.current;
+    window.naver.maps.Event.addListener(map, "zoom_changed", () => {
+      setMapZoom(map.getZoom());
+    });
+
     setMapReady(true);
     fetchAllPOIs();
   }
@@ -223,6 +239,74 @@ export default function MapView() {
     courseFlowRef.current.forEach((f) => f.destroy());
     courseFlowRef.current = [];
   }, []);
+
+  // 코스 시작점 마커 — 첫 진입 시 18개 코스의 stops[0]를 오버레이해 서비스 정체성 노출.
+  // 코스/퀘스트 활성 중엔 숨김, 줌<15에선 밀집 지역(광화문 일대 등)을 숫자 배지로 묶는다.
+  useEffect(() => {
+    if (!mapReady) return;
+    startMarkersRef.current.forEach((m) => m.setMap(null));
+    startMarkersRef.current = [];
+    if (activeCourse || activeQuest) return;
+
+    const naver = window.naver;
+    const opts = { dimmed: !!activeCultureCategory || showNight, tiny: mapZoom <= 10 };
+    const anchor = startMarkerAnchor(opts.tiny);
+    const { singles, clusters } =
+      mapZoom >= 15
+        ? { singles: THEME_COURSES.filter((c) => c.stops.length > 0), clusters: [] as StartCluster[] }
+        : groupStartPoints(THEME_COURSES);
+
+    singles.forEach((course) => {
+      const start = course.stops[0];
+      const marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(start.lat, start.lng),
+        map: mapInstance.current,
+        title: course.title,
+        zIndex: 60,
+        icon: {
+          content: buildStartMarkerHTML(course, getCourseText(course, locale).title, opts),
+          anchor: new naver.maps.Point(anchor.x, anchor.y),
+        },
+      });
+      naver.maps.Event.addListener(marker, "click", () => {
+        setActiveCourse(course);
+        setDetailCourse(course);
+        if (isMobile) setSidebarActiveTab(null);
+      });
+      startMarkersRef.current.push(marker);
+    });
+
+    clusters.forEach((cluster) => {
+      const marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(cluster.center.lat, cluster.center.lng),
+        map: mapInstance.current,
+        zIndex: 61,
+        icon: {
+          content: buildClusterMarkerHTML(
+            cluster.courses.length,
+            t("map.marker.startCluster", { count: cluster.courses.length }),
+            opts
+          ),
+          anchor: new naver.maps.Point(anchor.x, anchor.y),
+        },
+      });
+      naver.maps.Event.addListener(marker, "click", () => {
+        const map = mapInstance.current;
+        if (!map) return;
+        const first = new naver.maps.LatLng(cluster.courses[0].stops[0].lat, cluster.courses[0].stops[0].lng);
+        const bounds = new naver.maps.LatLngBounds(first, first);
+        cluster.courses.forEach((c) => bounds.extend(new naver.maps.LatLng(c.stops[0].lat, c.stops[0].lng)));
+        // fitBounds 결과 줌이 15를 넘어가면 zoom_changed 리스너가 개별 마커로 전개한다
+        map.fitBounds(
+          bounds,
+          isMobile
+            ? { top: 90, right: 48, bottom: 140, left: 48 }
+            : { top: 90, right: 90, bottom: 90, left: 420 }
+        );
+      });
+      startMarkersRef.current.push(marker);
+    });
+  }, [mapReady, activeCourse, activeQuest, activeCultureCategory, showNight, mapZoom, locale, isMobile, t]);
 
   // 문화행사 마커 — 카테고리 선택 시 커스텀 PNG 마커로 렌더링 (최대 100개)
   useEffect(() => {

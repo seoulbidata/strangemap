@@ -919,12 +919,13 @@ export const THEME_COURSES_DATA: ThemeCourse[] = [
     "subtitle": "철덕들은 이곳에서 사진을 찍는대요",
     "description": "추후작성",
     "totalDuration": "3시간",
-    "distance": "약 4.9km",
+    "distance": "10.3km",
     "difficulty": "보통",
     "tags": [
       "기차",
       "철도",
-      "사진명소"
+      "사진명소",
+      "따릉이"
     ],
     "color": "#2466eb",
     "category": "야경/자연",
@@ -957,6 +958,14 @@ export const THEME_COURSES_DATA: ThemeCourse[] = [
         "description": "살곶이다리 옆으로 지하철 2호선 철교와 성동교가 나란히 놓여 있어서 옛 돌다리와 지나가는 전동차가 함께 보이는 풍경을 만날 수 있어요. 중랑천을 건너는 열차와 조선시대 다리가 대비되는 구도가 인상적이에요.",
         "duration": "30분",
         "tip": "한양대역에서 도보로 이동하면 접근이 편해요"
+      },
+      {
+        "name": "청량리과선교",
+        "lat": 37.5880008,
+        "lng": 127.0547779,
+        "preview": "선로 위를 가로지르는 과선교 부감 뷰",
+        "description": "청량리 과선교 위에 서면 청량리역에서 갈라져 나온 선로들이 회기역 쪽으로 모이는 모습이 한눈에 내려다보여요. 다리 위 부감 구도라 열차가 여러 갈래 선로 중 하나로 빠져나가는 순간을 담기 좋아요.",
+        "duration": "30분"
       }
     ]
   },

@@ -137,7 +137,8 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
   useEffect(() => {
     if (!poi) return;
 
-    const cacheKey = `${locale}|${poi.id}`;
+    // id만으로는 테마코스 간 충돌(코스마다 course_0…) — name까지 포함
+    const cacheKey = `${locale}|${poi.id}|${poi.name}`;
     const cached = sessionCache.current.get(cacheKey);
     if (cached) {
       setInfo(cached);
@@ -153,12 +154,29 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
     const params = new URLSearchParams({ place: poi.name, lang: locale });
     if (poi.source === "culture") params.set("type", "culture");
     if (poi.operating_time) params.set("operating_time", poi.operating_time);
-    if (poi.fee) params.set("fee", poi.fee);
+    // 테마코스 경유지는 fee에 체류시간, place에 감성 묘사가 들어있어 요금/주소로 오인 방지
+    const isCourseStop = !!poi.courseCtx;
+    if (poi.fee && !isCourseStop) params.set("fee", poi.fee);
     if (poi.subway) params.set("subway", poi.subway);
-    if (poi.place) params.set("addr", poi.place);
+    if (poi.place && !isCourseStop) params.set("addr", poi.place);
     if (poi.lat) params.set("lat", String(poi.lat));
     if (poi.lng) params.set("lng", String(poi.lng));
     if (poi.viewpoint?.length) params.set("viewpoint", poi.viewpoint.join("||"));
+    if (poi.bus) params.set("bus", poi.bus);
+    if (poi.tel) params.set("tel", poi.tel);
+    if (poi.parking) params.set("parking", poi.parking);
+    if (poi.category) params.set("category", poi.category);
+    if (poi.nightCategory) params.set("night_category", poi.nightCategory);
+    if (poi.date) params.set("date", poi.date);
+    if (poi.endDate) params.set("end_date", poi.endDate);
+    if (poi.courseCtx) {
+      const c = poi.courseCtx;
+      params.set("course_title", c.courseTitle);
+      params.set("course_desc", c.stopDescription.slice(0, 300));
+      if (c.stopTip) params.set("course_tip", c.stopTip);
+      if (c.bestTime) params.set("course_best_time", c.bestTime);
+      if (c.duration) params.set("course_duration", c.duration);
+    }
 
     fetch(`/api/ai-info?${params.toString()}`)
       .then((r) => r.json())

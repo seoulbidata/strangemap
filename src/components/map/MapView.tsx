@@ -111,6 +111,29 @@ interface UserLocation {
   updatedAt: number;
 }
 
+/** 테마코스 경유지 → POIItem 변환 (마커 클릭·디테일 패널·이전/다음 버튼 공용).
+ *  courseCtx에 큐레이션 서사를 실어 AI 소개(ai-info) 프롬프트까지 전달한다. */
+function courseStopToPOI(course: ThemeCourse, stopIndex: number): POIItem {
+  const s = course.stops[stopIndex];
+  return {
+    id: `course_${stopIndex}`,
+    name: s.name,
+    category: "테마 코스",
+    source: "theme_course",
+    lat: s.lat,
+    lng: s.lng,
+    place: s.description,
+    fee: s.duration,
+    courseCtx: {
+      courseTitle: course.title,
+      stopDescription: s.description,
+      stopTip: s.tip,
+      bestTime: course.bestTime,
+      duration: s.duration,
+    },
+  };
+}
+
 function getReverseGeocodeAddress(response: NaverReverseGeocodeResponse, fallback: string): string {
   return response.v2?.address?.roadAddress || response.v2?.address?.jibunAddress || fallback;
 }
@@ -487,7 +510,7 @@ export default function MapView() {
       });
 
       naver.maps.Event.addListener(marker, "click", () => {
-        setSelected({ id: `course_${i}`, name: stop.name, category: "테마 코스", source: "theme_course", lat: stop.lat, lng: stop.lng, place: stop.description, fee: stop.duration } as POIItem);
+        setSelected(courseStopToPOI(activeCourse, i));
         if (isMobile) setSidebarActiveTab(null);
       });
       courseMarkersRef.current.push(marker);
@@ -1104,16 +1127,7 @@ export default function MapView() {
     const s = course.stops[stopIndex];
     if (!s) return;
     if (activeCourse?.id !== course.id) setActiveCourse(course);
-    setSelected({
-      id: `course_${stopIndex}`,
-      name: s.name,
-      category: "테마 코스",
-      source: "theme_course",
-      lat: s.lat,
-      lng: s.lng,
-      place: s.description,
-      fee: s.duration,
-    } as POIItem);
+    setSelected(courseStopToPOI(course, stopIndex));
     mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
   };
 
@@ -1467,7 +1481,7 @@ export default function MapView() {
               const idx = parseInt(selected.id.replace("course_", ""), 10);
               if (idx > 0) {
                 const s = activeCourse.stops[idx - 1];
-                setSelected({ id: `course_${idx - 1}`, name: s.name, category: "테마 코스", source: "theme_course", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
+                setSelected(courseStopToPOI(activeCourse, idx - 1));
                 mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
               }
             }}
@@ -1475,7 +1489,7 @@ export default function MapView() {
               const idx = parseInt(selected.id.replace("course_", ""), 10);
               if (idx < activeCourse.stops.length - 1) {
                 const s = activeCourse.stops[idx + 1];
-                setSelected({ id: `course_${idx + 1}`, name: s.name, category: "테마 코스", source: "theme_course", lat: s.lat, lng: s.lng, place: s.description, fee: s.duration } as POIItem);
+                setSelected(courseStopToPOI(activeCourse, idx + 1));
                 mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
               }
             }}

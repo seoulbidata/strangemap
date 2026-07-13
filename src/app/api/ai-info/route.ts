@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AIPlaceInfo, AIEvent } from "@/types/quest";
-import { SEOUL_PLACES } from "@/lib/seoulPlaces";
+import { SEOUL_PLACES, type SeoulPlace } from "@/lib/seoulPlaces";
 import { incrementAIUsage } from "@/lib/aiUsage";
 import {
   extractJsonObjectText,
   generateGeminiJsonText,
   parseJsonWithEscapedControlChars,
 } from "@/lib/gemini";
+import type { AreaStatus, AreaWeather, PromptContext } from "./types";
 import * as koKit from "./prompts.ko";
 import * as enKit from "./prompts.en";
 
@@ -16,47 +17,91 @@ const SERVER_CACHE_TTL = 30 * 60 * 1000;
 
 // ── Real data fetchers ──────────────────────────────────────────────────────
 
-async function fetchCongestionMessage(
-  placeName: string,
-  lat?: number,
-  lng?: number
-): Promise<string | null> {
-  const apiKey = process.env.SEOUL_API_KEY;
-  if (!apiKey) return null;
+/** SEOUL_PLACES 매칭 — 이름 우선, 좌표 근접 폴백. 혼잡/날씨 조회와 큐레이션 설명 주입에 공용. */
+function matchSeoulPlace(placeName: string, lat?: number, lng?: number): SeoulPlace | null {
+  const byName = SEOUL_PLACES.find(
+    (p) =>
+      p.areaName.includes(placeName) ||
+      placeName.includes(p.areaName) ||
+      p.displayName.includes(placeName) ||
+      placeName.includes(p.displayName)
+  );
+  if (byName) return byName;
 
-  // Name-based match first
-  let areaName =
-    SEOUL_PLACES.find(
-      (p) =>
-        p.areaName.includes(placeName) ||
-        placeName.includes(p.areaName) ||
-        p.displayName.includes(placeName) ||
-        placeName.includes(p.displayName)
-    )?.areaName ?? null;
-
-  // Proximity match if coords provided
-  if (!areaName && lat && lng) {
+  if (lat && lng) {
     let minDist = Infinity;
+    let nearest: SeoulPlace | null = null;
     for (const p of SEOUL_PLACES) {
       const d = (p.lat - lat) ** 2 + (p.lng - lng) ** 2;
       if (d < minDist) {
         minDist = d;
-        areaName = p.areaName;
+        nearest = p;
       }
     }
-    if (minDist > 0.005) areaName = null; // > ~500m → 무관
+    if (minDist <= 0.005) return nearest; // 근접 범위 밖이면 무관
   }
+  return null;
+}
 
-  if (!areaName) return null;
+async function fetchAreaStatus(areaName: string): Promise<AreaStatus | null> {
+  const apiKey = process.env.SEOUL_API_KEY;
+  if (!apiKey) return null;
 
   try {
     const url = `http://openapi.seoul.go.kr:8088/${apiKey}/json/citydata_ppltn/1/5/${encodeURIComponent(areaName)}`;
-    const res = await fetch(url, { next: { revalidate: 300 } });
+    const res = await fetch(url, {
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(2500),
+    });
     if (!res.ok) return null;
     const json = await res.json();
     const item = json["SeoulRtd.citydata_ppltn"]?.[0];
     if (!item) return null;
-    return `${item.AREA_CONGEST_LVL ?? "정보없음"}: ${item.AREA_CONGEST_MSG ?? ""}`;
+
+    // FCST_PPLTN — 예측 불가 시 배열이 아닌 문자열("예측값 없음")이 올 수 있음
+    const rawFcst = item.FCST_PPLTN;
+    const forecast = Array.isArray(rawFcst)
+      ? rawFcst
+          .slice(0, 4)
+          .map((f: Record<string, string>) => ({
+            time: f.FCST_TIME ?? "",
+            level: f.FCST_CONGEST_LVL ?? "",
+          }))
+          .filter((f) => f.level && f.time)
+      : [];
+
+    return {
+      level: item.AREA_CONGEST_LVL ?? "정보없음",
+      msg: item.AREA_CONGEST_MSG ?? "",
+      forecast,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 날씨 — 전체 citydata 엔드포인트(응답이 무거움). 2초 타임아웃, 실패 시 조용히 무시. */
+async function fetchAreaWeather(areaName: string): Promise<AreaWeather | null> {
+  const apiKey = process.env.SEOUL_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const url = `http://openapi.seoul.go.kr:8088/${apiKey}/json/citydata/1/5/${encodeURIComponent(areaName)}`;
+    const res = await fetch(url, {
+      next: { revalidate: 600 },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const w = json?.CITYDATA?.WEATHER_STTS?.[0];
+    if (!w) return null;
+    const weather: AreaWeather = {
+      temp: w.TEMP || undefined,
+      sky: w.SKY_STTS || undefined,
+      pcpMsg: w.PCP_MSG || undefined,
+      pm10Level: w.PM10_INDEX || undefined,
+    };
+    return weather.temp || weather.sky || weather.pcpMsg || weather.pm10Level ? weather : null;
   } catch {
     return null;
   }
@@ -138,7 +183,10 @@ async function fetchRealEvents(
 
   try {
     const url = `http://openapi.seoul.go.kr:8088/${apiKey}/json/culturalEventInfo/1/500/`;
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    const res = await fetch(url, {
+      next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(2500),
+    });
     if (!res.ok) return [];
     const data = await res.json();
     const rows: Record<string, string>[] = data?.culturalEventInfo?.row ?? [];
@@ -254,39 +302,102 @@ export async function GET(req: NextRequest) {
   const operating_time = searchParams.get("operating_time") ?? "";
   const fee = searchParams.get("fee") ?? "";
   const subway = searchParams.get("subway") ?? "";
+  const addr = searchParams.get("addr") ?? "";
+  const bus = searchParams.get("bus") ?? "";
+  const tel = searchParams.get("tel") ?? "";
+  const parking = searchParams.get("parking") ?? "";
+  const category = searchParams.get("category") ?? "";
+  const nightCategory = searchParams.get("night_category") ?? "";
+  const date = searchParams.get("date") ?? "";
+  const endDate = searchParams.get("end_date") ?? "";
   const lat = parseFloat(searchParams.get("lat") ?? "");
   const lng = parseFloat(searchParams.get("lng") ?? "");
   const viewpointRaw = searchParams.get("viewpoint") ?? "";
   const viewpoints = viewpointRaw ? viewpointRaw.split("||").filter(Boolean) : [];
   const type = searchParams.get("type") ?? "";
+  // 테마코스 큐레이션 컨텍스트 (source === "theme_course"일 때만 전달됨)
+  const courseTitle = searchParams.get("course_title") ?? "";
+  const courseDesc = (searchParams.get("course_desc") ?? "").slice(0, 300);
+  const courseTip = searchParams.get("course_tip") ?? "";
+  const courseBestTime = searchParams.get("course_best_time") ?? "";
+  const courseDuration = searchParams.get("course_duration") ?? "";
   // 출력 언어 — 미전달 시 ko(하위 호환)
   const lang: Lang = searchParams.get("lang") === "en" ? "en" : "ko";
   const kit = promptKit(lang);
 
-  // Server-side cache check — lang 포함해 언어별 응답 분리 저장
-  const cacheKey = `${lang}||${place}||${operating_time}||${fee}||${subway}||${type}`;
+  // Server-side cache check — 프롬프트에 들어가는 파라미터 전체를 키에 포함
+  // (addr/lat/lng/viewpoint 제외: place와 중복이거나 고카디널리티)
+  const cacheKey = [
+    lang, place, type, operating_time, fee, subway,
+    bus, tel, parking, category, nightCategory, date,
+    courseTitle, courseDesc,
+  ].join("||");
   const cached = _serverCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < SERVER_CACHE_TTL) {
     return NextResponse.json({ info: cached.data, cached: true });
   }
 
-  // Fetch real data in parallel
-  const [congestion, realEvents] = await Promise.allSettled([
-    fetchCongestionMessage(place, isNaN(lat) ? undefined : lat, isNaN(lng) ? undefined : lng),
+  // SEOUL_PLACES 매칭 → 혼잡/날씨 조회 + 큐레이션 설명 주입에 공용
+  const matched = matchSeoulPlace(
+    place,
+    isNaN(lat) ? undefined : lat,
+    isNaN(lng) ? undefined : lng
+  );
+
+  // Fetch real data in parallel (각 fetch에 개별 타임아웃 — 전체 레이턴시 방어)
+  const [status, weather, realEvents] = await Promise.allSettled([
+    matched ? fetchAreaStatus(matched.areaName) : Promise.resolve(null),
+    matched ? fetchAreaWeather(matched.areaName) : Promise.resolve(null),
     fetchRealEvents(isNaN(lat) ? undefined : lat, isNaN(lng) ? undefined : lng),
   ]).then((results) => [
     results[0].status === "fulfilled" ? results[0].value : null,
-    results[1].status === "fulfilled" ? results[1].value : [],
-  ] as [string | null, AIEvent[]]);
+    results[1].status === "fulfilled" ? results[1].value : null,
+    results[2].status === "fulfilled" ? results[2].value : [],
+  ] as [AreaStatus | null, AreaWeather | null, AIEvent[]]);
+
+  if (status && weather) status.weather = weather;
 
   const nearbyPlaces =
     !isNaN(lat) && !isNaN(lng) ? findNearbyPlaces(lat, lng, place) : [];
 
-  const prompt = kit.buildPrompt(place, operating_time, fee, subway, viewpoints, congestion, realEvents, type);
+  const promptCtx: PromptContext = {
+    place,
+    type: type || undefined,
+    operating_time: operating_time || undefined,
+    fee: fee || undefined,
+    subway: subway || undefined,
+    addr: addr || undefined,
+    bus: bus || undefined,
+    tel: tel || undefined,
+    parking: parking || undefined,
+    category: category || nightCategory || undefined,
+    eventPeriod:
+      type === "culture" && (date || endDate)
+        ? [date, endDate].filter(Boolean).join(" ~ ")
+        : undefined,
+    viewpoints,
+    status,
+    realEvents,
+    curated: matched
+      ? { description: matched.description, category: matched.category }
+      : undefined,
+    course:
+      courseTitle || courseDesc
+        ? {
+            title: courseTitle || undefined,
+            description: courseDesc || undefined,
+            tip: courseTip || undefined,
+            bestTime: courseBestTime || undefined,
+            duration: courseDuration || undefined,
+          }
+        : undefined,
+  };
+
+  const prompt = kit.buildPrompt(promptCtx);
 
   const parsed = await callGemini(prompt, kit.SYSTEM_MSG).catch(() => null);
 
-  const right_now = kit.buildRightNow(congestion);
+  const right_now = kit.buildRightNow(status);
   const event_pick = kit.buildEventPick(realEvents);
 
   if (parsed) {

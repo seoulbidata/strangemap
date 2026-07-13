@@ -83,6 +83,7 @@ export const ko = {
   "map.marker.alightTransfer": "{name} 하차 (환승)",
   "map.marker.transfer": "환승",
   "map.marker.busPrefix": "버스 {name}",
+  "map.marker.startCluster": "이 일대 코스 {count}개 모아보기",
 
   // ── 검색 패널 ─────────────────────────────────────────────────────────────
   "search.title": "검색",

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLocale } from "@/i18n/LocaleContext";
 import { chipLabel } from "@/i18n/enums";
 import { localizedPlaceName } from "@/i18n/placeNames";
+import { SELECTABLE_ZONES, type SelectableZone } from "@/lib/seoulPlaces";
 
 interface Suggestion {
   title: string;
@@ -18,7 +19,7 @@ type CompanionType = "혼자" | "친구" | "커플" | "가족";
 type AgeGroupType = "10-20대" | "20-30대" | "30-40대" | "40-50대" | "60대 이상";
 type TimeType = "오전" | "오후" | "밤";
 type PurposeType = "힐링" | "놀거리" | "데이트" | "관광" | "운동" | "문화생활";
-type RegionType = "강북" | "강서" | "강남" | "강동" | "상관없음";
+type RegionType = SelectableZone | "상관없음";
 type CongestionType = "여유" | "보통" | "상관없음";
 
 export interface AIQuestCache {
@@ -175,7 +176,7 @@ export default function AIQuestPanel({ onSetDestination, cacheRef }: AIQuestPane
           />
           <ChipGroup
             label={t("courseForm.region")}
-            options={["강북", "강서", "강남", "강동", "상관없음"] as RegionType[]}
+            options={[...SELECTABLE_ZONES, "상관없음"] as RegionType[]}
             value={region}
             onChange={(v) => setRegion(v as RegionType)}
             colorKey="place"

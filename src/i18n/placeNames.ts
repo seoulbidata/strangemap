@@ -11,7 +11,7 @@
  */
 
 export const PLACE_NAME_EN: Record<string, string> = {
-  // ── SEOUL_PLACES (실시간 혼잡도 대상 71곳) ──────────────────────────────────
+  // ── SEOUL_PLACES (실시간 혼잡도 대상 92곳) ──────────────────────────────────
   "가락시장": "Garak Market",
   "가산디지털단지": "Gasan Digital Complex",
   "강남 코엑스": "Gangnam COEX",
@@ -82,6 +82,27 @@ export const PLACE_NAME_EN: Record<string, string> = {
   "합정": "Hapjeong",
   "홍대": "Hongdae",
   "회기": "Hoegi",
+  // 2026-07 확장분 (광장시장·청계천은 아래 관광코스 스탑 섹션에 이미 있음)
+  "DDP": "DDP (Dongdaemun Design Plaza)",
+  "가로수길": "Garosu-gil",
+  "국립중앙박물관": "National Museum of Korea",
+  "덕수궁길·정동길": "Deoksugung-gil & Jeongdong-gil",
+  "롯데월드타워·석촌호수": "Lotte World Tower & Seokchon Lake",
+  "북서울꿈의숲": "Bukseoul Dream Forest",
+  "북창동 먹자골목": "Bukchang-dong Food Alley",
+  "샤로수길": "Sharosu-gil",
+  "서대문독립공원": "Seodaemun Independence Park",
+  "서리풀공원": "Seoripul Park",
+  "송리단길": "Songnidan-gil",
+  "신촌·이대": "Sinchon & Ewha Univ. Area",
+  "암사동 유적": "Amsa-dong Prehistoric Site",
+  "압구정로데오": "Apgujeong Rodeo Street",
+  "어린이대공원": "Seoul Children's Grand Park",
+  "여의서로 벚꽃길": "Yeouiseo-ro Cherry Blossom Road",
+  "용리단길": "Yongnidan-gil",
+  "청담동 명품거리": "Cheongdam Luxury Street",
+  "해방촌·경리단길": "Haebangchon & Gyeongnidan-gil",
+  "응봉산": "Eungbongsan Mountain",
 
   // ── 관광코스 스탑 (themeCoursesData.ts) ─────────────────────────────────────
   "101번지 남산돈까스 (본점 일대)": "101beonji Namsan Donkatsu (main branch area)",

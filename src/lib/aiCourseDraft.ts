@@ -67,10 +67,15 @@ export function buildDraftFromSuggestions(
   locale: Locale = "ko"
 ): ThemeCourse | null {
   const en = locale === "en";
+  // 같은 장소로 해석되는 추천이 여러 개면 첫 번째만 스톱으로 만든다.
+  // 중복 스톱은 지도에서 마커가 같은 좌표에 겹쳐 쌓여 번호가 가려지고, 구간 경로도 그려지지 않는다.
+  const seenAreas = new Set<string>();
   const stops = suggestions
     .map((s) => {
       const place = findPlace(s.place);
       if (!place) return null;
+      if (seenAreas.has(place.areaName)) return null;
+      seenAreas.add(place.areaName);
       return {
         // 영문 모드에선 스탑 이름을 로마자 표기로 저장 — 드래프트는 생성 언어로 고정 노출
         name: en ? placeNameEn(place.displayName) : place.displayName,

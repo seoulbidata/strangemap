@@ -26,6 +26,14 @@ export interface POIItem {
   bus?: string;
   parking?: string;
   viewpoint?: string[];
+  /** 테마코스 경유지 큐레이션 (source === "theme_course"일 때) — AI 소개 프롬프트에 전달 */
+  courseCtx?: {
+    courseTitle: string;
+    stopDescription: string;
+    stopTip?: string;
+    bestTime?: string;
+    duration?: string;
+  };
 }
 
 function isEventPassed(endDateStr: string, proTimeStr?: string): boolean {

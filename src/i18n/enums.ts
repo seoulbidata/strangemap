@@ -146,10 +146,15 @@ export const PURPOSE_EN: Record<string, string> = {
 };
 
 export const REGION_EN: Record<string, string> = {
-  "강북": "Northern Seoul",
-  "강서": "Western Seoul",
-  "강남": "Southern Seoul",
-  "강동": "Eastern Seoul",
+  "종로·중구": "Jongno·Jung-gu",
+  "강북·성북": "Gangbuk·Seongbuk",
+  "홍대·마포": "Hongdae·Mapo",
+  "용산·이태원": "Yongsan·Itaewon",
+  "여의도·영등포": "Yeouido·Yeongdeungpo",
+  "강남·서초": "Gangnam·Seocho",
+  "성수·건대": "Seongsu·Konkuk",
+  "잠실·송파": "Jamsil·Songpa",
+  "관악·사당": "Gwanak·Sadang",
   "상관없음": "Anywhere",
 };
 

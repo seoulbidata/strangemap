@@ -50,6 +50,8 @@ export interface PromptContext {
   tel?: string;
   parking?: string;
   category?: string;
+  /** 서울명소를 즐기기 좋은 시간대 ("night" | "day" | "any") — source === "spot"일 때만 */
+  bestTime?: string;
   /** 문화행사 기간 ("date ~ endDate") — type === "culture"일 때만 */
   eventPeriod?: string;
   viewpoints: string[];

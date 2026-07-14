@@ -166,7 +166,8 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
     if (poi.tel) params.set("tel", poi.tel);
     if (poi.parking) params.set("parking", poi.parking);
     if (poi.category) params.set("category", poi.category);
-    if (poi.nightCategory) params.set("night_category", poi.nightCategory);
+    if (poi.spotCategory) params.set("spot_category", poi.spotCategory);
+    if (poi.bestTime) params.set("best_time", poi.bestTime);
     if (poi.date) params.set("date", poi.date);
     if (poi.endDate) params.set("end_date", poi.endDate);
     if (poi.courseCtx) {
@@ -348,11 +349,11 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
                 </ul>
               </div>
 
-              {/* 야경 감상 가이드 */}
+              {/* 감상 포인트 가이드 */}
               {info.viewpoint_guide && (
                 <div className="rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] p-3.5">
                   <p className="text-[10px] font-semibold text-[#15803D] uppercase tracking-wider mb-1.5">
-                    {t("aiInfo.nightGuide")}
+                    {t("aiInfo.viewpointGuide")}
                   </p>
                   <p className="text-[12px] text-[#166534] leading-relaxed">
                     {info.viewpoint_guide}

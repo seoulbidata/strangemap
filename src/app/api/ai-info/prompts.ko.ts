@@ -91,12 +91,20 @@ export function buildEventPick(events: AIEvent[]): string | undefined {
 
 // ── 프롬프트 빌더 ─────────────────────────────────────────────────────────────
 
+/** seoulSpots.json bestTime → 프롬프트에 넣을 자연어 힌트 */
+const BEST_TIME_HINT: Record<string, string> = {
+  night: "야경이 핵심인 곳 (해 진 뒤가 절정)",
+  day: "낮에 즐기는 곳 (야간에는 닫거나 볼거리가 줄어듦)",
+  any: "낮과 밤 모두 좋은 곳",
+};
+
 export function buildPrompt(ctx: PromptContext): string {
   const { now, weekday, period } = getKSTContext();
   const { place, type, status, realEvents, viewpoints, curated, course } = ctx;
 
   const lines: string[] = [`현재: ${now} (${weekday}요일 ${period})`];
   if (ctx.category) lines.push(`분류: ${ctx.category}`);
+  if (ctx.bestTime) lines.push(`감상 시간대: ${BEST_TIME_HINT[ctx.bestTime] ?? ctx.bestTime}`);
   if (ctx.addr) lines.push(`주소: ${ctx.addr}`);
   if (ctx.operating_time) lines.push(`운영: ${ctx.operating_time}`);
   if (ctx.fee) lines.push(`요금: ${ctx.fee}`);
@@ -205,7 +213,11 @@ export function buildPrompt(ctx: PromptContext): string {
 
   const bestTimeRule = course?.bestTime
     ? "- best_time: 코스 추천 시간대를 우선 반영해서, 최적의 방문 시간대와 그 낭만적인 이유를 명료하게 딱 1문장으로 적어줘."
-    : "- best_time: 최적의 방문 시간대와 계절을 추천하고, 그 낭만적인 이유를 명료하게 딱 1문장으로 적어줘.";
+    : ctx.bestTime === "night"
+      ? "- best_time: 야경이 가장 아름다운 시간대와 계절을 추천하고, 그 낭만적인 이유를 명료하게 딱 1문장으로 적어줘."
+      : ctx.bestTime === "day"
+        ? "- best_time: 밤에는 즐기기 어려운 곳이니 낮 시간대와 계절을 기준으로 최적의 방문 타이밍과 그 이유를 명료하게 딱 1문장으로 적어줘. 야경·야간 조명 언급 금지."
+        : "- best_time: 최적의 방문 시간대와 계절을 추천하고, 그 낭만적인 이유를 명료하게 딱 1문장으로 적어줘.";
 
   const crowdTipRule = status?.forecast?.length
     ? "- crowd_tip: 실시간 혼잡과 혼잡 예보를 함께 반영해서, 예보상 더 여유로운 시간대가 있으면 '○시쯤엔 한산해질 예정' 식으로 구체적인 회피 요령을 다정하게 딱 1문장으로 제시해줘. 예보에 없는 시간대의 혼잡도는 절대 추측 금지."
@@ -256,25 +268,35 @@ ${crowdTipRule}
 
 export function buildMockInfo(args: {
   place: string;
+  bestTime?: string;
   viewpoints: string[];
   right_now: string;
   nearby: string[];
   event_pick?: string;
   realEvents: AIEvent[];
 }): AIPlaceInfo {
-  const { place, viewpoints, right_now, nearby, event_pick, realEvents } = args;
+  const { place, viewpoints, right_now, nearby, event_pick, realEvents, bestTime } = args;
+  const isDay = bestTime === "day";
   return {
     placeName: place || "알 수 없는 장소",
-    summary: `${place}는 서울의 대표적인 명소입니다. 야간에 특히 아름다운 경관을 자랑하며 많은 이들이 찾는 곳입니다.`,
-    highlights: ["서울의 빛나는 야경을 한눈에", "사진 명소로 인기", "야간 산책 코스로 최적"],
-    tip: "일몰 직후 30분이 가장 아름다운 황금시간대입니다.",
-    best_time: "늦가을~초겨울(10~12월) 맑은 날 저녁이 가장 좋습니다.",
-    crowd_tip: "평일 저녁이 주말보다 훨씬 여유롭습니다.",
+    summary: isDay
+      ? `${place}는 서울의 대표적인 명소입니다. 낮에 둘러보기 좋은 곳으로 많은 이들이 찾습니다.`
+      : `${place}는 서울의 대표적인 명소입니다. 야간에 특히 아름다운 경관을 자랑하며 많은 이들이 찾는 곳입니다.`,
+    highlights: isDay
+      ? ["햇살 아래 여유로운 산책", "사진 명소로 인기", "가볍게 둘러보기 좋은 동선"]
+      : ["서울의 빛나는 야경을 한눈에", "사진 명소로 인기", "야간 산책 코스로 최적"],
+    tip: isDay
+      ? "이른 오전에 방문하면 사람이 적어 가장 여유롭습니다."
+      : "일몰 직후 30분이 가장 아름다운 황금시간대입니다.",
+    best_time: isDay
+      ? "맑은 날 오전~이른 오후가 가장 좋습니다."
+      : "늦가을~초겨울(10~12월) 맑은 날 저녁이 가장 좋습니다.",
+    crowd_tip: isDay ? "평일 오전이 주말보다 훨씬 여유롭습니다." : "평일 저녁이 주말보다 훨씬 여유롭습니다.",
     right_now,
     nearby,
     ...(event_pick && { event_pick }),
     ...(viewpoints.length > 0 && { viewpoint_guide: viewpoints[0] }),
     ...(realEvents.length > 0 && { events: realEvents }),
-    tags: ["야경", "서울", "포토스팟"],
+    tags: isDay ? ["명소", "서울", "포토스팟"] : ["야경", "서울", "포토스팟"],
   };
 }

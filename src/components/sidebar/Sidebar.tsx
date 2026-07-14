@@ -6,7 +6,7 @@ import type { POIItem } from "@/app/api/poi/route";
 import type { ThemeCourse } from "@/data/themeCourses";
 import SearchPanel from "./SearchPanel";
 import CulturePanel from "./CulturePanel";
-import NightviewPanel from "./NightviewPanel";
+import SeoulSpotPanel from "./SeoulSpotPanel";
 import CourseCollection from "./CourseCollection";
 import NowRecommendPanel from "./NowRecommendPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "./SearchRoadPanel";
@@ -31,14 +31,14 @@ interface Props {
   onActiveTabChange: (tab: TabId | null) => void;
 }
 
-type TabId = "search" | "culture" | "night" | "course" | "now" | "route";
+type TabId = "search" | "culture" | "spot" | "course" | "now" | "route";
 
 const TABS: { id: TabId; labelKey: UIKey; icon: string }[] = [
   { id: "search", labelKey: "sidebar.tab.search", icon: "/sidebaricons/search.png" },
   { id: "route", labelKey: "sidebar.tab.route", icon: "/sidebaricons/route.png" },
   { id: "course", labelKey: "sidebar.tab.course", icon: "/sidebaricons/course.png" },
   { id: "culture", labelKey: "sidebar.tab.culture", icon: "/sidebaricons/culture.png" },
-  { id: "night", labelKey: "sidebar.tab.night", icon: "/sidebaricons/night.png" },
+  { id: "spot", labelKey: "sidebar.tab.spot", icon: "/sidebaricons/night.png" },
   { id: "now", labelKey: "sidebar.tab.now", icon: "/sidebaricons/now.png" },
 ];
 
@@ -121,8 +121,8 @@ export default function Sidebar({
           {activeTab === "culture" && (
             <CulturePanel pois={pois} onSelectPOI={onSelectPOI} />
           )}
-          {activeTab === "night" && (
-            <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />
+          {activeTab === "spot" && (
+            <SeoulSpotPanel pois={pois} onSelectPOI={onSelectPOI} />
           )}
           {activeTab === "course" && (
             <CourseCollection

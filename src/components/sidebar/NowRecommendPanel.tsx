@@ -217,7 +217,7 @@ export default function NowRecommendPanel({ onSelectPOI }: Props) {
                         id: `congestion_${i}`,
                         name: place.displayName,
                         category: place.category,
-                        source: "nightview",
+                        source: "spot",
                         lat: place.lat,
                         lng: place.lng,
                         place: place.place,

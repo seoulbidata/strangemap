@@ -4,11 +4,11 @@ import Image from "next/image";
 import { useLocale } from "@/i18n/LocaleContext";
 import type { UIKey } from "@/i18n/ui.ko";
 
-export type MobileTabId = "culture" | "night" | "course" | "now" | "search" | "route";
+export type MobileTabId = "culture" | "spot" | "course" | "now" | "search" | "route";
 
 const TABS: { id: MobileTabId; labelKey: UIKey; icon: string }[] = [
   { id: "culture", labelKey: "sidebar.tab.culture", icon: "/sidebaricons/culture.png" },
-  { id: "night", labelKey: "sidebar.tab.night", icon: "/sidebaricons/night.png" },
+  { id: "spot", labelKey: "sidebar.tab.spot", icon: "/sidebaricons/night.png" },
   { id: "course", labelKey: "sidebar.tab.courseShort", icon: "/sidebaricons/course.png" },
   { id: "now", labelKey: "sidebar.tab.now", icon: "/sidebaricons/now.png" },
 ];

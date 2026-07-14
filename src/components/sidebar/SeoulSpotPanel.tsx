@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { POIItem } from "@/app/api/poi/route";
-import { NIGHT_CATEGORIES } from "@/lib/nightCategories";
+import { SPOT_CATEGORIES } from "@/lib/spotCategories";
 import { FeedShell, FeedHeader, FilterPills, FeedCard } from "./_feedKit";
 import { useLocale } from "@/i18n/LocaleContext";
 import { categoryLabel } from "@/i18n/enums";
@@ -13,7 +13,7 @@ interface Props {
   onSelectPOI: (poi: POIItem) => void;
 }
 
-const TYPE_FILTERS = ["전체", ...NIGHT_CATEGORIES] as const;
+const TYPE_FILTERS = ["전체", ...SPOT_CATEGORIES] as const;
 type TypeFilter = (typeof TYPE_FILTERS)[number];
 
 function PlaceholderImage({ name }: { name: string }) {
@@ -25,23 +25,23 @@ function PlaceholderImage({ name }: { name: string }) {
   );
 }
 
-export default function NightviewPanel({ pois, onSelectPOI }: Props) {
+export default function SeoulSpotPanel({ pois, onSelectPOI }: Props) {
   const { t, locale } = useLocale();
   const [activeType, setActiveType] = useState<TypeFilter>("전체");
 
-  const nightPOIs = useMemo(() => {
+  const spotPOIs = useMemo(() => {
     return pois
-      .filter((p) => p.source === "nightview")
-      .filter((p) => activeType === "전체" || p.nightCategory === activeType);
+      .filter((p) => p.source === "spot")
+      .filter((p) => activeType === "전체" || p.spotCategory === activeType);
   }, [pois, activeType]);
 
-  const totalCount = pois.filter((p) => p.source === "nightview").length;
+  const totalCount = pois.filter((p) => p.source === "spot").length;
 
   return (
     <FeedShell>
-      <FeedHeader title={t("night.title")} subtitle={t("night.subtitle", { n: totalCount })} />
+      <FeedHeader title={t("spot.title")} subtitle={t("spot.subtitle", { n: totalCount })} />
 
-      {/* 풍경 유형 필터 */}
+      {/* 명소 유형 필터 */}
       <div className="px-5 pb-3 md:pt-0 pt-5">
         <FilterPills
           options={TYPE_FILTERS}
@@ -53,16 +53,16 @@ export default function NightviewPanel({ pois, onSelectPOI }: Props) {
 
       {/* 목록 */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-2 pb-4">
-        {nightPOIs.length === 0 ? (
+        {spotPOIs.length === 0 ? (
           <p className="text-[13px] text-[#A8A398] text-center mt-16 leading-relaxed">
-            {t("night.empty")}
+            {t("spot.empty")}
           </p>
         ) : (
           <>
-            <p className="text-[11px] text-[#A8A398] pb-3">{t("night.count", { n: nightPOIs.length })}</p>
+            <p className="text-[11px] text-[#A8A398] pb-3">{t("spot.count", { n: spotPOIs.length })}</p>
             <div className="space-y-5">
-              {nightPOIs.map((poi) => (
-                <NightviewCard key={poi.id} poi={poi} onSelect={() => onSelectPOI(poi)} />
+              {spotPOIs.map((poi) => (
+                <SeoulSpotCard key={poi.id} poi={poi} onSelect={() => onSelectPOI(poi)} />
               ))}
             </div>
           </>
@@ -72,9 +72,10 @@ export default function NightviewPanel({ pois, onSelectPOI }: Props) {
   );
 }
 
-function NightviewCard({ poi, onSelect }: { poi: POIItem; onSelect: () => void }) {
+function SeoulSpotCard({ poi, onSelect }: { poi: POIItem; onSelect: () => void }) {
   const { locale } = useLocale();
   const [imgError, setImgError] = useState(false);
+  const isNight = poi.bestTime === "night";
 
   return (
     <FeedCard onClick={onSelect}>
@@ -91,9 +92,14 @@ function NightviewCard({ poi, onSelect }: { poi: POIItem; onSelect: () => void }
         ) : (
           <PlaceholderImage name={poi.name} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
+        {/* 야경형만 짙은 그라데이션 — 주간 사진은 어두워지지 않게 옅게 */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-t to-transparent ${
+            isNight ? "from-black/55" : "from-black/30"
+          }`}
+        />
         <span className="absolute top-3.5 right-3.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-black/40 text-white/90 backdrop-blur-sm">
-          {categoryLabel(poi.nightCategory ?? poi.category, locale)}
+          {categoryLabel(poi.spotCategory ?? poi.category, locale)}
         </span>
       </div>
 

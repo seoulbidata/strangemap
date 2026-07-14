@@ -23,7 +23,7 @@ export const ko = {
   "sidebar.tab.route": "길찾기",
   "sidebar.tab.course": "관광코스",
   "sidebar.tab.culture": "문화행사",
-  "sidebar.tab.night": "야경명소",
+  "sidebar.tab.spot": "서울명소",
   "sidebar.tab.now": "혼잡도",
   "sidebar.tab.courseShort": "코스",
 
@@ -31,7 +31,7 @@ export const ko = {
   "mobile.title.search": "검색 결과",
   "mobile.title.route": "길찾기",
   "mobile.title.culture": "문화행사 정보",
-  "mobile.title.night": "야경명소 정보",
+  "mobile.title.spot": "서울명소 정보",
   "mobile.title.course": "코스",
   "mobile.title.now": "실시간 혼잡도 추천",
   "mobile.searchBar": "서울로 검색",
@@ -55,7 +55,7 @@ export const ko = {
   "welcome.start": "확인하고 시작하기",
 
   // ── 지도 오버레이 (MapView) ───────────────────────────────────────────────
-  "map.nightToggle": "야경명소 위치",
+  "map.spotToggle": "서울명소 위치",
   "map.myLocation": "내 위치",
   "map.locating": "위치 확인 중",
   "map.moveToMyLocation": "현재 위치로 이동",
@@ -106,13 +106,13 @@ export const ko = {
   "search.headline.daySub": "한낮에 둘러보기 좋은 문화행사",
   "search.headline.dusk": "해질 무렵, 노을 명소",
   "search.headline.duskSub": "노을과 함께 보기 좋은 곳",
-  "search.headline.night": "오늘 밤 가기 좋은 야경",
-  "search.headline.nightSub": "밤에 빛나는 서울의 야경 명소",
+  "search.headline.night": "오늘 밤 가기 좋은 곳",
+  "search.headline.nightSub": "밤에 빛나는 서울의 명소",
   "search.chip.open": "운영 중",
   "search.chip.endingSoon": "마감임박",
   "search.chip.sunset": "노을",
   "search.chip.night": "야경",
-  "search.badge.night": "야경",
+  "search.badge.spot": "명소",
   "search.badge.culture": "문화",
 
   // ── 문화행사 패널 ─────────────────────────────────────────────────────────
@@ -122,11 +122,11 @@ export const ko = {
   "culture.empty": "해당 조건의 행사가 없습니다",
   "culture.count": "{n}개 행사",
 
-  // ── 야경명소 패널 ─────────────────────────────────────────────────────────
-  "night.title": "야경명소",
-  "night.subtitle": "서울 대표 야경 포인트 {n}곳",
-  "night.empty": "해당 유형의 야경명소가 없습니다",
-  "night.count": "{n}곳",
+  // ── 서울명소 패널 ─────────────────────────────────────────────────────────
+  "spot.title": "서울명소",
+  "spot.subtitle": "서울 대표 명소 {n}곳",
+  "spot.empty": "해당 유형의 명소가 없습니다",
+  "spot.count": "{n}곳",
 
   // ── 혼잡도 패널 ───────────────────────────────────────────────────────────
   "now.title": "실시간 혼잡도",
@@ -206,7 +206,7 @@ export const ko = {
   "stopCard.next": "다음 코스 →",
 
   // ── 장소 카드 ─────────────────────────────────────────────────────────────
-  "placeCard.night": "야경명소",
+  "placeCard.spot": "서울명소",
   "placeCard.culture": "문화행사",
   "placeCard.quest": "퀘스트",
   "placeCard.loc": "위치",
@@ -241,7 +241,7 @@ export const ko = {
   "aiInfo.rightNow": "지금 방문하기",
   "aiInfo.intro": "서울로의 소개",
   "aiInfo.actions": "행동 추천",
-  "aiInfo.nightGuide": "야경 감상 가이드",
+  "aiInfo.viewpointGuide": "감상 포인트 가이드",
   "aiInfo.visitTip": "방문 Tip",
   "aiInfo.localTip": "현지인이 알려주는 Tip",
   "aiInfo.nearby": "함께 가볼 만한 곳",

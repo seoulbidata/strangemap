@@ -100,6 +100,13 @@ export function buildEventPick(events: AIEvent[]): string | undefined {
 
 // ── Prompt builder ───────────────────────────────────────────────────────────
 
+/** seoulSpots.json bestTime → natural-language hint for the prompt */
+const BEST_TIME_HINT: Record<string, string> = {
+  night: "a night-view spot (it peaks after dark)",
+  day: "a daytime spot (closed or much less to see at night)",
+  any: "good both day and night",
+};
+
 export function buildPrompt(ctx: PromptContext): string {
   const { now, weekday, period } = getKSTContext();
   const { place, type, status, realEvents, viewpoints, curated, course } = ctx;
@@ -108,6 +115,7 @@ export function buildPrompt(ctx: PromptContext): string {
 
   const lines: string[] = [`Now: ${now} (${weekday}, ${period})`];
   if (ctx.category) lines.push(`Category (in Korean): ${ctx.category}`);
+  if (ctx.bestTime) lines.push(`Best time: ${BEST_TIME_HINT[ctx.bestTime] ?? ctx.bestTime}`);
   if (ctx.addr) lines.push(`Address (in Korean): ${ctx.addr}`);
   if (ctx.operating_time) lines.push(`Hours: ${ctx.operating_time}`);
   if (ctx.fee) lines.push(`Fee: ${ctx.fee}`);
@@ -218,7 +226,11 @@ export function buildPrompt(ctx: PromptContext): string {
 
   const bestTimeRule = course?.bestTime
     ? "- best_time: prioritize the course's recommended time, then give the best time to visit with its romantic reason, in exactly 1 crisp sentence."
-    : "- best_time: recommend the best time of day and season to visit, with its romantic reason, in exactly 1 crisp sentence.";
+    : ctx.bestTime === "night"
+      ? "- best_time: recommend when the night view peaks (time of day and season), with its romantic reason, in exactly 1 crisp sentence."
+      : ctx.bestTime === "day"
+        ? "- best_time: this place is hard to enjoy after dark, so recommend a daytime slot and season with the reason, in exactly 1 crisp sentence. Never mention night views or night lighting."
+        : "- best_time: recommend the best time of day and season to visit, with its romantic reason, in exactly 1 crisp sentence.";
 
   const crowdTipRule = status?.forecast?.length
     ? "- crowd_tip: reflect both the live crowd level and the crowd forecast — if a quieter slot is forecast, say something like 'it should calm down around X o'clock', in 1 warm, specific sentence. Never guess crowd levels for hours not in the forecast."
@@ -270,30 +282,42 @@ ${crowdTipRule}
 
 export function buildMockInfo(args: {
   place: string;
+  bestTime?: string;
   viewpoints: string[];
   right_now: string;
   nearby: string[];
   event_pick?: string;
   realEvents: AIEvent[];
 }): AIPlaceInfo {
-  const { place, viewpoints, right_now, nearby, event_pick, realEvents } = args;
+  const { place, viewpoints, right_now, nearby, event_pick, realEvents, bestTime } = args;
+  const isDay = bestTime === "day";
   const placeEn = placeNameEn(place);
   return {
     placeName: place || "Unknown place",
-    summary: `${placeEn} is one of Seoul's signature spots. It's especially beautiful after dark and draws plenty of visitors.`,
-    highlights: [
-      "Take in Seoul's glittering night view at a glance",
-      "A favorite photo spot",
-      "Perfect for an evening stroll",
-    ],
-    tip: "The 30 minutes right after sunset are the golden hour here.",
-    best_time: "Clear evenings from late fall to early winter (Oct–Dec) are the best.",
-    crowd_tip: "Weekday evenings are far quieter than weekends.",
+    summary: isDay
+      ? `${placeEn} is one of Seoul's signature spots, best enjoyed in daylight and popular with visitors.`
+      : `${placeEn} is one of Seoul's signature spots. It's especially beautiful after dark and draws plenty of visitors.`,
+    highlights: isDay
+      ? ["An easy stroll in the sunshine", "A favorite photo spot", "Simple to fit into a day out"]
+      : [
+          "Take in Seoul's glittering night view at a glance",
+          "A favorite photo spot",
+          "Perfect for an evening stroll",
+        ],
+    tip: isDay
+      ? "Come early in the morning — it's at its quietest."
+      : "The 30 minutes right after sunset are the golden hour here.",
+    best_time: isDay
+      ? "A clear morning to early afternoon is best."
+      : "Clear evenings from late fall to early winter (Oct–Dec) are the best.",
+    crowd_tip: isDay
+      ? "Weekday mornings are far quieter than weekends."
+      : "Weekday evenings are far quieter than weekends.",
     right_now,
     nearby,
     ...(event_pick && { event_pick }),
     ...(viewpoints.length > 0 && { viewpoint_guide: viewpoints[0] }),
     ...(realEvents.length > 0 && { events: realEvents }),
-    tags: ["night view", "Seoul", "photo spot"],
+    tags: isDay ? ["sight", "Seoul", "photo spot"] : ["night view", "Seoul", "photo spot"],
   };
 }

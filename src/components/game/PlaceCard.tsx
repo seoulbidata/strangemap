@@ -4,7 +4,7 @@ import type { POIItem } from "@/app/api/poi/route";
 import { useLocale } from "@/i18n/LocaleContext";
 import { categoryLabel } from "@/i18n/enums";
 import { localizedPlaceName } from "@/i18n/placeNames";
-import { localizedNightField } from "@/i18n/nightInfo";
+import { localizedSpotField } from "@/i18n/spotInfo";
 
 interface Props {
   poi: POIItem;
@@ -16,16 +16,17 @@ interface Props {
 
 export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTarget }: Props) {
   const { t, locale } = useLocale();
-  const isNight = poi.source === "nightview";
+  const isSpot = poi.source === "spot";
+  const isNight = isSpot && poi.bestTime === "night";
 
-  // 야경명소는 상세 정보(주소·운영시간·지하철·요금)를 영문 오버레이로 치환한다.
+  // 서울명소는 상세 정보(주소·운영시간·지하철·요금)를 영문 오버레이로 치환한다.
   // 미등록 장소·필드는 한글 원문이 그대로 유지된다(fallback).
-  const place = isNight ? localizedNightField(poi.name, "place", poi.place, locale) : poi.place;
-  const hours = isNight
-    ? localizedNightField(poi.name, "operating_time", poi.operating_time, locale)
+  const place = isSpot ? localizedSpotField(poi.name, "place", poi.place, locale) : poi.place;
+  const hours = isSpot
+    ? localizedSpotField(poi.name, "operating_time", poi.operating_time, locale)
     : poi.operating_time;
-  const subway = isNight ? localizedNightField(poi.name, "subway", poi.subway, locale) : poi.subway;
-  const fee = isNight ? localizedNightField(poi.name, "fee", poi.fee, locale) : poi.fee;
+  const subway = isSpot ? localizedSpotField(poi.name, "subway", poi.subway, locale) : poi.subway;
+  const fee = isSpot ? localizedSpotField(poi.name, "fee", poi.fee, locale) : poi.fee;
 
   return (
     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[360px] max-w-[92vw] z-20 animate-fade-up max-md:bottom-[92px] max-md:w-[calc(100vw-40px)] max-md:max-w-[340px]">
@@ -38,7 +39,7 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
               alt={poi.name}
               className="w-full h-full object-cover"
             />
-            {/* 야경은 사진이 어두워지지 않게 하단만 옅은 그라데이션 */}
+            {/* 야경형만 하단 그라데이션 — 주간 사진은 어두워지지 않게 둔다 */}
             {isNight && (
               <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
             )}
@@ -46,13 +47,13 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
             <div className="absolute top-3 left-3 flex items-center gap-1.5">
               <span
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/85 backdrop-blur-sm"
-                style={{ color: isNight ? "#92400E" : "#1D4ED8" }}
+                style={{ color: isSpot ? "#92400E" : "#1D4ED8" }}
               >
-                {isNight ? t("placeCard.night") : t("placeCard.culture")}
+                {isSpot ? t("placeCard.spot") : t("placeCard.culture")}
               </span>
-              {poi.category && (
+              {(poi.spotCategory ?? poi.category) && (
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/35 text-white backdrop-blur-sm">
-                  {categoryLabel(poi.category, locale)}
+                  {categoryLabel(poi.spotCategory ?? poi.category, locale)}
                 </span>
               )}
             </div>
@@ -74,14 +75,16 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
                   <span
                     className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                     style={{
-                      background: isNight ? "#FEF3C7" : "#EFF6FF",
-                      color: isNight ? "#92400E" : "#1D4ED8",
-                      border: `1px solid ${isNight ? "#FDE68A" : "#BFDBFE"}`,
+                      background: isSpot ? "#FEF3C7" : "#EFF6FF",
+                      color: isSpot ? "#92400E" : "#1D4ED8",
+                      border: `1px solid ${isSpot ? "#FDE68A" : "#BFDBFE"}`,
                     }}
                   >
-                    {isNight ? t("placeCard.night") : t("placeCard.culture")}
+                    {isSpot ? t("placeCard.spot") : t("placeCard.culture")}
                   </span>
-                  <span className="text-[10px] text-[#9CA3AF]">{categoryLabel(poi.category, locale)}</span>
+                  <span className="text-[10px] text-[#9CA3AF]">
+                    {categoryLabel(poi.spotCategory ?? poi.category, locale)}
+                  </span>
                   {isQuestTarget && (
                     <span className="text-[10px] font-display font-bold bg-[#2563EB] text-white px-1.5 py-0.5 rounded">
                       {t("placeCard.quest")}

@@ -2,16 +2,18 @@ import { NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import path from "path";
 import { normalizeCategory, type CultureCategory } from "@/lib/cultureCategories";
-import type { NightCategory } from "@/lib/nightCategories";
+import type { SpotCategory, BestTime } from "@/lib/spotCategories";
 
 export interface POIItem {
   id: string;
   name: string;
   category: string;
   normalizedCategory?: CultureCategory;
-  /** 야경명소 풍경 유형 (source === "nightview"일 때) */
-  nightCategory?: NightCategory;
-  source: "culture" | "nightview" | "theme_course";
+  /** 서울명소 유형 (source === "spot"일 때) */
+  spotCategory?: SpotCategory;
+  /** 명소를 즐기기 좋은 시간대 (source === "spot"일 때) */
+  bestTime?: BestTime;
+  source: "culture" | "spot" | "theme_course";
   lat: number;
   lng: number;
   place: string;
@@ -119,14 +121,15 @@ export async function GET() {
       operating_time: r.PRO_TIME || undefined,
     }));
 
-  const nightviewPath = path.join(process.cwd(), "public/data/nightview.json");
-  const nightviewRaw = JSON.parse(readFileSync(nightviewPath, "utf-8"));
-  const nightviewPOIs: POIItem[] = nightviewRaw.map((r: any) => ({
-    id: "nightview_" + r.id,
+  const spotPath = path.join(process.cwd(), "public/data/seoulSpots.json");
+  const spotRaw = JSON.parse(readFileSync(spotPath, "utf-8"));
+  const spotPOIs: POIItem[] = spotRaw.map((r: any) => ({
+    id: "spot_" + r.id,
     name: r.name,
     category: r.category,
-    nightCategory: r.nightCategory,
-    source: "nightview" as const,
+    spotCategory: r.spotCategory,
+    bestTime: r.bestTime,
+    source: "spot" as const,
     lat: r.lat,
     lng: r.lng,
     place: r.place,
@@ -141,5 +144,5 @@ export async function GET() {
     viewpoint: r.viewpoint || undefined,
   }));
 
-  return NextResponse.json({ pois: [...culturePOIs, ...nightviewPOIs] });
+  return NextResponse.json({ pois: [...culturePOIs, ...spotPOIs] });
 }

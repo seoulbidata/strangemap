@@ -9,21 +9,21 @@ import { useLocale } from "@/i18n/LocaleContext";
 import { categoryLabel } from "@/i18n/enums";
 
 interface Props {
-  showNight: boolean;
+  showSpots: boolean;
   activeCultureCategory: CultureCategory | null;
   locationStatus: "idle" | "requesting" | "granted" | "denied" | "unavailable" | "error";
   onOpenTab: (tab: MobileTabId) => void;
-  onToggleNight: () => void;
+  onToggleSpots: () => void;
   onSelectCultureCategory: (cat: CultureCategory | null) => void;
   onRequestLocation: () => void;
 }
 
 export default function MobileMapControls({
-  showNight,
+  showSpots,
   activeCultureCategory,
   locationStatus,
   onOpenTab,
-  onToggleNight,
+  onToggleSpots,
   onSelectCultureCategory,
   onRequestLocation,
 }: Props) {
@@ -132,20 +132,20 @@ export default function MobileMapControls({
               </span>
             </button>
 
-            {/* 야경명소 메인 알약 */}
+            {/* 서울명소 메인 알약 */}
             <button
-              onClick={onToggleNight}
+              onClick={onToggleSpots}
               className={`shrink-0 h-9 rounded-full px-4 text-xs font-bold border shadow-md transition-all flex items-center gap-1.5 ${
-                showNight
+                showSpots
                   ? "bg-[#FE9C00] border-[#D97706] text-white"
                   : "bg-white/95 border-[#FDECC8] text-[#4B5563]"
               }`}
             >
               <span
                 className="w-1.5 h-1.5 rounded-full inline-block shrink-0"
-                style={{ background: showNight ? "#fff" : "#FE9C00" }}
+                style={{ background: showSpots ? "#fff" : "#FE9C00" }}
               />
-              {t("sidebar.tab.night")}
+              {t("sidebar.tab.spot")}
             </button>
           </div>
 

@@ -25,7 +25,7 @@ export const en = {
   "sidebar.tab.route": "Directions",
   "sidebar.tab.course": "Courses",
   "sidebar.tab.culture": "Events",
-  "sidebar.tab.night": "Night Views",
+  "sidebar.tab.spot": "Seoul Spots",
   "sidebar.tab.now": "Crowds",
   "sidebar.tab.courseShort": "Courses",
 
@@ -33,7 +33,7 @@ export const en = {
   "mobile.title.search": "Search Results",
   "mobile.title.route": "Directions",
   "mobile.title.culture": "Cultural Events",
-  "mobile.title.night": "Night Views",
+  "mobile.title.spot": "Seoul Spots",
   "mobile.title.course": "Courses",
   "mobile.title.now": "Live Crowd Levels",
   "mobile.searchBar": "Search Seoulro",
@@ -57,7 +57,7 @@ export const en = {
   "welcome.start": "Got it, let's start",
 
   // ── 지도 오버레이 (MapView) ───────────────────────────────────────────────
-  "map.nightToggle": "Night View Spots",
+  "map.spotToggle": "Seoul Spots",
   "map.myLocation": "My Location",
   "map.locating": "Locating...",
   "map.moveToMyLocation": "Move to my location",
@@ -108,13 +108,13 @@ export const en = {
   "search.headline.daySub": "Great to browse in the daytime",
   "search.headline.dusk": "Sunset spots for golden hour",
   "search.headline.duskSub": "Best enjoyed with the sunset",
-  "search.headline.night": "Night views for tonight",
-  "search.headline.nightSub": "Seoul's best spots after dark",
+  "search.headline.night": "Good places for tonight",
+  "search.headline.nightSub": "Seoul spots that shine after dark",
   "search.chip.open": "Open now",
   "search.chip.endingSoon": "Ending soon",
   "search.chip.sunset": "Sunset",
   "search.chip.night": "Night view",
-  "search.badge.night": "Night",
+  "search.badge.spot": "Spot",
   "search.badge.culture": "Event",
 
   // ── 문화행사 패널 ─────────────────────────────────────────────────────────
@@ -124,11 +124,11 @@ export const en = {
   "culture.empty": "No events match these filters",
   "culture.count": "{n} events",
 
-  // ── 야경명소 패널 ─────────────────────────────────────────────────────────
-  "night.title": "Night Views",
-  "night.subtitle": "{n} signature night view spots",
-  "night.empty": "No night view spots of this type",
-  "night.count": "{n} spots",
+  // ── 서울명소 패널 ─────────────────────────────────────────────────────────
+  "spot.title": "Seoul Spots",
+  "spot.subtitle": "{n} signature spots across Seoul",
+  "spot.empty": "No spots of this type",
+  "spot.count": "{n} spots",
 
   // ── 혼잡도 패널 ───────────────────────────────────────────────────────────
   "now.title": "Live Crowds",
@@ -208,7 +208,7 @@ export const en = {
   "stopCard.next": "Next →",
 
   // ── 장소 카드 ─────────────────────────────────────────────────────────────
-  "placeCard.night": "Night View",
+  "placeCard.spot": "Seoul Spot",
   "placeCard.culture": "Event",
   "placeCard.quest": "Quest",
   "placeCard.loc": "Where",
@@ -243,7 +243,7 @@ export const en = {
   "aiInfo.rightNow": "Visit Right Now",
   "aiInfo.intro": "Seoulro's Intro",
   "aiInfo.actions": "Things to Do",
-  "aiInfo.nightGuide": "Night View Guide",
+  "aiInfo.viewpointGuide": "Viewpoint Guide",
   "aiInfo.visitTip": "Visit Tips",
   "aiInfo.localTip": "Local's Tip",
   "aiInfo.nearby": "Worth Visiting Nearby",

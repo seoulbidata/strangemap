@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { POIItem } from "@/app/api/poi/route";
 import type { ThemeCourse } from "@/data/themeCourses";
 import CulturePanel from "@/components/sidebar/CulturePanel";
-import NightviewPanel from "@/components/sidebar/NightviewPanel";
+import SeoulSpotPanel from "@/components/sidebar/SeoulSpotPanel";
 import NowRecommendPanel from "@/components/sidebar/NowRecommendPanel";
 import SearchPanel from "@/components/sidebar/SearchPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
@@ -156,8 +156,8 @@ export default function MobilePanel({
         return t("mobile.title.route");
       case "culture":
         return t("mobile.title.culture");
-      case "night":
-        return t("mobile.title.night");
+      case "spot":
+        return t("mobile.title.spot");
       case "course":
         return t("mobile.title.course");
       case "now":
@@ -213,7 +213,7 @@ export default function MobilePanel({
           />
         )}
         {displayTab === "culture" && <CulturePanel pois={pois} onSelectPOI={onSelectPOI} />}
-        {displayTab === "night" && <NightviewPanel pois={pois} onSelectPOI={onSelectPOI} />}
+        {displayTab === "spot" && <SeoulSpotPanel pois={pois} onSelectPOI={onSelectPOI} />}
         {displayTab === "course" && (
           <CourseCollection
             onOpenCourse={onOpenCourse}

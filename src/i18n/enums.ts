@@ -70,14 +70,16 @@ export const CULTURE_CATEGORY_EN: Record<string, string> = {
   "음악": "Music",
 };
 
-// 야경명소 풍경 유형 (nightCategories.ts + "전체")
-export const NIGHT_CATEGORY_EN: Record<string, string> = {
+// 서울명소 유형 (spotCategories.ts + "전체")
+export const SPOT_CATEGORY_EN: Record<string, string> = {
   "전체": "All",
   "한강·다리": "River & Bridges",
   "전망대·산": "Viewpoints & Peaks",
   "고궁·역사": "Palaces & History",
   "공원·정원": "Parks & Gardens",
   "도심·거리": "City Streets",
+  "미술관·박물관": "Art & Museums",
+  "복합공간·쇼핑": "Culture Complexes",
 };
 
 export function categoryLabel(value: string, locale: Locale): string {
@@ -86,7 +88,7 @@ export function categoryLabel(value: string, locale: Locale): string {
     COURSE_CATEGORY_EN[value] ??
     PLACE_CATEGORY_EN[value] ??
     CULTURE_CATEGORY_EN[value] ??
-    NIGHT_CATEGORY_EN[value] ??
+    SPOT_CATEGORY_EN[value] ??
     value
   );
 }

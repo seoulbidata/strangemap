@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 /**
  * 사이드바 피드 공통 디자인 키트.
- * 관광코스(CourseCollection)의 톤을 문화행사·야경명소·혼잡도 패널이 공유하기 위한 부품.
+ * 관광코스(CourseCollection)의 톤을 문화행사·서울명소·혼잡도 패널이 공유하기 위한 부품.
  * - 배경 #FBFAF7, 라운드 카드(rounded-[22px]) + 부드러운 그림자 + hover 인터랙션
  * - 필터는 rounded-full pill, 강조색은 다크 네이비 #16243C 단일 톤
  */

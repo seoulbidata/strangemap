@@ -7,13 +7,14 @@ import { useLocale } from "@/i18n/LocaleContext";
 import type { UIKey } from "@/i18n/ui.ko";
 import { categoryLabel, type Locale } from "@/i18n/enums";
 import { localizedPlaceName } from "@/i18n/placeNames";
+import type { BestTime } from "@/lib/spotCategories";
 
 interface Props {
   pois: POIItem[];
   onSelectPOI: (poi: POIItem) => void;
 }
 
-type FilterType = "all" | "culture" | "nightview";
+type FilterType = "all" | "culture" | "spot";
 
 /* ───────────────────────── 시간 컨텍스트 ───────────────────────── */
 
@@ -89,23 +90,43 @@ function isEndingSoon(poi: POIItem, now: Date): boolean {
 
 /* ───────────────────────── 시간 적합도 점수 ───────────────────────── */
 
-const SOURCE_WEIGHT: Record<TimeBucket, { nightview: number; culture: number }> = {
-  morning: { nightview: 5, culture: 35 },
-  day: { nightview: 10, culture: 45 },
-  dusk: { nightview: 45, culture: 20 },
-  night: { nightview: 60, culture: 5 },
+// 명소는 bestTime(야경형/주간형/무관)이 시간대 적합도를 결정하고, 문화행사는 source 단위로 본다.
+const SPOT_WEIGHT: Record<TimeBucket, Record<BestTime, number>> = {
+  morning: { night: 5, day: 35, any: 25 },
+  day: { night: 10, day: 45, any: 32 },
+  dusk: { night: 45, day: 15, any: 35 },
+  night: { night: 60, day: 5, any: 35 },
 };
+
+const CULTURE_WEIGHT: Record<TimeBucket, number> = {
+  morning: 35,
+  day: 45,
+  dusk: 20,
+  night: 5,
+};
+
+/** 야경형 명소인지 — 그라데이션·칩·가중치가 공유하는 판정 */
+function isNightSpot(poi: POIItem): boolean {
+  return poi.source === "spot" && poi.bestTime === "night";
+}
 
 function timeScore(poi: POIItem, ctx: TimeContext): number {
   const today = ymd(ctx.now);
-  const isNight = poi.source === "nightview";
-  let s = isNight ? SOURCE_WEIGHT[ctx.bucket].nightview : SOURCE_WEIGHT[ctx.bucket].culture;
+  const isSpot = poi.source === "spot";
+  let s = isSpot
+    ? SPOT_WEIGHT[ctx.bucket][poi.bestTime ?? "any"]
+    : CULTURE_WEIGHT[ctx.bucket];
 
-  if (isNight) {
-    const nc = poi.nightCategory;
+  if (isSpot) {
+    const sc = poi.spotCategory;
     if (ctx.bucket === "night" || ctx.bucket === "dusk") {
-      if (nc === "한강·다리" || nc === "전망대·산" || nc === "도심·거리") s += 15;
-    } else if (nc === "고궁·역사" || nc === "공원·정원") {
+      if (sc === "한강·다리" || sc === "전망대·산" || sc === "도심·거리") s += 15;
+    } else if (
+      sc === "고궁·역사" ||
+      sc === "공원·정원" ||
+      sc === "미술관·박물관" ||
+      sc === "복합공간·쇼핑"
+    ) {
       s += 12;
     }
   } else {
@@ -130,7 +151,7 @@ function reasonChipKeys(poi: POIItem, ctx: TimeContext): UIKey[] {
   if (op === "open" || op === "always") chips.push("search.chip.open");
   if (poi.source === "culture" && isEndingSoon(poi, ctx.now)) chips.push("search.chip.endingSoon");
   if (poi.fee === "무료") chips.push("common.free");
-  if (poi.source === "nightview" && (ctx.bucket === "night" || ctx.bucket === "dusk")) {
+  if (isNightSpot(poi) && (ctx.bucket === "night" || ctx.bucket === "dusk")) {
     chips.push(ctx.bucket === "dusk" ? "search.chip.sunset" : "search.chip.night");
   }
   return chips.slice(0, 2);
@@ -233,7 +254,7 @@ export default function SearchPanel({ pois, onSelectPOI }: Props) {
   const FILTERS: { id: FilterType; label: string }[] = [
     { id: "all", label: categoryLabel("전체", locale) },
     { id: "culture", label: t("sidebar.tab.culture") },
-    { id: "nightview", label: t("sidebar.tab.night") },
+    { id: "spot", label: t("sidebar.tab.spot") },
   ];
 
   return (
@@ -406,7 +427,8 @@ function RecoCard({
   locale: Locale;
   onSelect: () => void;
 }) {
-  const isNightview = poi.source === "nightview";
+  const isSpot = poi.source === "spot";
+  const isNight = isNightSpot(poi);
   return (
     <div className="group relative rounded-[22px] bg-white overflow-hidden transition-all duration-200 hover:-translate-y-0.5 shadow-[0_6px_24px_rgba(20,30,50,0.07)] hover:shadow-[0_14px_40px_rgba(20,30,50,0.14)]">
       <button onClick={onSelect} className="w-full text-left block">
@@ -419,13 +441,16 @@ function RecoCard({
               <span className="text-[11px] text-white/70 text-center px-4 leading-tight">{poi.name}</span>
             </div>
           )}
-          {isNightview && <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />}
+          {isNight && <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />}
           <span
             className={`absolute top-2.5 right-2.5 text-[11px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm ${
-              isNightview ? "bg-black/40 text-white/90" : "bg-white/90 text-[#16243C]"
+              isNight ? "bg-black/40 text-white/90" : "bg-white/90 text-[#16243C]"
             }`}
           >
-            {categoryLabel(isNightview ? poi.category : poi.normalizedCategory ?? poi.category, locale)}
+            {categoryLabel(
+              isSpot ? poi.spotCategory ?? poi.category : poi.normalizedCategory ?? poi.category,
+              locale
+            )}
           </span>
         </div>
 
@@ -462,7 +487,7 @@ function SearchResultRow({ poi, locale, onSelect }: { poi: POIItem; locale: Loca
     >
       <span
         className="w-2 h-2 rounded-full shrink-0 mt-1.5"
-        style={{ background: poi.source === "nightview" ? "#D97706" : "#2563EB" }}
+        style={{ background: poi.source === "spot" ? "#D97706" : "#2563EB" }}
       />
       <div className="flex-1 min-w-0">
         <p className="text-[14px] font-semibold text-[#16243C] truncate">{localizedPlaceName(poi.name, locale)}</p>
@@ -471,7 +496,7 @@ function SearchResultRow({ poi, locale, onSelect }: { poi: POIItem; locale: Loca
         </p>
       </div>
       <span className="text-[11px] font-semibold text-[#A8A398] shrink-0 mt-0.5">
-        {poi.source === "nightview" ? t("search.badge.night") : t("search.badge.culture")}
+        {poi.source === "spot" ? t("search.badge.spot") : t("search.badge.culture")}
       </span>
     </button>
   );

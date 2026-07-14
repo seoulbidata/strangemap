@@ -307,7 +307,8 @@ export async function GET(req: NextRequest) {
   const tel = searchParams.get("tel") ?? "";
   const parking = searchParams.get("parking") ?? "";
   const category = searchParams.get("category") ?? "";
-  const nightCategory = searchParams.get("night_category") ?? "";
+  const spotCategory = searchParams.get("spot_category") ?? "";
+  const bestTime = searchParams.get("best_time") ?? "";
   const date = searchParams.get("date") ?? "";
   const endDate = searchParams.get("end_date") ?? "";
   const lat = parseFloat(searchParams.get("lat") ?? "");
@@ -329,7 +330,7 @@ export async function GET(req: NextRequest) {
   // (addr/lat/lng/viewpoint 제외: place와 중복이거나 고카디널리티)
   const cacheKey = [
     lang, place, type, operating_time, fee, subway,
-    bus, tel, parking, category, nightCategory, date,
+    bus, tel, parking, category, spotCategory, bestTime, date,
     courseTitle, courseDesc,
   ].join("||");
   const cached = _serverCache.get(cacheKey);
@@ -370,7 +371,8 @@ export async function GET(req: NextRequest) {
     bus: bus || undefined,
     tel: tel || undefined,
     parking: parking || undefined,
-    category: category || nightCategory || undefined,
+    category: spotCategory || category || undefined,
+    bestTime: bestTime || undefined,
     eventPeriod:
       type === "culture" && (date || endDate)
         ? [date, endDate].filter(Boolean).join(" ~ ")
@@ -426,6 +428,7 @@ export async function GET(req: NextRequest) {
     nearby: nearbyPlaces.slice(0, 2),
     event_pick,
     realEvents,
+    bestTime: bestTime || undefined,
   });
   return NextResponse.json({ info, _source: "mock" });
 }

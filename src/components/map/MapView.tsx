@@ -175,7 +175,7 @@ export default function MapView() {
   const [presetOrigin, setPresetOrigin] = useState<{ label: string; lat: number; lng: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
   const [activeCultureCategory, setActiveCultureCategory] = useState<CultureCategory | null>(null);
-  const [showNight, setShowNight] = useState(false);
+  const [showSpots, setShowSpots] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationMessage, setLocationMessage] = useState("");
@@ -272,7 +272,7 @@ export default function MapView() {
     if (activeCourse || activeQuest) return;
 
     const naver = window.naver;
-    const opts = { dimmed: !!activeCultureCategory || showNight, tiny: mapZoom <= 10 };
+    const opts = { dimmed: !!activeCultureCategory || showSpots, tiny: mapZoom <= 10 };
     const anchor = startMarkerAnchor(opts.tiny);
     const { singles, clusters } =
       mapZoom >= 15
@@ -329,7 +329,7 @@ export default function MapView() {
       });
       startMarkersRef.current.push(marker);
     });
-  }, [mapReady, activeCourse, activeQuest, activeCultureCategory, showNight, mapZoom, locale, isMobile, t]);
+  }, [mapReady, activeCourse, activeQuest, activeCultureCategory, showSpots, mapZoom, locale, isMobile, t]);
 
   // 문화행사 마커 — 카테고리 선택 시 커스텀 PNG 마커로 렌더링 (최대 100개)
   useEffect(() => {
@@ -362,22 +362,22 @@ export default function MapView() {
     });
   }, [activeCultureCategory, mapReady, isMobile]);
 
-  // 야경명소 마커 — showNight 토글에 반응
+  // 서울명소 마커 — showSpots 토글에 반응
   useEffect(() => {
     if (!mapReady) return;
     clearMarkers();
-    if (!showNight) return;
+    if (!showSpots) return;
 
     const naver = window.naver;
     allPOIs.current
-      .filter((p) => p.source === "nightview")
+      .filter((p) => p.source === "spot")
       .forEach((poi) => {
         const marker = new naver.maps.Marker({
           position: new naver.maps.LatLng(poi.lat, poi.lng),
           map: mapInstance.current,
           title: poi.name,
           icon: {
-            content: `<img src="/markers/marker-nightview.png" style="width:26px;height:26px;cursor:pointer;display:block;" />`,
+            content: `<img src="/markers/marker-spot.png" style="width:26px;height:26px;cursor:pointer;display:block;" />`,
             anchor: new naver.maps.Point(8, 8),
           },
         });
@@ -387,7 +387,7 @@ export default function MapView() {
         });
         markersRef.current.push(marker);
       });
-  }, [showNight, mapReady, clearMarkers, isMobile]);
+  }, [showSpots, mapReady, clearMarkers, isMobile]);
 
   // 퀘스트 마커
   useEffect(() => {
@@ -416,7 +416,7 @@ export default function MapView() {
       });
 
       naver.maps.Event.addListener(marker, "click", () => {
-        setSelected({ id: obj.poiId, name: obj.poiName, category: "퀘스트 지점", source: "nightview", lat: obj.lat, lng: obj.lng, place: obj.hint, fee: "" } as POIItem);
+        setSelected({ id: obj.poiId, name: obj.poiName, category: "퀘스트 지점", source: "spot", lat: obj.lat, lng: obj.lng, place: obj.hint, fee: "" } as POIItem);
         if (isMobile) setSidebarActiveTab(null);
       });
       questMarkersRef.current.push(marker);
@@ -1383,11 +1383,11 @@ export default function MapView() {
         />
 
         <MobileMapControls
-          showNight={showNight}
+          showSpots={showSpots}
           activeCultureCategory={activeCultureCategory}
           locationStatus={locationStatus}
           onOpenTab={setSidebarActiveTab}
-          onToggleNight={() => setShowNight((v) => !v)}
+          onToggleSpots={() => setShowSpots((v) => !v)}
           onSelectCultureCategory={setActiveCultureCategory}
           onRequestLocation={requestUserLocation}
         />
@@ -1406,15 +1406,15 @@ export default function MapView() {
             onSelectCategory={setActiveCultureCategory}
           />
           <button
-            onClick={() => setShowNight((v) => !v)}
+            onClick={() => setShowSpots((v) => !v)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all whitespace-nowrap ${
-              showNight
+              showSpots
                 ? "bg-[#D97706] text-white border-[#B45309]"
                 : "bg-white text-[#6B7280] border-[#FDECC8] hover:border-[#FE9C00] hover:text-[#FE9C00]"
             }`}
           >
-            <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: showNight ? "#fff" : "#fae633", border: `2px solid ${showNight ? "rgba(228, 202, 83, 0.89)" : "#fde409"}` }} />
-            {t("map.nightToggle")}
+            <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: showSpots ? "#fff" : "#fae633", border: `2px solid ${showSpots ? "rgba(228, 202, 83, 0.89)" : "#fde409"}` }} />
+            {t("map.spotToggle")}
           </button>
           <button
             onClick={requestUserLocation}

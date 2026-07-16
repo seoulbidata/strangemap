@@ -57,6 +57,14 @@ export const SPOT_INFO_EN: Record<string, SpotInfoEn> = {
       "Seoul Forest Stn. (Suin-Bundang Line) Exit 3, 5-min walk, or Ttukseom Stn. (Line 2) Exit 8, 15-min walk",
     bus: "Get off at the Seoul Forest stop and walk",
   },
+  "석촌호수(송파나루공원)": {
+    place: "136 Samhaksa-ro, Songpa-gu, Seoul",
+    operating_time: "Open all year",
+    fee: "Free",
+    subway:
+      "Jamsil Stn. (Lines 2 & 8) Exit 2, 5-min walk (East Lake), or Exit 3, 5-min walk (West Lake)",
+    bus: "Get off at the Seokchon Lake / Lotte World stop and walk",
+  },
 };
 
 /**

@@ -1047,5 +1047,23 @@
     "image": "/spots/55.jpg",
     "spotCategory": "공원·정원",
     "bestTime": "any"
+  },
+  {
+    "id": "56",
+    "name": "석촌호수(송파나루공원)",
+    "category": "공원/광장",
+    "lat": 37.51,
+    "lng": 127.103,
+    "place": "서울특별시 송파구 삼학사로 136",
+    "operating_time": "상시개방",
+    "fee": "무료",
+    "subway": "지하철 2·8호선 잠실역 2번 출구 도보 5분(동호) / 3번 출구 도보 5분(서호)",
+    "url": "https://korean.visitseoul.net/attractions1/%EC%84%9D%EC%B4%8C%ED%98%B8%EC%88%98%EA%B3%B5%EC%9B%90_/1136",
+    "tel": "02-412-0190",
+    "bus": "석촌호수·롯데월드 정류장 하차 도보 이용",
+    "parking": "인근 공영·롯데월드 주차장 이용 (유료 / 호수 전용 주차장 없음, 대중교통 권장)",
+    "image": "/spots/56.jpg",
+    "spotCategory": "공원·정원",
+    "bestTime": "any"
   }
 ]

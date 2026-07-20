@@ -199,7 +199,6 @@ export const PLACE_NAME_EN: Record<string, string> = {
   "서울로7017": "Seoullo 7017",
   "서울어린이대공원 음악분수": "Seoul Children's Grand Park Music Fountain",
   "서울함 공원": "Seoul Battleship Park",
-  "석촌호수 루미나리에(송파나루공원)": "Seokchon Lake Luminarie (Songpanaru Park)",
   "석촌호수(송파나루공원)": "Seokchon Lake (Songpanaru Park)",
   "선유도공원": "Seonyudo Park",
   "성산대교": "Seongsan Bridge",

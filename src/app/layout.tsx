@@ -15,7 +15,31 @@ const orbitron = Orbitron({
 
 export const metadata: Metadata = {
   title: "서울로",
-  description: "서울의 숨은 이야기를 지도 위에서 해금하는 탐험 RPG",
+  description:
+    "실시간 혼잡도로 붐비는 곳은 피하고, 지금 가기 좋은 서울 명소와 AI가 추천하는 나에게 맞는 여행을 시작하세요.",
+  keywords: [
+    "서울 여행",
+    "서울 지도",
+    "실시간 혼잡도",
+    "서울 명소",
+    "서울 여행 코스",
+    "AI 코스 추천",
+    "서울 가볼만한곳",
+  ],
+  openGraph: {
+    title: "서울로 | 실시간 혼잡도 서울 여행 지도",
+    description:
+      "실시간 혼잡도로 붐비는 곳은 피하고, 지금 가기 좋은 서울 명소와 나만의 여행 코스를 지도에서 찾아보세요.",
+    type: "website",
+    locale: "ko_KR",
+    siteName: "서울로",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "서울로 | 실시간 혼잡도 서울 여행 지도",
+    description:
+      "실시간 혼잡도로 지금 가기 좋은 서울 명소와 나만의 여행 코스를 지도에서 찾아보세요.",
+  },
 };
 
 export default function RootLayout({

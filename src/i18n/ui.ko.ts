@@ -41,18 +41,15 @@ export const ko = {
 
   // ── 웰컴 모달 ─────────────────────────────────────────────────────────────
   "welcome.appName": "서울로",
-  "welcome.tagline": "서울시 특화 지도",
-  "welcome.noticeTitle": "서비스 유의사항",
-  "welcome.notice1": "본 서비스는 서울시 빅데이터 경진대회 출품 목적의 시범 서비스입니다.",
-  "welcome.notice2": "제공되는 정보(혼잡도·버스·지하철 등)는 실시간 공공데이터 기반으로,실제 현장과 차이가 있을 수 있습니다.",
-  "welcome.notice3": "AI 추천 정보는 참고용입니다.",
-  "welcome.apiTitle": "API 사용 제한 안내",
-  "welcome.api1": "AI 장소 정보 조회는 과도한 사용 시 일시적으로 제한될 수 있습니다.",
-  "welcome.api2": "지하철·버스 실시간 정보는 서울 공공데이터 API를 사용하며, 일일 호출 한도가 있습니다.",
-  "welcome.api3": "서울로에 물어보기 기능(ai답변생성)은 일일 호출 제한 70회입니다.",
-  "welcome.api4": "서비스 안정성을 위해 동일 요청의 반복 호출은 자제해 주세요.",
-  "welcome.agree": "본 서비스를 이용함으로써 위 내용에 동의한 것으로 간주됩니다.",
-  "welcome.start": "확인하고 시작하기",
+  "welcome.tagline": "서울을 모두 담은 지도",
+  "welcome.intro": "붐비는 곳은 피하고, 지금 가기 좋은 서울의 명소와 나만의 여행 코스를 지도 위에서 찾아보세요.",
+  "welcome.feature1Title": "서울의 모든것",
+  "welcome.feature1Desc": "야경 명소부터 문화행사 까지 지도 하나로 둘러볼 수 있어요.",
+  "welcome.feature2Title": "실시간 혼잡도",
+  "welcome.feature2Desc": "지금 이 순간 어디가 붐비는지 지도에서 바로 확인할 수 있어요.",
+  "welcome.feature3Title": "AI 여행 코스",
+  "welcome.feature3Desc": "취향과 일정에 맞는 서울 코스를 AI가 자동으로 짜드려요.",
+  "welcome.start": "서울로 가기",
 
   // ── 지도 오버레이 (MapView) ───────────────────────────────────────────────
   "map.spotToggle": "서울명소 위치",

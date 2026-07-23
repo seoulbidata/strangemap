@@ -43,18 +43,15 @@ export const en = {
 
   // ── 웰컴 모달 ─────────────────────────────────────────────────────────────
   "welcome.appName": "Seoulro",
-  "welcome.tagline": "A map made for Seoul",
-  "welcome.noticeTitle": "Service Notice",
-  "welcome.notice1": "This is a pilot service built for the Seoul Big Data Contest.",
-  "welcome.notice2": "Information shown (crowd levels, bus, subway, etc.) is based on real-time public data and may differ from actual conditions.",
-  "welcome.notice3": "AI recommendations are for reference only.",
-  "welcome.apiTitle": "API Usage Limits",
-  "welcome.api1": "AI place info lookups may be temporarily limited under heavy use.",
-  "welcome.api2": "Real-time subway and bus data uses Seoul public APIs with daily call limits.",
-  "welcome.api3": "The Ask Seoulro feature (AI answers) is limited to 70 calls per day.",
-  "welcome.api4": "Please avoid repeating the same request to keep the service stable.",
-  "welcome.agree": "By using this service, you are deemed to have agreed to the above.",
-  "welcome.start": "Got it, let's start",
+  "welcome.tagline": "A map that holds all of Seoul",
+  "welcome.intro": "Skip the crowds and discover the best Seoul spots to visit right now — plus your own travel course, all on one map.",
+  "welcome.feature1Title": "Everything in Seoul",
+  "welcome.feature1Desc": "From night views to cultural events, explore it all on one map.",
+  "welcome.feature2Title": "Live crowd levels",
+  "welcome.feature2Desc": "Check which areas are busy right now, right on the map.",
+  "welcome.feature3Title": "AI travel courses",
+  "welcome.feature3Desc": "AI builds a Seoul route that fits your taste and schedule.",
+  "welcome.start": "Go to Seoulro",
 
   // ── 지도 오버레이 (MapView) ───────────────────────────────────────────────
   "map.spotToggle": "Seoul Spots",

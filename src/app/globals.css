@@ -19,14 +19,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-seoul-alrim);
   --font-display: var(--font-orbitron);
 }
 
 html, body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), "Pretendard", system-ui, sans-serif;
+  font-family: var(--font-seoul-alrim), "Pretendard", system-ui, sans-serif;
+}
+
+/* 버튼/인풋 등 폼 요소는 폰트를 상속하지 않으므로 명시 */
+button, input, select, textarea {
+  font-family: inherit;
 }
 
 /* 모닝 옐로우 스크롤바 */
@@ -84,7 +89,7 @@ html, body {
   color: #FE9C00;
   font-weight: 800;
   font-size: 17px;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-seoul-alrim), system-ui, sans-serif;
 }
 .crs-start-tail {
   width: 0;
@@ -103,7 +108,7 @@ html, body {
   color: #FFFBF0;
   font-size: 12px;
   font-weight: 700;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-seoul-alrim), system-ui, sans-serif;
   padding: 4px 10px;
   border-radius: 999px;
   white-space: nowrap;
@@ -147,7 +152,7 @@ html, body {
 .thin-scroll::-webkit-scrollbar { width: 4px; }
 .thin-scroll::-webkit-scrollbar-track { background: transparent; }
 
-.font-display { font-family: var(--font-orbitron), var(--font-geist-sans), sans-serif; }
+.font-display { font-family: var(--font-orbitron), var(--font-seoul-alrim), sans-serif; }
 
 @keyframes shimmer {
   0%   { transform: translateX(-100%); }

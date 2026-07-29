@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Orbitron } from "next/font/google";
+import { Orbitron } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const seoulAlrim = localFont({
+  variable: "--font-seoul-alrim",
+  display: "swap",
+  src: [
+    { path: "../../public/fonts/SeoulAlrim-Medium.woff2", weight: "100 500", style: "normal" },
+    { path: "../../public/fonts/SeoulAlrim-Bold.woff2", weight: "600 700", style: "normal" },
+    { path: "../../public/fonts/SeoulAlrim-ExtraBold.woff2", weight: "800 900", style: "normal" },
+  ],
 });
 
 const orbitron = Orbitron({
@@ -48,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" style={{ height: "100%" }} className={`${geistSans.variable} ${orbitron.variable} antialiased`}>
+    <html lang="ko" style={{ height: "100%" }} className={`${seoulAlrim.variable} ${orbitron.variable} antialiased`}>
       <body style={{ margin: 0, padding: 0, height: "100vh", overflow: "hidden" }} className="bg-[#F5F2EC] text-[#1A1E2E]">
         {children}
       </body>

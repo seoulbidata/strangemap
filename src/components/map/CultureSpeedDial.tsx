@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { CULTURE_CATEGORIES, CATEGORY_COLOR, type CultureCategory } from "@/lib/cultureCategories";
 import { useLocale } from "@/i18n/LocaleContext";
 import { categoryLabel } from "@/i18n/enums";
@@ -53,9 +54,6 @@ export default function CultureSpeedDial({ activeCategory, onSelectCategory }: P
         color: "#6B7280",
       };
 
-  const spanBg = activeCategory || isOpen ? "#ffffff" : "#2563EB";
-  const spanBorder = activeCategory || isOpen ? "rgba(255,255,255,0.5)" : "#1D4ED8";
-
   return (
     <div ref={ref} className="relative">
       {/* 메인 버튼 */}
@@ -64,12 +62,12 @@ export default function CultureSpeedDial({ activeCategory, onSelectCategory }: P
         style={mainBtnStyle}
         className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold shadow-md border transition-all whitespace-nowrap"
       >
-        <span
-          className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
-          style={{
-            background: spanBg,
-            border: `2px solid ${spanBorder}`,
-          }}
+        <Image
+          src="/sidebaricons/culture.png"
+          alt=""
+          width={18}
+          height={18}
+          className="object-contain shrink-0"
         />
         {activeCategory ? categoryLabel(activeCategory, locale) : t("map.cultureToggle")}
         <span

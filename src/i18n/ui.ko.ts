@@ -22,6 +22,7 @@ export const ko = {
   "sidebar.tab.search": "검색",
   "sidebar.tab.route": "길찾기",
   "sidebar.tab.course": "관광코스",
+  "sidebar.tab.myCourse": "나만의코스",
   "sidebar.tab.culture": "문화행사",
   "sidebar.tab.spot": "서울명소",
   "sidebar.tab.now": "혼잡도",

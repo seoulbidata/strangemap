@@ -24,6 +24,7 @@ export const en = {
   "sidebar.tab.search": "Search",
   "sidebar.tab.route": "Directions",
   "sidebar.tab.course": "Courses",
+  "sidebar.tab.myCourse": "My Course",
   "sidebar.tab.culture": "Events",
   "sidebar.tab.spot": "Seoul Spots",
   "sidebar.tab.now": "Crowds",

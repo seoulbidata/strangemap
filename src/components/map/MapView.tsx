@@ -1,10 +1,21 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import Script from "next/script";
+import Image from "next/image";
 import type { POIItem } from "@/app/api/poi/route";
 import type { StoryQuest } from "@/types/quest";
-import { THEME_COURSES, type ThemeCourse } from "@/data/themeCourses";
+import {
+  THEME_COURSES,
+  dayColor,
+  hasCoords,
+  isMealStop,
+  stopSlotType,
+  MEAL_COLOR,
+  MEAL_COLOR_DEEP,
+  type ThemeCourse,
+} from "@/data/themeCourses";
+import { haversineKm } from "@/lib/courseRouting";
 import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
 import CourseStopCard from "@/components/game/CourseStopCard";
@@ -166,6 +177,39 @@ export default function MapView() {
   const [currentObjIndex, setCurrentObjIndex] = useState(0);
   const [activeCourse, setActiveCourse] = useState<ThemeCourse | null>(null);
   const [detailCourse, setDetailCourse] = useState<ThemeCourse | null>(null);
+  // 멀티데이 코스에서 지금 보고 있는 일차 (1부터). 단일 코스는 무시된다.
+  const [selectedDay, setSelectedDay] = useState<number>(1);
+  // 코스가 바뀌면 항상 1일차부터 (React 권장: 렌더 중 이전값 비교로 리셋 — effect 불필요)
+  const shownCourseId = detailCourse?.id ?? activeCourse?.id ?? null;
+  const [prevShownCourseId, setPrevShownCourseId] = useState(shownCourseId);
+  if (shownCourseId !== prevShownCourseId) {
+    setPrevShownCourseId(shownCourseId);
+    setSelectedDay(1);
+  }
+
+  // 코스 스톱 카드용 파생값 — 지금 보는 일차 안의 이동 범위 + 인근 문화행사(서울로 poi). ref 접근 없음.
+  const activeStopCard = useMemo(() => {
+    if (!selected || selected.category !== "테마 코스" || !activeCourse) return null;
+    const idx = parseInt(selected.id.replace("course_", ""), 10);
+    const stop = activeCourse.stops[idx];
+    if (!stop) return null;
+    const isMulti = (activeCourse.days ?? 1) > 1;
+    // 식사 슬롯도 방문 순서의 일부라 이전/다음 이동에 포함한다 (타임라인과 같은 순서로 훑을 수 있게)
+    const navIdxs = activeCourse.stops
+      .map((_, i) => i)
+      .filter((i) => !isMulti || (activeCourse.stops[i].day ?? 1) === selectedDay);
+    const pos = Math.max(0, navIdxs.indexOf(idx));
+    // 좌표 없는 식사 슬롯은 주변을 잴 기준점이 없다 → 인근 행사 조회 생략
+    const nearbyEvents = hasCoords(stop)
+      ? poisData
+          .filter((p) => p.source === "culture")
+          .map((p) => ({ poi: p, distKm: haversineKm(stop.lat, stop.lng, p.lat, p.lng) }))
+          .filter((x) => x.distKm <= 1)
+          .sort((a, b) => a.distKm - b.distKm)
+          .slice(0, 3)
+      : [];
+    return { idx, stop, navIdxs, pos, prevGi: navIdxs[pos - 1], nextGi: navIdxs[pos + 1], nearbyEvents };
+  }, [selected, activeCourse, selectedDay, poisData]);
   const { drafts: courseDrafts, addDraft, removeDraft } = useCourseCollection();
   const [mapReady, setMapReady] = useState(false);
   const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM);
@@ -410,7 +454,7 @@ export default function MapView() {
         map: mapInstance.current,
         zIndex: 100,
         icon: {
-          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${isCurrent ? 13 : 11}px;color:${textColor};cursor:pointer;font-family:system-ui,sans-serif;">${label}</div>`,
+          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${isCurrent ? 13 : 11}px;color:${textColor};cursor:pointer;font-family:var(--font-seoul-alrim),system-ui,sans-serif;">${label}</div>`,
           anchor: new naver.maps.Point(size / 2, size / 2),
         },
       });
@@ -434,6 +478,29 @@ export default function MapView() {
 
     const naver = window.naver;
     const path: NaverLatLng[] = [];
+
+    // 멀티데이면 선택한 일차의 스톱만 그린다 (한 번에 한 일차). 색도 일차별로 다르게.
+    const isMulti = (activeCourse.days ?? 1) > 1;
+    const viewStops = isMulti
+      ? activeCourse.stops.filter((s) => (s.day ?? 1) === selectedDay)
+      : activeCourse.stops;
+    if (viewStops.length === 0) return;
+    const baseColor = isMulti ? dayColor(selectedDay) : activeCourse.color;
+
+    // 시간표에 앉은 슬롯(장소·식사)만 번호와 경로를 갖는다.
+    // flex(시간표 밖 자유 방문 제안)는 방문 시각도 순서도 없으므로 경로선에 넣지 않고
+    // 상세 패널의 "시간표 밖 추천"과 같은 뜻으로 지도에도 번호 없는 점선 마커로만 찍는다.
+    const timedView = viewStops.filter((s) => stopSlotType(s) !== "flex");
+    // 번호는 timedView 기준 — 좌표 없는 식사 슬롯(식당 못 찾음)도 자리를 차지하므로
+    // 마커를 못 찍어도 지도와 타임라인의 번호가 서로 어긋나지 않는다.
+    const withMeta = (stop: (typeof viewStops)[number]) => ({
+      stop,
+      num: timedView.indexOf(stop) + 1,
+      gi: activeCourse.stops.indexOf(stop),
+    });
+    // 반경 안에 식당이 하나도 없는 식사 슬롯은 좌표가 없다 → 마커도 경로도 건너뛴다.
+    const routeStops = timedView.filter(hasCoords).map(withMeta);
+    const flexStops = viewStops.filter((s) => stopSlotType(s) === "flex" && hasCoords(s)).map(withMeta);
 
     // 테마 단일 색상(hue)의 명도 그라데이션 — 경유지 번호별로 채도·명도 차이로 구분
     const hexToHsl = (hex: string): [number, number, number] => {
@@ -468,8 +535,8 @@ export default function MapView() {
     };
     const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-    const [baseH, baseS] = hexToHsl(activeCourse.color);
-    const stopCount = activeCourse.stops.length;
+    const [baseH, baseS] = hexToHsl(baseColor);
+    const stopCount = timedView.length;
     // 테마 색을 중심으로 같은 계열 안에서 인접 색상으로만 살짝 회전시키고(예: 보라→파랑),
     // 명도를 함께 변화시켜 한 계열 그라데이션처럼 자연스럽게 이어지게 한다.
     const HUE_SPREAD = 55; // 코스 전체 색상 회전 폭(deg) — 좁게 둬 같은 계열 유지
@@ -481,11 +548,12 @@ export default function MapView() {
       return hslToHex(H, S, L);
     };
 
-    activeCourse.stops.forEach((stop, i) => {
-      const isFirst = i === 0;
-      const isLast = i === activeCourse.stops.length - 1;
-      const size = isFirst || isLast ? 36 : 28;
-      const bg = segColor(i);
+    routeStops.forEach(({ stop, num, gi }) => {
+      const meal = isMealStop(stop);
+      const isFirst = num === 1;
+      const isLast = num === timedView.length;
+      const size = meal ? 30 : isFirst || isLast ? 36 : 28;
+      const bg = meal ? MEAL_COLOR : segColor(num - 1);
 
       const latlng = new naver.maps.LatLng(stop.lat, stop.lng);
       path.push(latlng);
@@ -493,9 +561,35 @@ export default function MapView() {
       const marker = new naver.maps.Marker({
         position: latlng,
         map: mapInstance.current,
-        zIndex: 90,
+        // 식사 마커는 장소 마커와 겹칠 때 위로 (직전 장소 바로 옆인 경우가 많다)
+        zIndex: meal ? 92 : 90,
+        title: stop.name,
         icon: {
-          content: `<div style="
+          // 식사 = 둥근 사각 + 포크·나이프 배지, 장소 = 원. 색맹 대비로 색만이 아니라 모양·아이콘도 다르다.
+          content: meal
+            ? `<div style="position:relative;width:${size}px;height:${size}px;">
+                <div style="
+                  width:${size}px;height:${size}px;border-radius:${Math.round(size * 0.32)}px;
+                  background:${bg};
+                  border:3px solid #fff;
+                  box-shadow:0 2px 10px rgba(0,0,0,0.28);
+                  display:flex;align-items:center;justify-content:center;
+                  font-weight:700;font-size:12px;color:#fff;cursor:pointer;
+                  font-family:var(--font-seoul-alrim),system-ui,sans-serif;
+                ">${num}</div>
+                <div style="
+                  position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;
+                  background:#fff;border:1.5px solid ${MEAL_COLOR_DEEP};
+                  display:flex;align-items:center;justify-content:center;
+                  box-shadow:0 1px 3px rgba(0,0,0,0.2);
+                ">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 3v7a2 2 0 0 0 4 0V3M8 12v9M18 3c-1.5 0-3 2-3 5s1 4 3 4v9"
+                      stroke="${MEAL_COLOR_DEEP}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </div>`
+            : `<div style="
             width:${size}px;height:${size}px;border-radius:50%;
             background:${bg};
             border:3px solid #fff;
@@ -503,19 +597,73 @@ export default function MapView() {
             display:flex;align-items:center;justify-content:center;
             font-weight:700;font-size:${isFirst || isLast ? 14 : 12}px;
             color:#fff;cursor:pointer;
-            font-family:system-ui,sans-serif;
-          ">${i + 1}</div>`,
+            font-family:var(--font-seoul-alrim),system-ui,sans-serif;
+          ">${num}</div>`,
           anchor: new naver.maps.Point(size / 2, size / 2),
         },
       });
 
+      // 클릭 시 원래(전체) 스톱 배열 기준 인덱스로 매핑 (일차 필터로 번호가 어긋나지 않게)
       naver.maps.Event.addListener(marker, "click", () => {
-        setSelected(courseStopToPOI(activeCourse, i));
+        setSelected(courseStopToPOI(activeCourse, gi));
         if (isMobile) setSidebarActiveTab(null);
       });
       courseMarkersRef.current.push(marker);
     });
 
+    // 시간표 밖 추천(flex) — 번호도 경로선도 없다. 어디쯤인지만 알 수 있게 점선 테두리 마커로 찍는다.
+    flexStops.forEach(({ stop, gi }) => {
+      const latlng = new naver.maps.LatLng(stop.lat, stop.lng);
+      path.push(latlng);
+      const marker = new naver.maps.Marker({
+        position: latlng,
+        map: mapInstance.current,
+        zIndex: 74,
+        title: `${stop.name} — 시간표 밖 추천`,
+        icon: {
+          content: `<div style="
+            width:24px;height:24px;border-radius:50%;
+            background:#fff;border:2.5px dashed ${baseColor};
+            box-shadow:0 2px 8px rgba(0,0,0,0.18);
+            display:flex;align-items:center;justify-content:center;cursor:pointer;
+          ">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="${baseColor}" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+          </div>`,
+          anchor: new naver.maps.Point(12, 12),
+        },
+      });
+      naver.maps.Event.addListener(marker, "click", () => {
+        setSelected(courseStopToPOI(activeCourse, gi));
+        if (isMobile) setSidebarActiveTab(null);
+      });
+      courseMarkersRef.current.push(marker);
+    });
+
+    // 주변 식당 오버레이 — 경로엔 안 들어가고 지도에만 표시 (작은 핀, 스톱 마커보다 낮은 zIndex)
+    // 멀티데이면 선택한 일차의 식당만 보여준다.
+    (activeCourse.overlayPois ?? [])
+      .filter((poi) => !isMulti || (poi.day ?? 1) === selectedDay)
+      .forEach((poi) => {
+      const marker = new naver.maps.Marker({
+        position: new naver.maps.LatLng(poi.lat, poi.lng),
+        map: mapInstance.current,
+        zIndex: 70,
+        title: poi.name,
+        icon: {
+          content: `<div style="
+            width:20px;height:20px;border-radius:50%;
+            background:#fff;border:1.5px solid ${baseColor}66;
+            box-shadow:0 1px 4px rgba(0,0,0,0.18);
+            display:flex;align-items:center;justify-content:center;
+            font-size:11px;line-height:1;
+          ">🍴</div>`,
+          anchor: new naver.maps.Point(10, 10),
+        },
+      });
+      courseMarkersRef.current.push(marker);
+    });
 
     // 지도 바운드 맞춤
     if (path.length > 1) {
@@ -587,9 +735,12 @@ export default function MapView() {
       }
       if (cancelled) return;
 
-      for (let i = 0; i < activeCourse.stops.length - 1; i++) {
-        const a = activeCourse.stops[i];
-        const b = activeCourse.stops[i + 1];
+      // 경로는 stop 단위 세그먼트로 쪼개 그린다. 색은 식사 여부와 무관하게 코스 그라데이션 그대로 —
+      // 식사 자리는 마커(앰버 사각 + 포크)로만 구분한다. 선까지 갈아입히면 동선이 끊겨 보인다.
+      // (사전 계산 사이드카는 정적 테마코스용이라 식사 슬롯이 없다. routeStops 인덱스가 곧 세그먼트 인덱스.)
+      for (let i = 0; i < routeStops.length - 1; i++) {
+        const a = routeStops[i].stop;
+        const b = routeStops[i + 1].stop;
 
         let pts: { lat: number; lng: number }[] = precomputed?.[i]?.points ?? [];
 
@@ -622,7 +773,7 @@ export default function MapView() {
           }));
         }
 
-        const color = segColor(i);
+        const color = segColor(routeStops[i].num - 1);
         const full = pts.map((p) => new naver.maps.LatLng(p.lat, p.lng));
         await animateSegment(full, color, useFallback ? 0.55 : 0.95);
         if (cancelled) return;
@@ -662,7 +813,7 @@ export default function MapView() {
     return () => {
       cancelled = true;
     };
-  }, [activeCourse, mapReady, clearCourseOverlay, isMobile]);
+  }, [activeCourse, selectedDay, mapReady, clearCourseOverlay, isMobile]);
 
 
   // 출발/목적지 마커
@@ -675,7 +826,7 @@ export default function MapView() {
         position: new naver.maps.LatLng(origin.lat, origin.lng),
         map: mapInstance.current,
         icon: {
-          content: `<div style="background:#16A34A;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">${t("map.marker.origin")}</div>`,
+          content: `<div style="background:#16A34A;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:var(--font-seoul-alrim),system-ui,sans-serif;">${t("map.marker.origin")}</div>`,
           anchor: new naver.maps.Point(20, 12),
         },
       });
@@ -686,7 +837,7 @@ export default function MapView() {
         position: new naver.maps.LatLng(dest.lat, dest.lng),
         map: mapInstance.current,
         icon: {
-          content: `<div style="background:#DC2626;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;">${t("map.marker.dest")}</div>`,
+          content: `<div style="background:#DC2626;color:#fff;font-weight:700;font-size:10px;padding:3px 8px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 6px rgba(0,0,0,0.2);font-family:var(--font-seoul-alrim),system-ui,sans-serif;">${t("map.marker.dest")}</div>`,
           anchor: new naver.maps.Point(16, 12),
         },
       });
@@ -909,7 +1060,7 @@ export default function MapView() {
         border-radius:6px;
         border:2px solid rgba(0,0,0,0.18);
         box-shadow:0 2px 8px rgba(0,0,0,0.24);
-        font-family:system-ui,sans-serif;
+        font-family:var(--font-seoul-alrim),system-ui,sans-serif;
         white-space:nowrap;
         line-height:1.15;
       ">${label}</div>`;
@@ -1080,8 +1231,8 @@ export default function MapView() {
       });
     }
 
-    addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">${t("map.marker.origin")}</div>`, { anchorX: 40, anchorY: 8, zIndex: 190 });
-    addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:system-ui,sans-serif;white-space:nowrap;">${t("map.marker.dest")}</div>`, { anchorX: 4, anchorY: 8, zIndex: 190 });
+    addMarker(org.lat, org.lng, `<div style="background:#16A34A;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #15803D;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:var(--font-seoul-alrim),system-ui,sans-serif;white-space:nowrap;">${t("map.marker.origin")}</div>`, { anchorX: 40, anchorY: 8, zIndex: 190 });
+    addMarker(dst.lat, dst.lng, `<div style="background:#DC2626;color:#fff;font-weight:800;font-size:10px;padding:5px 9px;border-radius:6px;border:2px solid #B91C1C;box-shadow:0 2px 7px rgba(0,0,0,0.22);font-family:var(--font-seoul-alrim),system-ui,sans-serif;white-space:nowrap;">${t("map.marker.dest")}</div>`, { anchorX: 4, anchorY: 8, zIndex: 190 });
 
     setPresetOrigin({ label: org.label, lat: org.lat, lng: org.lng });
     setPresetDest({ label: dst.label, lat: dst.lat, lng: dst.lng });
@@ -1122,13 +1273,21 @@ export default function MapView() {
     setDetailCourse(course);
   };
 
+  // 나만의 코스 생성 완료 → 저장(내 코스) + 지도에 즉시 렌더 + 상세 패널
+  const handleAICourseReady = (course: ThemeCourse) => {
+    addDraft(course);
+    setActiveCourse(course);
+    setDetailCourse(course);
+  };
+
   // 디테일 패널의 경유지 클릭 → 지도 이동 + stop 카드
   const handleSelectCourseStop = (course: ThemeCourse, stopIndex: number) => {
     const s = course.stops[stopIndex];
     if (!s) return;
     if (activeCourse?.id !== course.id) setActiveCourse(course);
     setSelected(courseStopToPOI(course, stopIndex));
-    mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
+    // 식당을 못 찾은 식사 슬롯은 좌표가 없다 — 지도를 엉뚱한 곳(NaN)으로 보내지 않는다
+    if (hasCoords(s)) mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
   };
 
   const handleToggleSaveCourse = (course: ThemeCourse) => {
@@ -1348,6 +1507,9 @@ export default function MapView() {
             pois={poisData}
             onSelectPOI={handleSelectPOI}
             onOpenCourse={handleOpenCourseDetail}
+            onCourseReady={handleAICourseReady}
+            myCourses={courseDrafts}
+            onDeleteMyCourse={removeDraft}
             activeCourseId={activeCourse?.id ?? null}
             onRouteFound={handleRouteFound}
             onRouteClear={clearRouteOverlay}
@@ -1413,7 +1575,13 @@ export default function MapView() {
                 : "bg-white text-[#6B7280] border-[#FDECC8] hover:border-[#FE9C00] hover:text-[#FE9C00]"
             }`}
           >
-            <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: showSpots ? "#fff" : "#fae633", border: `2px solid ${showSpots ? "rgba(228, 202, 83, 0.89)" : "#fde409"}` }} />
+            <Image
+              src="/sidebaricons/night.png"
+              alt=""
+              width={18}
+              height={18}
+              className="object-contain shrink-0"
+            />
             {t("map.spotToggle")}
           </button>
           <button
@@ -1460,6 +1628,36 @@ export default function MapView() {
           </div>
         )}
 
+        {/* 코스 범례 — 식사 슬롯이 있는 코스에서만. 마커·경로 색이 무엇을 뜻하는지 알려준다 */}
+        {activeCourse?.stops.some(isMealStop) && !activeQuest && (
+          <div
+            className="absolute z-20 flex items-center gap-3 px-3 py-2 rounded-xl bg-white/92 backdrop-blur-sm border border-[#E5E1D8] shadow-[0_2px_10px_rgba(20,30,50,0.12)] pointer-events-none"
+            style={{
+              left: isMobile ? 12 : sidebarActiveTab ? 72 + 320 + 12 : 72 + 12,
+              bottom: isMobile ? 168 : 24,
+            }}
+          >
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4B5563]">
+              <span
+                className="w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm"
+                style={{ background: (activeCourse.days ?? 1) > 1 ? dayColor(selectedDay) : activeCourse.color }}
+                aria-hidden
+              />
+              장소
+            </span>
+            <span className="w-px h-3 bg-[#E5E1D8]" aria-hidden />
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4B5563]">
+              {/* 색만이 아니라 모양(사각)까지 달라 색 구분이 어려워도 읽힌다 */}
+              <span
+                className="w-3.5 h-3.5 rounded-[4px] border-2 border-white shadow-sm flex items-center justify-center"
+                style={{ background: MEAL_COLOR }}
+                aria-hidden
+              />
+              식사
+            </span>
+          </div>
+        )}
+
         {/* 활성 퀘스트 트래커 */}
         {activeQuest && (
           <ActiveQuestTracker
@@ -1471,27 +1669,32 @@ export default function MapView() {
         )}
 
         {/* 장소 카드 */}
-        {selected && selected.category === "테마 코스" && activeCourse ? (
+        {activeStopCard && activeCourse ? (
           <CourseStopCard
             course={activeCourse}
-            stop={activeCourse.stops[parseInt(selected.id.replace("course_", ""), 10)]}
-            stopIndex={parseInt(selected.id.replace("course_", ""), 10)}
+            stop={activeStopCard.stop}
+            stopIndex={activeStopCard.idx}
+            position={activeStopCard.pos}
+            total={activeStopCard.navIdxs.length}
+            nearbyEvents={activeStopCard.nearbyEvents}
             onClose={() => setSelected(null)}
             onPrev={() => {
-              const idx = parseInt(selected.id.replace("course_", ""), 10);
-              if (idx > 0) {
-                const s = activeCourse.stops[idx - 1];
-                setSelected(courseStopToPOI(activeCourse, idx - 1));
-                mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
-              }
+              const gi = activeStopCard.prevGi;
+              if (gi == null) return;
+              setSelected(courseStopToPOI(activeCourse, gi));
+              const s = activeCourse.stops[gi];
+              if (hasCoords(s)) mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
             }}
             onNext={() => {
-              const idx = parseInt(selected.id.replace("course_", ""), 10);
-              if (idx < activeCourse.stops.length - 1) {
-                const s = activeCourse.stops[idx + 1];
-                setSelected(courseStopToPOI(activeCourse, idx + 1));
-                mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
-              }
+              const gi = activeStopCard.nextGi;
+              if (gi == null) return;
+              setSelected(courseStopToPOI(activeCourse, gi));
+              const s = activeCourse.stops[gi];
+              if (hasCoords(s)) mapInstance.current?.panTo(new window.naver.maps.LatLng(s.lat, s.lng));
+            }}
+            onSelectEvent={(poi) => {
+              setSelected(poi);
+              mapInstance.current?.panTo(new window.naver.maps.LatLng(poi.lat, poi.lng));
             }}
           />
         ) : selected ? (
@@ -1515,6 +1718,8 @@ export default function MapView() {
             course={detailCourse}
             isActive={activeCourse?.id === detailCourse.id}
             saved={courseDrafts.some((d) => d.id === detailCourse.id)}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
             onClose={() => setDetailCourse(null)}
             onToggleStart={() => handleSelectCourse(detailCourse)}
             onToggleSave={() => handleToggleSaveCourse(detailCourse)}

@@ -199,10 +199,20 @@ export const en = {
   "courseDetail.stat.difficulty": "Difficulty",
   "courseDetail.checkpoints": "Course Checkpoints",
   "courseDetail.realtime": "Live: {level}",
+  "courseDetail.forecast": "{time} {level} expected",
   "courseDetail.saved": "Saved",
   "courseDetail.save": "Save",
   "courseDetail.end": "End Course",
   "courseDetail.view": "View Course",
+  // 식사 슬롯 (lewisai meals 칩)
+  "courseDetail.mealCount": "{n} meal(s)",
+  "courseDetail.mealNone": "No open restaurants found nearby — we'll just leave the time free.",
+  // 시간표에 못 앉힌 자유 방문 제안 (slot_type: flex)
+  "courseDetail.flexTitle": "Off-schedule picks",
+  "courseDetail.flexHint": "These didn't fit the timetable, but they're worth a stop if you have time.",
+  // 구간 이동 추정 (직선거리 기반 — 실제 소요와 다를 수 있음)
+  "courseDetail.legWalk": "~{n} min walk",
+  "courseDetail.legTransit": "~{n} min by transit",
 
   // ── 코스 스탑 카드 ────────────────────────────────────────────────────────
   "stopCard.dwell": "Suggested stay {d}",

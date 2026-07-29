@@ -197,10 +197,20 @@ export const ko = {
   "courseDetail.stat.difficulty": "난이도",
   "courseDetail.checkpoints": "코스 체크포인트",
   "courseDetail.realtime": "실시간 {level}",
+  "courseDetail.forecast": "{time} {level} 예상",
   "courseDetail.saved": "저장됨",
   "courseDetail.save": "저장하기",
   "courseDetail.end": "종료하기",
   "courseDetail.view": "코스 보기",
+  // 식사 슬롯 (lewisai meals 칩)
+  "courseDetail.mealCount": "식사 {n}회",
+  "courseDetail.mealNone": "이 근처에서 문 연 식당을 찾지 못했어요. 시간만 비워둘게요.",
+  // 시간표에 못 앉힌 자유 방문 제안 (slot_type: flex)
+  "courseDetail.flexTitle": "시간표 밖 추천",
+  "courseDetail.flexHint": "시간이 모자라 일정에는 넣지 못했지만, 여유가 되면 들러볼 만한 곳이에요.",
+  // 구간 이동 추정 (직선거리 기반 — 실제 소요와 다를 수 있음)
+  "courseDetail.legWalk": "도보 약 {n}분",
+  "courseDetail.legTransit": "대중교통 약 {n}분",
 
   // ── 코스 스탑 카드 ────────────────────────────────────────────────────────
   "stopCard.dwell": "권장 체류 {d}",

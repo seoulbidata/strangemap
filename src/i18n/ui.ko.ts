@@ -41,15 +41,20 @@ export const ko = {
 
   // ── 웰컴 모달 ─────────────────────────────────────────────────────────────
   "welcome.appName": "서울로",
-  "welcome.tagline": "서울을 모두 담은 지도",
-  "welcome.intro": "붐비는 곳은 피하고, 지금 가기 좋은 서울의 명소와 나만의 여행 코스를 지도 위에서 찾아보세요.",
+  "welcome.tagline": "서울에 방문하는 모든 사람들을 위한 지도",
+  "welcome.intro": "서울로는 실시간 혼잡도와 서울 곳곳의 명소·문화행사를 지도 하나에 모아, 지금 가장 가기 좋은 곳과 나에게 꼭 맞는 여행 코스를 만들어드려요.",
   "welcome.feature1Title": "서울의 모든것",
-  "welcome.feature1Desc": "야경 명소부터 문화행사 까지 지도 하나로 둘러볼 수 있어요.",
-  "welcome.feature2Title": "실시간 혼잡도",
-  "welcome.feature2Desc": "지금 이 순간 어디가 붐비는지 지도에서 바로 확인할 수 있어요.",
-  "welcome.feature3Title": "AI 여행 코스",
-  "welcome.feature3Desc": "취향과 일정에 맞는 서울 코스를 AI가 자동으로 짜드려요.",
+  "welcome.feature1Desc": "야경 명소부터 문화행사 까지 지도 하나로 둘러볼 수 있어요. 서울로에 물어보면 더 자세한 정보를 알 수 있어요.",
+  "welcome.feature4Title": "추천 관광코스",
+  "welcome.feature4Desc": "역사·야경·핫플레이스까지, 서울로가 엄선한 테마 코스를 따라 걸어보세요.",
+  "welcome.feature2Title": "AI 여행 코스",
+  "welcome.feature2Desc": "취향과 일정에 맞는 나를 위한 코스를 AI 에이전트가 자동으로 짜드려요.",
+  "welcome.feature3Title": "실시간 혼잡도",
+  "welcome.feature3Desc": "지금 이 순간 어디가 혼잡한지 지도에서 바로 확인할 수 있어요.",
+  "welcome.featuresLabel": "이런 걸 할 수 있어요",
   "welcome.start": "서울로 가기",
+  "welcome.close": "닫기",
+  "welcome.escHint": "ESC 키로도 닫을 수 있어요",
 
   // ── 지도 오버레이 (MapView) ───────────────────────────────────────────────
   "map.spotToggle": "서울명소 위치",

@@ -44,6 +44,7 @@ next-env.d.ts
 .claude/
 CLAUDE.md
 plan.md
+.agents/skills
 
 # runtime local db
 ai-usage.json
@@ -51,3 +52,6 @@ ai-usage.json
 #문서파일
 docs
 soulspot.geojson
+
+#skills
+skills-lock.json

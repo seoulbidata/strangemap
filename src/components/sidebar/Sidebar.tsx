@@ -8,9 +8,9 @@ import SearchPanel from "./SearchPanel";
 import CulturePanel from "./CulturePanel";
 import SeoulSpotPanel from "./SeoulSpotPanel";
 import CourseCollection from "./CourseCollection";
+import MyCoursePanel from "./MyCoursePanel";
 import NowRecommendPanel from "./NowRecommendPanel";
 import SearchRoadPanel, { type RouteDrawPayload, type RouteSearchCache } from "./SearchRoadPanel";
-import type { AIQuestCache } from "./AIQuestPanel";
 import { useLocale } from "@/i18n/LocaleContext";
 import type { UIKey } from "@/i18n/ui.ko";
 
@@ -18,6 +18,12 @@ interface Props {
   pois: POIItem[];
   onSelectPOI: (poi: POIItem) => void;
   onOpenCourse: (course: ThemeCourse) => void;
+  /** 나만의 코스 생성 완료 → 저장 + 지도 렌더 + 상세 패널 */
+  onCourseReady?: (course: ThemeCourse) => void;
+  /** 내가 만든 코스 목록 (나만의 코스 탭 홈 화면) */
+  myCourses?: ThemeCourse[];
+  /** 내가 만든 코스 삭제 */
+  onDeleteMyCourse?: (id: string) => void;
   activeCourseId: string | null;
   onRouteFound?: (payload: RouteDrawPayload) => void;
   onRouteClear?: () => void;
@@ -26,19 +32,19 @@ interface Props {
   onClearOrigin?: () => void;
   onClearDest?: () => void;
   routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
-  aiQuestCacheRef?: React.MutableRefObject<AIQuestCache>;
   activeTab: TabId | null;
   onActiveTabChange: (tab: TabId | null) => void;
 }
 
-type TabId = "search" | "culture" | "spot" | "course" | "now" | "route";
+type TabId = "search" | "culture" | "spot" | "course" | "myCourse" | "now" | "route";
 
 const TABS: { id: TabId; labelKey: UIKey; icon: string }[] = [
   { id: "search", labelKey: "sidebar.tab.search", icon: "/sidebaricons/search.png" },
   { id: "route", labelKey: "sidebar.tab.route", icon: "/sidebaricons/route.png" },
   { id: "course", labelKey: "sidebar.tab.course", icon: "/sidebaricons/course.png" },
-  { id: "culture", labelKey: "sidebar.tab.culture", icon: "/sidebaricons/culture.png" },
+  { id: "myCourse", labelKey: "sidebar.tab.myCourse", icon: "/sidebaricons/ai.png" },
   { id: "spot", labelKey: "sidebar.tab.spot", icon: "/sidebaricons/night.png" },
+  { id: "culture", labelKey: "sidebar.tab.culture", icon: "/sidebaricons/culture.png" },
   { id: "now", labelKey: "sidebar.tab.now", icon: "/sidebaricons/now.png" },
 ];
 
@@ -46,6 +52,9 @@ export default function Sidebar({
   pois,
   onSelectPOI,
   onOpenCourse,
+  onCourseReady,
+  myCourses,
+  onDeleteMyCourse,
   activeCourseId,
   onRouteFound,
   onRouteClear,
@@ -54,7 +63,6 @@ export default function Sidebar({
   onClearOrigin,
   onClearDest,
   routeCacheRef,
-  aiQuestCacheRef,
   activeTab,
   onActiveTabChange,
 }: Props) {
@@ -112,8 +120,8 @@ export default function Sidebar({
 
       </div>
 
-      {/* 패널 */}
-      {activeTab && (
+      {/* 패널 — 나만의 코스를 제외한 탭은 활성 시에만 마운트 */}
+      {activeTab && activeTab !== "myCourse" && (
         <div className="w-80 bg-white border-r border-[#FDECC8] flex flex-col shadow-lg pointer-events-auto animate-slide-in overflow-hidden">
           {activeTab === "search" && (
             <SearchPanel pois={pois} onSelectPOI={onSelectPOI} />
@@ -128,7 +136,7 @@ export default function Sidebar({
             <CourseCollection
               onOpenCourse={onOpenCourse}
               activeCourseId={activeCourseId}
-              cacheRef={aiQuestCacheRef}
+              onCreateMyCourse={() => onActiveTabChange("myCourse")}
             />
           )}
           {activeTab === "now" && (
@@ -147,6 +155,23 @@ export default function Sidebar({
           )}
         </div>
       )}
+
+      {/* 나만의 코스 — 코스 생성(SSE)이 탭을 옮겨도 끊기지 않도록 항상 마운트하고
+          비활성 탭일 때는 CSS(display:none)로만 숨긴다. display:none 은 언마운트가 아니라
+          리더 루프·진행 상태(phase/doneIdx)가 그대로 살아있어 백그라운드로 생성이 이어진다. */}
+      <div
+        className={`w-80 bg-white border-r border-[#FDECC8] flex-col shadow-lg pointer-events-auto overflow-hidden ${
+          activeTab === "myCourse" ? "flex animate-slide-in" : "hidden"
+        }`}
+      >
+        <MyCoursePanel
+          onCourseReady={onCourseReady}
+          myCourses={myCourses}
+          onOpenCourse={onOpenCourse}
+          onDeleteCourse={onDeleteMyCourse}
+          activeCourseId={activeCourseId}
+        />
+      </div>
     </div>
   );
 }

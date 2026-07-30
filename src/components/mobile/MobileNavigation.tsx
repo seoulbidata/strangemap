@@ -4,7 +4,9 @@ import Image from "next/image";
 import { useLocale } from "@/i18n/LocaleContext";
 import type { UIKey } from "@/i18n/ui.ko";
 
-export type MobileTabId = "culture" | "spot" | "course" | "now" | "search" | "route";
+// "myCourse" 는 데스크톱 사이드바 전용 탭 — 공유 상태 타입 호환을 위해 포함만 하고,
+// 모바일 네비/바텀시트 노출은 추후 (모바일 대응 시) 붙인다.
+export type MobileTabId = "culture" | "spot" | "course" | "myCourse" | "now" | "search" | "route";
 
 const TABS: { id: MobileTabId; labelKey: UIKey; icon: string }[] = [
   { id: "culture", labelKey: "sidebar.tab.culture", icon: "/sidebaricons/culture.png" },

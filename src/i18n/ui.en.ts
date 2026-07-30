@@ -24,6 +24,7 @@ export const en = {
   "sidebar.tab.search": "Search",
   "sidebar.tab.route": "Directions",
   "sidebar.tab.course": "Courses",
+  "sidebar.tab.myCourse": "My Course",
   "sidebar.tab.culture": "Events",
   "sidebar.tab.spot": "Seoul Spots",
   "sidebar.tab.now": "Crowds",
@@ -44,14 +45,19 @@ export const en = {
   // ── 웰컴 모달 ─────────────────────────────────────────────────────────────
   "welcome.appName": "Seoulro",
   "welcome.tagline": "A map that holds all of Seoul",
-  "welcome.intro": "Skip the crowds and discover the best Seoul spots to visit right now — plus your own travel course, all on one map.",
+  "welcome.intro": "Seoul is always buzzing, but the best moments are hidden in between. Seoulro gathers live crowd levels, landmarks, and cultural events on one map — helping you find the places worth visiting right now, and a course made just for you.",
   "welcome.feature1Title": "Everything in Seoul",
   "welcome.feature1Desc": "From night views to cultural events, explore it all on one map.",
-  "welcome.feature2Title": "Live crowd levels",
-  "welcome.feature2Desc": "Check which areas are busy right now, right on the map.",
-  "welcome.feature3Title": "AI travel courses",
-  "welcome.feature3Desc": "AI builds a Seoul route that fits your taste and schedule.",
+  "welcome.feature4Title": "Curated courses",
+  "welcome.feature4Desc": "Follow themed courses hand-picked by Seoulro — history, night views, hot spots and more.",
+  "welcome.feature2Title": "AI travel courses",
+  "welcome.feature2Desc": "AI builds a Seoul route that fits your taste and schedule.",
+  "welcome.feature3Title": "Live crowd levels",
+  "welcome.feature3Desc": "Check which areas are busy right now, right on the map.",
+  "welcome.featuresLabel": "What you can do",
   "welcome.start": "Go to Seoulro",
+  "welcome.close": "Close",
+  "welcome.escHint": "Press ESC to close",
 
   // ── 지도 오버레이 (MapView) ───────────────────────────────────────────────
   "map.spotToggle": "Seoul Spots",
@@ -194,10 +200,20 @@ export const en = {
   "courseDetail.stat.difficulty": "Difficulty",
   "courseDetail.checkpoints": "Course Checkpoints",
   "courseDetail.realtime": "Live: {level}",
+  "courseDetail.forecast": "{time} {level} expected",
   "courseDetail.saved": "Saved",
   "courseDetail.save": "Save",
   "courseDetail.end": "End Course",
   "courseDetail.view": "View Course",
+  // 식사 슬롯 (lewisai meals 칩)
+  "courseDetail.mealCount": "{n} meal(s)",
+  "courseDetail.mealNone": "No open restaurants found nearby — we'll just leave the time free.",
+  // 시간표에 못 앉힌 자유 방문 제안 (slot_type: flex)
+  "courseDetail.flexTitle": "Off-schedule picks",
+  "courseDetail.flexHint": "These didn't fit the timetable, but they're worth a stop if you have time.",
+  // 구간 이동 추정 (직선거리 기반 — 실제 소요와 다를 수 있음)
+  "courseDetail.legWalk": "~{n} min walk",
+  "courseDetail.legTransit": "~{n} min by transit",
 
   // ── 코스 스탑 카드 ────────────────────────────────────────────────────────
   "stopCard.dwell": "Suggested stay {d}",

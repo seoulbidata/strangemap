@@ -189,9 +189,13 @@ export default function MobileMapControls({
           title={t("mobile.myLocation")}
           aria-label={t("mobile.myLocation")}
         >
-          <svg className={`w-6 h-6 ${isLocationRequesting ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m14 0a5 5 0 11-10 0 5 5 0 0110 0z" />
-          </svg>
+          <Image
+            src="/sidebaricons/mylocation.png"
+            alt={t("mobile.myLocation")}
+            width={24}
+            height={24}
+            className={`object-contain ${isLocationRequesting ? "animate-spin" : ""}`}
+          />
         </button>
       </div>
     </>

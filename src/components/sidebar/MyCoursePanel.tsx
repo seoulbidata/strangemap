@@ -90,8 +90,8 @@ const stageIndex = (stage: string): number => (STAGE_ORDER as readonly string[])
 // 화면은 한 단계당 최소 STEP_HOLD_MS만큼 붙잡아 두고, 실제 진행이 더 늦으면 그만큼 기다린다.
 // 마지막 단계(compose · "코스 완성")는 이야기를 입히는 마무리라 특히 더 길게 끈다(FINAL_HOLD_MS).
 // 단계가 8개로 늘어 한 단계 홀드를 줄였다 (7×2s + 5s ≈ 19초 — 실제 생성 시간과 비슷하게).
-const STEP_HOLD_MS = 2000;
-const FINAL_HOLD_MS = 5000;
+const STEP_HOLD_MS = 1000;
+const FINAL_HOLD_MS = 2000;
 
 /** 로딩 체크리스트가 코스 조건에 맞춰 문구를 바꾸도록 넘기는 컨텍스트. */
 interface StageCtx {

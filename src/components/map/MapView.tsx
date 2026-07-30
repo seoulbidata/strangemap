@@ -1594,12 +1594,12 @@ export default function MapView() {
                 : "bg-white text-[#1B3A6B] border-[#FDECC8] hover:border-[#DC2626] hover:text-[#DC2626]"
             }`}
           >
-            <span
-              className="w-3 h-3 rounded-full inline-block shrink-0"
-              style={{
-                background: locationStatus === "granted" ? "#fff" : "#DC2626",
-                border: `2px solid ${locationStatus === "granted" ? "rgba(255,255,255,0.55)" : "#FCA5A5"}`,
-              }}
+            <Image
+              src="/sidebaricons/mylocation.png"
+              alt=""
+              width={18}
+              height={18}
+              className="object-contain shrink-0"
             />
             {locationStatus === "requesting" ? t("map.locating") : t("map.myLocation")}
           </button>

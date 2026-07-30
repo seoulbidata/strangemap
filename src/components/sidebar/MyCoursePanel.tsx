@@ -18,6 +18,7 @@
  * focus-visible 키보드 포커스 · prefers-reduced-motion 존중 · 칩 스태거 등장.
  */
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { SELECTABLE_ZONES } from "@/lib/seoulPlaces";
 import {
@@ -184,13 +185,13 @@ function buildSteps(a: Answers): Step[] {
     local
       ? { id: "window", title: "몇 시부터 몇 시까지 보낼까요?", render: "window" }
       : {
-          id: "days",
-          title: "여행 기간은 어떻게 되나요?",
-          chips: [
-            { v: 1, label: "당일치기" }, { v: 2, label: "1박 2일" }, { v: 3, label: "2박 3일" },
-            { v: 4, label: "3박 4일" }, { v: 5, label: "4박 5일" }, { v: 6, label: "5박 6일" },
-          ],
-        },
+        id: "days",
+        title: "여행 기간은 어떻게 되나요?",
+        chips: [
+          { v: 1, label: "당일치기" }, { v: 2, label: "1박 2일" }, { v: 3, label: "2박 3일" },
+          { v: 4, label: "3박 4일" }, { v: 5, label: "4박 5일" }, { v: 6, label: "5박 6일" },
+        ],
+      },
     {
       id: "companion",
       title: local ? "누구와 함께하나요?" : "누구와 떠나나요?",
@@ -682,9 +683,9 @@ function ConfirmStep({
   const widened =
     answers.audience === "local" && answers.start != null && answers.end != null
       ? answers.meal.filter((m) => {
-          const h = MEAL_HOUR_NUM[m];
-          return h < answers.start! || h + 1 > answers.end!;
-        })
+        const h = MEAL_HOUR_NUM[m];
+        return h < answers.start! || h + 1 > answers.end!;
+      })
       : [];
 
   return (
@@ -799,28 +800,25 @@ function StageRow({
   return (
     <div
       style={{ animationDelay: `${index * 45}ms` }}
-      className={`mcp-chip flex items-start gap-3 py-2.5 -mx-3 px-3 rounded-2xl transition-all duration-300 ${
-        state === "pending" ? "opacity-45" : "opacity-100"
-      } ${state === "active" ? "bg-white mcp-breathe" : ""}`}
+      className={`mcp-chip flex items-start gap-3 py-2.5 -mx-3 px-3 rounded-2xl transition-all duration-300 ${state === "pending" ? "opacity-45" : "opacity-100"
+        } ${state === "active" ? "bg-white mcp-breathe" : ""}`}
     >
       <div className="relative w-8 h-8 shrink-0">
         <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
-            state === "done"
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${state === "done"
               ? "bg-[#16243C] text-white"
               : state === "active"
                 ? "bg-[#E9EDF4] text-[#16243C]"
                 : "bg-[#F5F2EC] text-[#C7C2B6]"
-          }`}
+            }`}
         >
           {state === "done" ? <IconCheck className="w-4 h-4 mcp-pop" /> : <Icon className="w-4 h-4" />}
         </div>
       </div>
       <div className="min-w-0 pt-1.5">
         <p
-          className={`text-[13.5px] font-bold transition-colors duration-300 ${
-            state === "pending" ? "text-[#B5B0A6]" : "text-[#16243C]"
-          }`}
+          className={`text-[13.5px] font-bold transition-colors duration-300 ${state === "pending" ? "text-[#B5B0A6]" : "text-[#16243C]"
+            }`}
         >
           {title}
         </p>
@@ -904,9 +902,9 @@ function HomeScreen({
                 onConfirmDelete={
                   onDelete
                     ? () => {
-                        setConfirmId(null);
-                        onDelete(course.id);
-                      }
+                      setConfirmId(null);
+                      onDelete(course.id);
+                    }
                     : undefined
                 }
               />
@@ -924,8 +922,8 @@ function HomeScreen({
 function EmptyStorage() {
   return (
     <div className="mt-3 rounded-2xl border border-dashed border-[#E3DED4] bg-white/60 px-5 py-8 flex flex-col items-center text-center">
-      <div className="w-14 h-14 rounded-2xl bg-[#EFF4FF] text-[#2563EB] flex items-center justify-center">
-        <IconStageSparkle className="w-7 h-7" />
+      <div className="w-14 h-14 rounded-2xl bg-[#EFF4FF] flex items-center justify-center">
+        <Image src="/sidebaricons/archive.png" alt="" width={28} height={28} className="w-7 h-7 object-contain" />
       </div>
       <p className="mt-3.5 text-[13.5px] font-bold text-[#16243C]">아직 보관한 코스가 없어요</p>
       <p className="mt-1.5 text-[12px] text-[#8B8678] leading-relaxed">
@@ -944,12 +942,11 @@ function CreateEntryCard({ onClick, emphasis }: { onClick: () => void; emphasis?
     <button
       type="button"
       onClick={onClick}
-      className={`mt-5 w-full flex items-center gap-3 rounded-2xl border bg-[#F1F3F7] px-3.5 py-3 text-left cursor-pointer transition-all duration-200 hover:bg-[#E7EAF1] hover:border-[#C3CBDA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16243C]/30 ${
-        emphasis ? "border-[#C3CBDA] shadow-[0_4px_16px_rgba(22,36,60,0.12)]" : "border-[#DBE0E9]"
-      }`}
+      className={`mt-5 w-full flex items-center gap-3 rounded-2xl border bg-[#F1F3F7] px-3.5 py-3 text-left cursor-pointer transition-all duration-200 hover:bg-[#E7EAF1] hover:border-[#C3CBDA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16243C]/30 ${emphasis ? "border-[#C3CBDA] shadow-[0_4px_16px_rgba(22,36,60,0.12)]" : "border-[#DBE0E9]"
+        }`}
     >
-      <span className="w-9 h-9 shrink-0 rounded-xl bg-white text-[#16243C] flex items-center justify-center shadow-[0_2px_6px_rgba(22,36,60,0.12)]">
-        <IconStageSparkle className="w-5 h-5" />
+      <span className="w-9 h-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-[0_2px_6px_rgba(22,36,60,0.12)]">
+        <Image src="/sidebaricons/agent.png" alt="" width={20} height={20} className="w-5 h-5 object-contain" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[13.5px] font-bold text-[#16243C]">새 코스 만들기</span>
@@ -1021,11 +1018,10 @@ function MyCourseCard({
   return (
     <div
       style={{ animationDelay: `${index * 40}ms` }}
-      className={`mcp-chip rounded-[18px] bg-white overflow-hidden transition-shadow duration-200 ${
-        isActive
+      className={`mcp-chip rounded-[18px] bg-white overflow-hidden transition-shadow duration-200 ${isActive
           ? "shadow-[0_0_0_2px_#16243C,0_8px_24px_rgba(22,36,60,0.14)]"
           : "shadow-[0_2px_10px_rgba(20,30,50,0.06)] hover:shadow-[0_8px_24px_rgba(20,30,50,0.12)]"
-      }`}
+        }`}
     >
       {/* 본문 — 누르면 지도에 그린다 */}
       <button
@@ -1273,7 +1269,7 @@ function DoneScreen({ course, onRestart, onGoHome }: { course: ThemeCourse | nul
       </div>
       <h1 className="mt-4 text-[19px] font-extrabold tracking-[-0.01em] text-[#16243C]">코스를 지도에 그렸어요</h1>
       <p className="mt-1.5 text-[12.5px] text-[#8B8678] leading-relaxed">
-        오른쪽 상세 패널에서 일정·장소별 추천 이유를 확인하고, 지도에서 경로와 주변 식당을 살펴보세요.
+        오른쪽 상세 패널에서 일정·장소별 추천 이유를 확인하고, 지도에서 코스 경로와 추천식당을 확인해 보세요.
         만든 코스는 &lsquo;내가 만든 코스&rsquo;에 보관돼요.
       </p>
 

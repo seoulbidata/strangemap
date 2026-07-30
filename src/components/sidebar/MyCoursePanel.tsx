@@ -207,8 +207,8 @@ function buildSteps(a: Answers): Step[] {
     },
     {
       id: "meal",
-      title: "끼니도 코스에 넣을까요?",
-      sub: "고른 끼니만 코스에 들어가요. 시간이 되면 근처 식당 후보를 함께 찾아드려요.",
+      title: "식사도 코스에 넣을까요?",
+      sub: "고른 식사시간만 코스에 들어가요. 시간이 되면 근처 식당 후보를 함께 찾아드려요.",
       multi: true,
       optional: true,
       chips: MEALS.map((v) => ({ v, label: v, d: `${MEAL_HOUR[v]} · 1시간` })),
@@ -260,7 +260,7 @@ function buildSummaryRows(a: Answers): CourseChoice[] {
     { label: "함께", value: join(a.companion) },
     { label: "목적", value: join(a.purpose) },
     // 끼니는 "안 고름"도 뜻이 있는 답이라 —(정보 없음) 대신 명시적으로 적는다
-    { label: "끼니", value: a.meal.length ? a.meal.map((m) => `${m} ${MEAL_HOUR[m]}`).join(" · ") : "안 넣기" },
+    { label: "식사", value: a.meal.length ? a.meal.map((m) => `${m} ${MEAL_HOUR[m]}`).join(" · ") : "선택 안함" },
     { label: "동네", value: join(a.location) },
     { label: "혼잡도", value: a.congestion ?? "—" },
     {
@@ -840,7 +840,7 @@ function StageRow({
 //  · 목록 한 칸 = List.Item 해부구조 — Prefix(썸네일) / Content(제목·메타·조건칩) / Suffix(chevron).
 //    카드를 누르면 "기본 동작"(지도에서 보기)이 바로 일어나고, 보조 동작은 아래 액션바로 내린다.
 //  · 화면당 solid CTA 하나 — 보관함이 비었을 때만 네이비 solid를 쓰고, 코스가 있으면
-//    "새 코스 만들기"는 magic 톤(파랑 틴트) 엔트리 카드로 낮춘다. 네이비 solid는 위저드에서
+//    "새 코스 만들기"는 네이비 연한 틴트 엔트리 카드로 낮춘다. 네이비 solid는 위저드에서
 //    "다음/만들기"(진행)라는 뜻으로 이미 쓰고 있어서 의미가 겹치지 않게 한다.
 //  · 삭제는 되돌릴 수 없으므로 criticalSolid + 확인 단계(인라인 confirm)를 거친다.
 //  · 카드 표면(흰 배경·라운드·소프트 섀도)·태그 칩은 관광코스 피드(CourseCollection)와 같은 값을
@@ -937,27 +937,27 @@ function EmptyStorage() {
   );
 }
 
-// ── 새 코스 만들기 엔트리 (magic 톤) — 이 화면의 유일한 생성 진입점.
+// ── 새 코스 만들기 엔트리 (네이비 연한 틴트) — 이 화면의 유일한 생성 진입점.
 // 보관함이 비었을 때(emphasis)는 유도할 다른 동작이 없으므로 링·그림자를 올려 더 눈에 띄게 한다.
 function CreateEntryCard({ onClick, emphasis }: { onClick: () => void; emphasis?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`mt-5 w-full flex items-center gap-3 rounded-2xl border bg-[#F3F7FF] px-3.5 py-3 text-left cursor-pointer transition-all duration-200 hover:bg-[#EAF1FF] hover:border-[#C7DAFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/40 ${
-        emphasis ? "border-[#C7DAFF] shadow-[0_4px_16px_rgba(37,99,235,0.14)]" : "border-[#DCE7FF]"
+      className={`mt-5 w-full flex items-center gap-3 rounded-2xl border bg-[#F1F3F7] px-3.5 py-3 text-left cursor-pointer transition-all duration-200 hover:bg-[#E7EAF1] hover:border-[#C3CBDA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16243C]/30 ${
+        emphasis ? "border-[#C3CBDA] shadow-[0_4px_16px_rgba(22,36,60,0.12)]" : "border-[#DBE0E9]"
       }`}
     >
-      <span className="w-9 h-9 shrink-0 rounded-xl bg-white text-[#2563EB] flex items-center justify-center shadow-[0_2px_6px_rgba(37,99,235,0.14)]">
+      <span className="w-9 h-9 shrink-0 rounded-xl bg-white text-[#16243C] flex items-center justify-center shadow-[0_2px_6px_rgba(22,36,60,0.12)]">
         <IconStageSparkle className="w-5 h-5" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[13.5px] font-bold text-[#16243C]">새 코스 만들기</span>
-        <span className="block mt-0.5 text-[11.5px] text-[#6B7C99] leading-snug">
+        <span className="block mt-0.5 text-[11.5px] text-[#6C7688] leading-snug">
           오늘의 서울 데이터로 코스를 짜드려요
         </span>
       </span>
-      <span className="shrink-0 text-[#93A7C9]" aria-hidden>
+      <span className="shrink-0 text-[#8D96A8]" aria-hidden>
         <IconChevronRight />
       </span>
     </button>

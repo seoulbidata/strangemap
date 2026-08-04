@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const message: string = body?.message ?? "";
   const chips = body?.chips ?? null;
+  // "다시 만들기" — 같은 칩으로 다른 코스를 받으려면 매번 다른 값을 보낸다.
+  // 생략하면 lewisai가 칩+note 해시로 시드를 정해 **같은 요청은 같은 후보**를 낸다
+  // (재현 가능해야 디버깅·A/B가 되므로 서버 기본값이 결정적이다).
+  const seed: number | undefined =
+    typeof body?.seed === "number" && Number.isFinite(body.seed) ? body.seed : undefined;
 
   try {
     const upstream = await fetch(`${aiServerUrl}/agent/chat/stream`, {
@@ -46,7 +51,7 @@ export async function POST(req: NextRequest) {
         // 로컬은 토큰 비어 있고 lewisai가 빈 값이면 검증 skip → 헤더 있어도 통과.
         "X-Internal-Token": process.env.AI_SERVER_TOKEN ?? "",
       },
-      body: JSON.stringify({ message, chips }),
+      body: JSON.stringify(seed === undefined ? { message, chips } : { message, chips, seed }),
       // 스트림이 무한정 매달리지 않도록 안전망(최악 멀티데이 ~80초보다 넉넉히).
       signal: AbortSignal.timeout(170_000),
     });

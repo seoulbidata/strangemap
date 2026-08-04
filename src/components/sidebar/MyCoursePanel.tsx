@@ -354,7 +354,13 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
       const res = await fetch("/api/course", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: answers.note || "", chips: buildChipPayload(answers) }),
+        // seed: 같은 칩으로 다시 눌렀을 때 **다른 코스**가 나오게 한다.
+        // 없으면 lewisai가 칩+note 해시로 시드를 정해 결과가 매번 같다.
+        body: JSON.stringify({
+          message: answers.note || "",
+          chips: buildChipPayload(answers),
+          seed: Date.now(),
+        }),
       });
       if (!res.ok || !res.body) throw new Error("server");
 
@@ -377,7 +383,8 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
             const i = stageIndex(evt.stage);
             if (i >= 0) doneIdxRef.current = Math.max(doneIdxRef.current, i);
           } else if (evt.event === "final") {
-            const built = buildCourseFromAgent(evt.payload);
+            // 고른 목적을 함께 넘긴다 — 카드 뱃지·코스 색이 사용자가 고른 목적을 따르도록
+            const built = buildCourseFromAgent(evt.payload, answers.purpose);
             if (!built) throw new Error("empty");
             // 만든 조건을 코스에 함께 담아 저장 → 목록 아코디언에서 "어떻게 만들었는지" 다시 보여준다
             const course: ThemeCourse = {
@@ -927,7 +934,7 @@ function EmptyStorage() {
       </div>
       <p className="mt-3.5 text-[13.5px] font-bold text-[#16243C]">아직 보관한 코스가 없어요</p>
       <p className="mt-1.5 text-[12px] text-[#8B8678] leading-relaxed">
-        누구와, 어디로, 얼마나 붐비지 않게.
+        누구와, 어디로, 무엇을.
         <br />
         몇 가지만 고르면 코스를 짜드려요.
       </p>
@@ -1194,7 +1201,7 @@ function RouteThumb({ course }: { course: ThemeCourse }) {
   const multiDay = byDay.size > 1;
 
   return (
-    <span className="relative w-[68px] h-[68px] shrink-0 rounded-[14px] overflow-hidden bg-[linear-gradient(150deg,#F4F7FC_0%,#E8EEF8_100%)] border border-[#E4EAF4]">
+    <span className="relative w-[68px] h-[68px] shrink-0 rounded-[14px] overflow-hidden bg-[#EEF3FA] border border-[#E4EAF4]">
       {pts.length === 0 ? (
         <span className="absolute inset-0 flex items-center justify-center text-[#B9C4D6]">
           <IconStagePin className="w-6 h-6" />

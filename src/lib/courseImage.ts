@@ -16,36 +16,41 @@ export const CATEGORY_IMAGE: Record<CourseCategory, string> = {
 };
 
 /**
- * AI 코스 히어로용 그라데이션 팔레트.
- * 사진이 없는 코스라 색만으로 성립해야 하므로 채도 있는 두 색 + 어두운 바닥색으로 구성한다.
+ * AI 코스 히어로용 파스텔 단색 — 위저드 목적 칩(MyCoursePanel PURPOSES) 하나당 하나.
+ *
+ * 채도 높은 2색 그라데이션은 "AI가 만든 것"의 시각 기호로 읽히고, 종이색(#FBFAF7) 기반인
+ * 앱 팔레트 밖으로 튄다. 그래서 명도를 종이색에 맞춘 저채도 단색만 쓴다 —
+ * 사진이 있는 정적 코스 카드 옆에 놓여도 "다른 종류"로 분리되지 않는다.
+ *
+ * 색을 랜덤이 아니라 목적에 묶었으므로 같은 목적으로 만든 코스는 늘 같은 색이 나온다
+ * (= 색이 의미를 갖는다). 흰색·무채색에 가까운 값은 쓰지 않는다 — 카드 본문(흰색)과 붙어
+ * 히어로 영역이 사라져 보이기 때문.
+ *
+ * 모두 #16243C 글자와 대비 12:1 이상이라 히어로 위 텍스트는 어두운 색으로 쓴다.
  */
-const AI_HERO_PALETTES: [string, string][] = [
-  ["#4F46E5", "#0EA5E9"], // 인디고 → 스카이
-  ["#7C3AED", "#DB2777"], // 바이올렛 → 핑크
-  ["#0891B2", "#10B981"], // 시안 → 에메랄드
-  ["#F97316", "#DB2777"], // 오렌지 → 로즈
-  ["#2563EB", "#7C3AED"], // 블루 → 퍼플
-  ["#059669", "#65A30D"], // 그린 → 라임
-  ["#E11D48", "#F59E0B"], // 로즈 → 앰버
-  ["#1D4ED8", "#0F766E"], // 딥블루 → 틸
-];
+const PURPOSE_HERO_COLOR: Record<string, string> = {
+  "자연·힐링": "#D6E8DA",   // 세이지 그린
+  "문화·예술": "#E2DDEF",   // 페일 라일락
+  "관광 명소": "#DCE6F5",   // 페일 블루
+  "체험·놀거리": "#FAE2CC", // 페일 애프리콧
+  "데이트": "#F6DEE1",      // 페일 로즈
+  "핫플레이스": "#F8E6C4",  // 페일 버터
+  "쇼핑": "#D9E8E8",        // 페일 틸
+};
 
-/** 문자열 → 안정적인 해시. 같은 코스는 항상 같은 색이 나와야 리렌더마다 색이 튀지 않는다. */
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
+/** 목적을 못 받은 코스(구 버전 저장분 등)의 폴백 — 흰색이 아닌 따뜻한 그레이지 */
+const FALLBACK_HERO_COLOR = "#E5E0D6";
 
 /**
- * AI 코스의 히어로 그라데이션.
- * id가 `ai-<생성시각>`이라 코스마다 사실상 랜덤한 색이 뽑히면서도,
- * 같은 코스를 다시 열면 같은 색이 유지된다.
+ * AI 코스의 히어로 단색.
+ * 가장 먼저 고른 목적이 색을 정한다 — 뱃지 첫 칸과 색이 같은 것을 가리키게 된다.
  */
-export function aiHeroGradient(id: string, variant: "card" | "detail"): string {
-  const [a, b] = AI_HERO_PALETTES[hashString(id) % AI_HERO_PALETTES.length];
-  const angle = variant === "detail" ? 155 : 150;
-  return `linear-gradient(${angle}deg, ${a} 0%, ${b} 58%, rgba(10,14,22,0.82) 100%)`;
+export function aiHeroColor(course: Pick<ThemeCourse, "purposes">): string {
+  for (const p of course.purposes ?? []) {
+    const c = PURPOSE_HERO_COLOR[p];
+    if (c) return c;
+  }
+  return FALLBACK_HERO_COLOR;
 }
 
 /**
@@ -78,7 +83,7 @@ export function categoryImageSrc(category: CourseCategory): string | null {
  * 이미지 파일이 없으면(404) 맨 아래 테마 그라데이션이 보인다.
  */
 export function courseHeroBackground(
-  course: Pick<ThemeCourse, "id" | "image" | "category" | "color">,
+  course: Pick<ThemeCourse, "id" | "image" | "category" | "color" | "purposes">,
   variant: "card" | "detail"
 ): string {
   const overlay =
@@ -86,8 +91,14 @@ export function courseHeroBackground(
       ? "linear-gradient(to top, rgba(8,12,20,0.68) 0%, rgba(8,12,20,0.18) 46%, rgba(8,12,20,0.04) 100%)"
       : "linear-gradient(to top, rgba(8,12,20,0.32) 0%, rgba(8,12,20,0) 55%)";
 
-  // AI 코스는 사진 대신 id에서 뽑은 색 그라데이션 (이미지 요청 자체가 없어 404가 나지 않는다)
-  if (isAIDraft(course)) return `${overlay}, ${aiHeroGradient(course.id, variant)}`;
+  // AI 코스는 사진 대신 목적에서 뽑은 파스텔 단색.
+  // 가독성 오버레이(어두운 스크림)를 씌우지 않는다 — 밝은 배경이라 히어로 위 글자는
+  // 어두운 색으로 얹어야 하고(CourseDetailPanel 참고), 스크림은 파스텔을 탁하게만 만든다.
+  // backgroundImage 속성이라 단색도 두 스톱이 같은 linear-gradient로 표현한다(= 그라데이션 없음).
+  if (isAIDraft(course)) {
+    const c = aiHeroColor(course);
+    return `linear-gradient(${c}, ${c})`;
+  }
 
   const themeGradient =
     variant === "detail"

@@ -80,8 +80,37 @@ export interface AgentChatResponse {
   steps?: unknown[];
 }
 
-// AI 코스의 색/뱃지 카테고리 — 응답엔 목적이 없어 중립 기본값(야경/자연)을 쓴다.
+// AI 코스의 색/뱃지 카테고리 — 목적을 못 받았을 때만 쓰는 폴백.
 const DEFAULT_CATEGORY: CourseCategory = "야경/자연";
+
+/**
+ * 위저드 목적 칩(MyCoursePanel PURPOSES) → 코스 카테고리.
+ *
+ * 카테고리는 카드 뱃지 문구와 코스 색을 함께 결정한다. 예전엔 응답에 목적이 없다는 이유로
+ * 전부 DEFAULT_CATEGORY 를 써서 "쇼핑"을 고른 코스도 뱃지가 '야경/자연'으로 나왔다.
+ * 목적은 클라이언트가 이미 알고 있으므로(사용자가 고른 값) 여기서 넘겨받아 매핑한다.
+ */
+const PURPOSE_TO_CATEGORY: Record<string, CourseCategory> = {
+  "자연·힐링": "야경/자연",
+  "문화·예술": "문화",
+  "관광 명소": "역사",
+  "체험·놀거리": "Hot플레이스",
+  "데이트": "야경/자연",
+  "핫플레이스": "Hot플레이스",
+  "쇼핑": "로컬",
+};
+
+/**
+ * 고른 목적들 중 첫 번째로 매핑되는 카테고리를 쓴다(다중 선택이라 하나를 골라야 한다).
+ * 고른 순서를 그대로 존중한다 — 먼저 고른 목적이 그 코스의 주 목적이라고 본다.
+ */
+function categoryFromPurposes(purposes?: string[]): CourseCategory {
+  for (const p of purposes ?? []) {
+    const c = PURPOSE_TO_CATEGORY[p];
+    if (c) return c;
+  }
+  return DEFAULT_CATEGORY;
+}
 
 /** "14:00" → 840(분). 형식이 어긋나면 null. */
 function toMinutes(hhmm?: string | null): number | null {
@@ -162,7 +191,7 @@ function toMealPlace(card: AgentNearbyCard): MealPlace {
  * lewisai 응답을 지도·상세가 그대로 렌더하는 ThemeCourse(draft)로 변환.
  * 좌표 있는 장소(place/flex) 스톱이 2곳 미만이면 null.
  */
-export function buildCourseFromAgent(res: AgentChatResponse): ThemeCourse | null {
+export function buildCourseFromAgent(res: AgentChatResponse, purposes?: string[]): ThemeCourse | null {
   const c = res.course;
   if (!c || !Array.isArray(c.stops)) return null;
 
@@ -251,7 +280,7 @@ export function buildCourseFromAgent(res: AgentChatResponse): ThemeCourse | null
         )
       : undefined;
 
-  const category = DEFAULT_CATEGORY;
+  const category = categoryFromPurposes(purposes);
   const tags = (c.tags ?? []).slice(0, 4);
   const placeCount = stops.filter((s) => !isMealStop(s)).length;
 
@@ -275,5 +304,7 @@ export function buildCourseFromAgent(res: AgentChatResponse): ThemeCourse | null
     dayAreas,
     dayDescriptions,
     overlayPois: overlayPois.length ? overlayPois : undefined,
+    // 고른 순서를 보존한다 — 뱃지는 앞 3개, 히어로 색은 첫 번째가 정한다
+    purposes: purposes?.length ? purposes : undefined,
   };
 }

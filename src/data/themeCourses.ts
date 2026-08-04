@@ -121,6 +121,11 @@ export interface ThemeCourse {
   overlayPois?: CourseOverlayPoi[];       // 경로 밖 오버레이(식당 등) — 폴리라인에 안 들어감
   createdAt?: number;                     // 만든 시각 (epoch ms) — "내가 만든 코스" 목록 표시용
   myChoices?: CourseChoice[];             // 위저드에서 고른 조건 (확인 단계 요약과 동일) — 아코디언에 표시
+  /**
+   * 위저드에서 고른 목적 칩을 고른 순서 그대로 (MyCoursePanel PURPOSES 값).
+   * 카드/상세 뱃지에 이 값을 그대로 찍고(카테고리 뱃지 재사용 안 함), 첫 칩이 히어로 색을 정한다.
+   */
+  purposes?: string[];
 }
 
 /** 위저드에서 고른 조건 한 줄 (예: 함께 / 친구와 · 연인과) */

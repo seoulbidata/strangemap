@@ -40,6 +40,11 @@ export interface RouteFlowOptions {
   maxLoopMs?: number;
   /** 전체 불투명도 (도보 등 보조 경로는 낮게) — 기본 1 */
   opacity?: number;
+  /**
+   * 좌표 인덱스별 색상. 코스처럼 구간마다 색이 바뀌는 경로에서
+   * 화살표가 지나는 구간의 색을 따라가게 한다. 없으면 color 고정.
+   */
+  colorAt?: (pointIndex: number) => string;
 }
 
 // ── 공유 ticker: 애니메이터가 늘어도 rAF 루프는 하나만 돈다 ──────────────
@@ -111,6 +116,9 @@ export class RouteFlowAnimator {
   private total = 0;
   private markers: { setPosition: (p: object) => void; setMap: (m: object | null) => void }[] = [];
   private els: HTMLElement[] = []; // 입자별 회전용 DOM 노드
+  private strokes: SVGPathElement[] = []; // 입자별 색상 path (구간 색 추종용)
+  private colors: string[] | null = null; // 좌표별 색 (colorAt이 있을 때만)
+  private lastColor: string[] = []; // 입자별 마지막 적용 색 — 불필요한 DOM 쓰기 방지
   private hints: number[] = []; // 입자별 마지막 세그먼트 인덱스(단조 전진 탐색용)
   private lastFrac: number[] = [];
   private count = 0;
@@ -127,10 +135,13 @@ export class RouteFlowAnimator {
   ) {
     this.naver = naver;
     this.map = map;
-    // 연속 중복 좌표 제거
-    this.points = points.filter(
-      (p, i) => i === 0 || p.lat !== points[i - 1].lat || p.lng !== points[i - 1].lng,
-    );
+    // 연속 중복 좌표 제거 (colorAt에 넘길 원본 인덱스는 따로 보존)
+    const srcIdx: number[] = [];
+    this.points = points.filter((p, i) => {
+      const keep = i === 0 || p.lat !== points[i - 1].lat || p.lng !== points[i - 1].lng;
+      if (keep) srcIdx.push(i);
+      return keep;
+    });
     this.tick = (now) => this.frame(now);
 
     // 누적 거리 계산
@@ -153,11 +164,14 @@ export class RouteFlowAnimator {
       spacingMeters = 1000,
       minParticles = 1,
       maxParticles = 5,
-      speedMetersPerSec = 40,
+      speedMetersPerSec = 45,
       minLoopMs = 3200,
       maxLoopMs = 11000,
       opacity = 1,
+      colorAt,
     } = options;
+
+    if (colorAt) this.colors = this.points.map((_, i) => colorAt(srcIdx[i]));
 
     this.count = clamp(Math.round(this.total / spacingMeters), minParticles, maxParticles);
     this.loopMs = clamp((this.total / speedMetersPerSec) * 1000, minLoopMs, maxLoopMs);
@@ -191,6 +205,9 @@ export class RouteFlowAnimator {
       });
       this.markers.push(marker);
       this.els.push(inner);
+      // 색상 path는 흰 외곽선 뒤에 오는 두 번째 path
+      this.strokes.push(inner.querySelectorAll("path")[1] as unknown as SVGPathElement);
+      this.lastColor.push(color);
       this.hints.push(0);
       this.lastFrac.push(k / this.count);
     }
@@ -225,6 +242,14 @@ export class RouteFlowAnimator {
       const i = this.hints[k];
       const deg = bearing(this.points[i], this.points[i + 1]);
       this.els[k].style.transform = `rotate(${deg}deg)`;
+      // 구간마다 색이 바뀌는 경로면 현재 지나는 구간 색을 따라간다
+      if (this.colors) {
+        const c = this.colors[i];
+        if (c && c !== this.lastColor[k]) {
+          this.lastColor[k] = c;
+          this.strokes[k]?.setAttribute("stroke", c);
+        }
+      }
     }
   }
 
@@ -238,5 +263,6 @@ export class RouteFlowAnimator {
     this.markers.forEach((m) => m.setMap(null));
     this.markers = [];
     this.els = [];
+    this.strokes = [];
   }
 }

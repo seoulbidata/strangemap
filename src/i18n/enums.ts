@@ -139,12 +139,20 @@ export const TIME_EN: Record<string, string> = {
 };
 
 export const PURPOSE_EN: Record<string, string> = {
+  // 구 어휘 (/api/ai-recommend 계열)
   "힐링": "Relaxation",
   "놀거리": "Fun",
   "데이트": "Date",
   "관광": "Sightseeing",
   "운동": "Active",
   "문화생활": "Culture",
+  // 나만의 코스 위저드 목적 칩 (MyCoursePanel PURPOSES) — 코스 카드 뱃지에 그대로 노출된다
+  "자연·힐링": "Nature·Healing",
+  "문화·예술": "Culture·Art",
+  "관광 명소": "Landmarks",
+  "체험·놀거리": "Activities",
+  "핫플레이스": "Hot places",
+  "쇼핑": "Shopping",
 };
 
 export const REGION_EN: Record<string, string> = {

@@ -738,6 +738,10 @@ export default function MapView() {
       // 경로는 stop 단위 세그먼트로 쪼개 그린다. 색은 식사 여부와 무관하게 코스 그라데이션 그대로 —
       // 식사 자리는 마커(앰버 사각 + 포크)로만 구분한다. 선까지 갈아입히면 동선이 끊겨 보인다.
       // (사전 계산 사이드카는 정적 테마코스용이라 식사 슬롯이 없다. routeStops 인덱스가 곧 세그먼트 인덱스.)
+      // 흐르는 화살표는 세그먼트마다 띄우지 않고, 전 구간을 이어붙인 한 줄로 모아
+      // 출발지→도착지를 한 개의 화살표가 통과하게 한다.
+      const flowPath: { lat: number; lng: number }[] = [];
+      const flowColors: string[] = []; // flowPath와 같은 길이 — 좌표가 속한 구간 색
       for (let i = 0; i < routeStops.length - 1; i++) {
         const a = routeStops[i].stop;
         const b = routeStops[i + 1].stop;
@@ -778,16 +782,14 @@ export default function MapView() {
         await animateSegment(full, color, useFallback ? 0.55 : 0.95);
         if (cancelled) return;
 
-        // 그려진 구간 위에 흐르는 빛 입자 레이어 — 출발→도착 방향으로 계속 흐른다
-        if (mapInstance.current) {
-          courseFlowRef.current.push(
-            new RouteFlowAnimator(
-              naver as unknown as FlowNaverApi,
-              mapInstance.current,
-              pts,
-              { color, zIndex: 85, size: 9, opacity: useFallback ? 0.7 : 1 },
-            ),
-          );
+        // 전체 흐름 경로에 이어붙인다(구간 경계의 중복 좌표는 제거).
+        // 좌표마다 구간 색을 같이 기록해 화살표가 그라데이션을 따라가게 한다.
+        for (const p of pts) {
+          const last = flowPath[flowPath.length - 1];
+          if (!last || last.lat !== p.lat || last.lng !== p.lng) {
+            flowPath.push(p);
+            flowColors.push(color);
+          }
         }
 
         // 구간이 다 그려지면 진행 방향 화살표 표시
@@ -807,6 +809,25 @@ export default function MapView() {
           },
         });
         courseArrowsRef.current.push(arrow);
+      }
+
+      // 코스 전 구간을 관통하는 화살표 하나 — 출발지에서 시작해 도착지까지 흐른 뒤 다시 처음으로
+      if (mapInstance.current && flowPath.length >= 2) {
+        courseFlowRef.current.push(
+          new RouteFlowAnimator(
+            naver as unknown as FlowNaverApi,
+            mapInstance.current,
+            flowPath,
+            {
+              color: flowColors[0],
+              colorAt: (i) => flowColors[i] ?? flowColors[flowColors.length - 1],
+              zIndex: 85,
+              size: 9,
+              minParticles: 1,
+              maxParticles: 1,
+            },
+          ),
+        );
       }
     })();
 

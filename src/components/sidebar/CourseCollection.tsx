@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { THEME_COURSES, CATEGORY_META, placeStopCount, type ThemeCourse, type CourseCategory } from "@/data/themeCourses";
 import { courseHeroBackground } from "@/lib/courseImage";
+import { isAIDraft } from "@/lib/aiCourseDraft";
 import { useLocale, type Locale } from "@/i18n/LocaleContext";
-import { categoryLabel } from "@/i18n/enums";
+import { categoryLabel, chipLabel } from "@/i18n/enums";
 import { getCourseText } from "@/i18n/courseText";
 
 interface Props {
@@ -106,6 +107,7 @@ function CourseFeedCard({
 }) {
   const { t, locale } = useLocale();
   const catMeta = CATEGORY_META[course.category as CourseCategory];
+  const isAI = isAIDraft(course);
 
   return (
     <div
@@ -121,10 +123,31 @@ function CourseFeedCard({
           className="relative h-44 bg-center bg-cover overflow-hidden"
           style={{ backgroundImage: courseHeroBackground(course, "card") }}
         >
-          <div className="absolute top-3.5 left-3.5">
-            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/85 backdrop-blur-sm text-[#16243C]">
-              {categoryLabel(catMeta.label, locale)}
-            </span>
+          {/*
+            AI 코스는 카테고리 뱃지를 재사용하지 않는다 — 목적은 사용자가 직접 고른 값이라
+            "야경/자연" 같은 대리 라벨보다 고른 칩 그대로가 정확하다. 고른 순서대로 최대 3개.
+            히어로가 파스텔 단색이라 반투명 흰 알약은 묻힌다 → 불투명 흰색 + 헤어라인.
+          */}
+          {/* max-w: 우상단 '보는 중' 뱃지와 겹치지 않게 폭을 제한한다 */}
+          <div className="absolute top-3.5 left-3.5 max-w-[72%] flex flex-wrap gap-1">
+            {isAI && course.purposes?.length ? (
+              course.purposes.slice(0, 3).map((p) => (
+                <span
+                  key={p}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-full text-[#16243C] bg-white border border-[#E4E0D8]"
+                >
+                  {chipLabel(p, locale)}
+                </span>
+              ))
+            ) : (
+              <span
+                className={`text-[11px] font-semibold px-2.5 py-1 rounded-full text-[#16243C] ${
+                  isAI ? "bg-white border border-[#E4E0D8]" : "bg-white/85 backdrop-blur-sm"
+                }`}
+              >
+                {categoryLabel(catMeta.label, locale)}
+              </span>
+            )}
           </div>
           {isActive && (
             <div className="absolute top-3.5 right-3.5">

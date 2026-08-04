@@ -19,7 +19,7 @@ import { SEOUL_PLACES } from "@/lib/seoulPlaces";
 import { isAIDraft } from "@/lib/aiCourseDraft";
 import { courseHeroBackground } from "@/lib/courseImage";
 import { useLocale, type Locale } from "@/i18n/LocaleContext";
-import { categoryLabel, congestionLabel, difficultyLabel, ADTAG_EN } from "@/i18n/enums";
+import { categoryLabel, chipLabel, congestionLabel, difficultyLabel, ADTAG_EN } from "@/i18n/enums";
 import { getCourseText } from "@/i18n/courseText";
 
 interface Props {
@@ -140,10 +140,30 @@ export default function CourseDetailPanel({
         >
           ✕
         </button>
-        <div className="absolute top-4 left-5 flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/85 backdrop-blur-sm text-[#16243C]">
-            {categoryLabel(catMeta.label, locale)}
-          </span>
+        {/* 목적 칩이 3개까지 붙으므로 줄바꿈 허용 + 우상단 닫기 버튼 자리를 비워 둔다 */}
+        <div className="absolute top-4 left-5 right-16 flex flex-wrap items-center gap-1.5">
+          {/*
+            AI 코스는 카테고리 뱃지 대신 사용자가 고른 목적 칩을 그대로, 고른 순서로 최대 3개.
+            파스텔 히어로 위에서는 반투명 흰 알약이 묻혀 윤곽을 잃는다 → 불투명 흰색 + 헤어라인.
+          */}
+          {ai && course.purposes?.length ? (
+            course.purposes.slice(0, 3).map((p) => (
+              <span
+                key={p}
+                className="text-[11px] font-semibold px-3 py-1 rounded-full text-[#16243C] bg-white border border-[#E4E0D8]"
+              >
+                {chipLabel(p, locale)}
+              </span>
+            ))
+          ) : (
+            <span
+              className={`text-[11px] font-semibold px-3 py-1 rounded-full text-[#16243C] ${
+                ai ? "bg-white border border-[#E4E0D8]" : "bg-white/85 backdrop-blur-sm"
+              }`}
+            >
+              {categoryLabel(catMeta.label, locale)}
+            </span>
+          )}
           {ai && (
             <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#2563EB] text-white flex items-center gap-1">
               <span className="w-1 h-1 rounded-full bg-white" /> {t("courseDetail.aiGenerated")}
@@ -151,12 +171,16 @@ export default function CourseDetailPanel({
           )}
         </div>
 
-        {/* 히어로 위 타이틀 */}
+        {/* 히어로 위 타이틀 — AI 코스 히어로는 파스텔 단색(밝음)이라 글자를 어두운 색으로 뒤집는다 */}
         <div className="absolute bottom-0 left-0 right-0 px-6 pb-5">
-          <h2 className="text-[27px] font-bold text-white leading-[1.15] tracking-[-0.015em] drop-shadow-sm">
+          <h2
+            className={`text-[27px] font-bold leading-[1.15] tracking-[-0.015em] ${
+              ai ? "text-[#16243C]" : "text-white drop-shadow-sm"
+            }`}
+          >
             {course.title}
           </h2>
-          <p className="text-[14px] text-white/85 mt-1.5">{course.subtitle}</p>
+          <p className={`text-[14px] mt-1.5 ${ai ? "text-[#5C5950]" : "text-white/85"}`}>{course.subtitle}</p>
         </div>
       </div>
 

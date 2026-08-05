@@ -224,6 +224,8 @@ export default function MapView() {
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationMessage, setLocationMessage] = useState("");
   const [sidebarActiveTab, setSidebarActiveTab] = useState<MobileTabId | null>(null);
+  // 길찾기 경로선이 그려진 상태 — 경로 가독성을 위해 코스 시작점 팝업 마커를 숨긴다
+  const [routeActive, setRouteActive] = useState(false);
   const isMobile = useMediaQuery("(max-width: 767px)");
 
   const locationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -313,7 +315,7 @@ export default function MapView() {
     if (!mapReady) return;
     startMarkersRef.current.forEach((m) => m.setMap(null));
     startMarkersRef.current = [];
-    if (activeCourse || activeQuest) return;
+    if (activeCourse || activeQuest || routeActive) return;
 
     const naver = window.naver;
     const opts = { dimmed: !!activeCultureCategory || showSpots, tiny: mapZoom <= 10 };
@@ -373,7 +375,7 @@ export default function MapView() {
       });
       startMarkersRef.current.push(marker);
     });
-  }, [mapReady, activeCourse, activeQuest, activeCultureCategory, showSpots, mapZoom, locale, isMobile, t]);
+  }, [mapReady, activeCourse, activeQuest, routeActive, activeCultureCategory, showSpots, mapZoom, locale, isMobile, t]);
 
   // 문화행사 마커 — 카테고리 선택 시 커스텀 PNG 마커로 렌더링 (최대 100개)
   useEffect(() => {
@@ -934,6 +936,7 @@ export default function MapView() {
     setPresetOrigin(null);
     setPresetDest(null);
     routeCacheRef.current = { routePool: [], alternatives: [], selectedIdx: 0, status: "", stepArrivals: {} };
+    setRouteActive(false);
   }, []);
 
   const handleClearOrigin = useCallback(() => {
@@ -1257,6 +1260,7 @@ export default function MapView() {
 
     setPresetOrigin({ label: org.label, lat: org.lat, lng: org.lng });
     setPresetDest({ label: dst.label, lat: dst.lat, lng: dst.lng });
+    setRouteActive(true);
 
     bounds.extend(new naver.maps.LatLng(dst.lat, dst.lng));
     mapInstance.current.fitBounds(

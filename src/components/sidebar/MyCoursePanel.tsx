@@ -30,6 +30,7 @@ import {
   type ThemeCourse,
 } from "@/data/themeCourses";
 import { buildCourseFromAgent } from "@/lib/aiCourseFromAgent";
+import { useCourseQuota } from "@/hooks/useCourseQuota";
 
 interface Props {
   /** 생성 완료 → 저장 + 지도 렌더 + 상세 패널 (MapView.handleAICourseReady) */
@@ -290,6 +291,7 @@ function buildChipPayload(a: Answers): ChipPayload {
 }
 
 type Phase = "home" | "wizard" | "loading" | "done" | "error";
+type Quota = ReturnType<typeof useCourseQuota>;
 
 export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, onDeleteCourse, activeCourseId }: Props) {
   const [answers, setAnswers] = useState<Answers>(EMPTY);
@@ -302,6 +304,8 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
   const finalCourseRef = useRef<ThemeCourse | null>(null);
   // 완료 화면에서 "어떻게 만들었는지"(aiTrace)를 그대로 보여주기 위한 결과 코스
   const [doneCourse, setDoneCourse] = useState<ThemeCourse | null>(null);
+  // 하루 생성 횟수 제한 (로그인 전 임시 — 브라우저 localStorage 기준)
+  const quota = useCourseQuota();
 
   const steps = buildSteps(answers);
   const step = steps[idx];
@@ -309,7 +313,8 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
 
   const go = (i: number) => setIdx(Math.max(0, Math.min(steps.length - 1, i)));
   const patch = (p: Partial<Answers>) => setAnswers((a) => ({ ...a, ...p }));
-  const restart = () => { setAnswers(EMPTY); setIdx(0); setPhase("wizard"); };
+  // 위저드를 다 채우고 나서 막히면 허탈하므로 진입 자체를 막는다
+  const restart = () => { if (!quota.canCreate) return; setAnswers(EMPTY); setIdx(0); setPhase("wizard"); };
   const goHome = () => { setAnswers(EMPTY); setIdx(0); setPhase("home"); };
 
   const pickSingle = (id: Step["id"], v: string | number) => {
@@ -346,6 +351,8 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
 
   // ── 생성: BFF SSE 스트림(progress/final/error) → 실시간 단계 표시 → ThemeCourse → 지도 렌더 ──
   const createCourse = async () => {
+    // 요청을 보내기 전에 1회 소진한다. 성공 시점에 세면 로딩 중 새로고침으로 무한 우회가 된다.
+    if (!quota.consume()) return;
     doneIdxRef.current = -1;
     finalCourseRef.current = null;
     setDisplayIdx(-1);
@@ -405,6 +412,8 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
       }
       if (!done) throw new Error("no-final"); // 스트림이 final 없이 끝남
     } catch {
+      // 코스를 못 받았으면 횟수를 돌려준다 — 서버 장애가 사용자 할당량을 태우지 않도록
+      quota.refund();
       setPhase("error");
     }
   };
@@ -469,6 +478,7 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
           <HomeScreen
             courses={myCourses ?? []}
             activeCourseId={activeCourseId ?? null}
+            quota={quota}
             onCreate={restart}
             onOpen={onOpenCourse}
             onDelete={onDeleteCourse}
@@ -479,9 +489,9 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
             displayIdx={displayIdx}
           />
         ) : phase === "done" ? (
-          <DoneScreen course={doneCourse} onRestart={restart} onGoHome={goHome} />
+          <DoneScreen course={doneCourse} quota={quota} onRestart={restart} onGoHome={goHome} />
         ) : phase === "error" ? (
-          <ErrorScreen onRetry={createCourse} onBack={() => setPhase("wizard")} />
+          <ErrorScreen quota={quota} onRetry={createCourse} onBack={() => setPhase("wizard")} />
         ) : (
           <div key={idx} className="mcp-rise">
             <p className="text-[10px] font-bold tracking-[0.14em] text-[#2563EB] uppercase mb-2">나만의 코스</p>
@@ -491,7 +501,7 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
             {step.render === "window" ? (
               <WindowStep answers={answers} patch={patch} onNext={() => go(idx + 1)} />
             ) : step.render === "confirm" ? (
-              <ConfirmStep answers={answers} onCreate={createCourse} setNote={(note) => patch({ note })} />
+              <ConfirmStep answers={answers} quota={quota} onCreate={createCourse} setNote={(note) => patch({ note })} />
             ) : step.multi ? (
               <MultiStep step={step} answers={answers} onToggle={toggleMulti} onNext={() => go(idx + 1)} />
             ) : (
@@ -677,9 +687,10 @@ function WindowStep({
 
 // ── 확인 스텝 ────────────────────────────────────────────────────────────
 function ConfirmStep({
-  answers, onCreate, setNote,
+  answers, quota, onCreate, setNote,
 }: {
   answers: Answers;
+  quota: Quota;
   onCreate: () => void;
   setNote: (v: string) => void;
 }) {
@@ -726,9 +737,10 @@ function ConfirmStep({
         placeholder="예: 야경 보면서 마무리하고 싶어요"
         className="w-full min-h-[70px] resize-y rounded-xl border border-[#ECE8E0] px-3 py-2.5 text-[12.5px] bg-white outline-none transition-colors duration-200 focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 placeholder:text-[#B5B0A6]"
       />
-      <button type="button" onClick={onCreate} className={`mt-4 ${BTN_PRIMARY}`}>
-        코스 만들기
+      <button type="button" onClick={onCreate} disabled={!quota.canCreate} className={`mt-4 ${BTN_PRIMARY}`}>
+        {quota.canCreate ? "코스 만들기" : "오늘 횟수를 모두 사용했어요"}
       </button>
+      <QuotaNotice quota={quota} />
     </>
   );
 }
@@ -851,10 +863,11 @@ function StageRow({
 //  · 카드 표면(흰 배경·라운드·소프트 섀도)·태그 칩은 관광코스 피드(CourseCollection)와 같은 값을
 //    써서 두 탭이 한 앱처럼 보이게 맞췄다.
 function HomeScreen({
-  courses, activeCourseId, onCreate, onOpen, onDelete,
+  courses, activeCourseId, quota, onCreate, onOpen, onDelete,
 }: {
   courses: ThemeCourse[];
   activeCourseId: string | null;
+  quota: Quota;
   onCreate: () => void;
   onOpen?: (course: ThemeCourse) => void;
   onDelete?: (id: string) => void;
@@ -875,7 +888,7 @@ function HomeScreen({
         누구와 어디로 갈지 몇 가지만 고르면, 실시간 혼잡도까지 반영해 나에게 맞는 코스를 짜드려요.
       </p>
 
-      <CreateEntryCard onClick={onCreate} emphasis={empty} />
+      <CreateEntryCard onClick={onCreate} emphasis={empty && quota.canCreate} quota={quota} />
 
       {/* ② 보관함 — 만들어둔 코스 목록 */}
       <div className="mt-7 flex items-baseline gap-1.5">
@@ -944,27 +957,56 @@ function EmptyStorage() {
 
 // ── 새 코스 만들기 엔트리 (네이비 연한 틴트) — 이 화면의 유일한 생성 진입점.
 // 보관함이 비었을 때(emphasis)는 유도할 다른 동작이 없으므로 링·그림자를 올려 더 눈에 띄게 한다.
-function CreateEntryCard({ onClick, emphasis }: { onClick: () => void; emphasis?: boolean }) {
+function CreateEntryCard({ onClick, emphasis, quota }: { onClick: () => void; emphasis?: boolean; quota: Quota }) {
+  const exhausted = !quota.canCreate;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`mt-5 w-full flex items-center gap-3 rounded-2xl border bg-[#F1F3F7] px-3.5 py-3 text-left cursor-pointer transition-all duration-200 hover:bg-[#E7EAF1] hover:border-[#C3CBDA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16243C]/30 ${emphasis ? "border-[#C3CBDA] shadow-[0_4px_16px_rgba(22,36,60,0.12)]" : "border-[#DBE0E9]"
+    <>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={exhausted}
+        className={`mt-5 w-full flex items-center gap-3 rounded-2xl border bg-[#F1F3F7] px-3.5 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16243C]/30 enabled:cursor-pointer enabled:hover:bg-[#E7EAF1] enabled:hover:border-[#C3CBDA] disabled:opacity-45 disabled:cursor-default ${emphasis ? "border-[#C3CBDA] shadow-[0_4px_16px_rgba(22,36,60,0.12)]" : "border-[#DBE0E9]"
+          }`}
+      >
+        <span className="w-9 h-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-[0_2px_6px_rgba(22,36,60,0.12)]">
+          <Image src="/sidebaricons/agent.png" alt="" width={20} height={20} className="w-5 h-5 object-contain" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13.5px] font-bold text-[#16243C]">새 코스 만들기</span>
+          <span className="block mt-0.5 text-[11.5px] text-[#6C7688] leading-snug">
+            {exhausted ? "오늘 만들 수 있는 코스를 다 썼어요" : "오늘의 서울 데이터로 코스를 짜드려요"}
+          </span>
+        </span>
+        {!exhausted && (
+          <span className="shrink-0 text-[#8D96A8]" aria-hidden>
+            <IconChevronRight />
+          </span>
+        )}
+      </button>
+      <QuotaNotice quota={quota} />
+    </>
+  );
+}
+
+/**
+ * 하루 생성 횟수 안내 — 로그인 전 임시 제한이라 사용자가 미리 알 수 있게 진입점마다 붙인다.
+ * 자정(KST)에 초기화된다는 점까지 알려야 "왜 못 만드는지" 문의가 안 생긴다.
+ */
+function QuotaNotice({ quota, className = "mt-2.5" }: { quota: Quota; className?: string }) {
+  if (!quota.enabled) return null; // 제한 꺼짐(로컬 테스트) — 안내 자체를 숨긴다
+  const exhausted = !quota.canCreate;
+  return (
+    <p
+      className={`${className} flex items-center gap-1.5 text-[11.5px] leading-relaxed rounded-xl px-3 py-2 ${exhausted ? "bg-[#FEF0F0] text-[#B4453C]" : "bg-[#F4F2ED] text-[#8B8678]"
         }`}
     >
-      <span className="w-9 h-9 shrink-0 rounded-xl bg-white flex items-center justify-center shadow-[0_2px_6px_rgba(22,36,60,0.12)]">
-        <Image src="/sidebaricons/agent.png" alt="" width={20} height={20} className="w-5 h-5 object-contain" />
+      <span className="font-bold tabular-nums">
+        {exhausted ? `오늘 ${quota.limit}회를 모두 사용했어요` : `오늘 ${quota.remaining}회 남음`}
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13.5px] font-bold text-[#16243C]">새 코스 만들기</span>
-        <span className="block mt-0.5 text-[11.5px] text-[#6C7688] leading-snug">
-          오늘의 서울 데이터로 코스를 짜드려요
-        </span>
+      <span className="text-[11px] opacity-80">
+        {exhausted ? "· 자정에 다시 채워져요" : `· 하루 ${quota.limit}회까지 만들 수 있어요`}
       </span>
-      <span className="shrink-0 text-[#8D96A8]" aria-hidden>
-        <IconChevronRight />
-      </span>
-    </button>
+    </p>
   );
 }
 
@@ -1265,7 +1307,7 @@ function RouteThumb({ course }: { course: ThemeCourse }) {
 
 // ── 완료 (지도에 그려짐) ──────────────────────────────────────────────────
 // 생성 과정 트레이스(응답 steps[])는 사용자에게 보여주지 않는다 — 결과만 필요하다.
-function DoneScreen({ course, onRestart, onGoHome }: { course: ThemeCourse | null; onRestart: () => void; onGoHome: () => void }) {
+function DoneScreen({ course, quota, onRestart, onGoHome }: { course: ThemeCourse | null; quota: Quota; onRestart: () => void; onGoHome: () => void }) {
   const meals = course?.stops.filter(isMealStop).length ?? 0;
   const places = course ? course.stops.length - meals : 0;
 
@@ -1307,15 +1349,16 @@ function DoneScreen({ course, onRestart, onGoHome }: { course: ThemeCourse | nul
       <button type="button" onClick={onGoHome} className={`mt-6 ${BTN_PRIMARY}`}>
         내가 만든 코스 보기
       </button>
-      <button type="button" onClick={onRestart} className={`mt-2.5 ${BTN_SECONDARY}`}>
+      <button type="button" onClick={onRestart} disabled={!quota.canCreate} className={`mt-2.5 ${BTN_SECONDARY} disabled:opacity-40 disabled:cursor-default`}>
         새 코스 만들기
       </button>
+      <QuotaNotice quota={quota} />
     </div>
   );
 }
 
 // ── 에러 ─────────────────────────────────────────────────────────────────
-function ErrorScreen({ onRetry, onBack }: { onRetry: () => void; onBack: () => void }) {
+function ErrorScreen({ quota, onRetry, onBack }: { quota: Quota; onRetry: () => void; onBack: () => void }) {
   return (
     <div className="mcp-rise pt-6">
       <div className="w-12 h-12 rounded-full bg-[#FEF0F0] flex items-center justify-center text-[#DC2626]">
@@ -1325,9 +1368,11 @@ function ErrorScreen({ onRetry, onBack }: { onRetry: () => void; onBack: () => v
       <p className="mt-1.5 text-[12.5px] text-[#8B8678] leading-relaxed">
         AI 서버 응답이 원활하지 않아요. 잠시 후 다시 시도하거나 조건을 바꿔보세요.
       </p>
-      <button type="button" onClick={onRetry} className={`mt-6 ${BTN_PRIMARY}`}>
+      {/* 실패한 호출은 횟수를 돌려받으므로 보통 다시 시도할 수 있다 */}
+      <button type="button" onClick={onRetry} disabled={!quota.canCreate} className={`mt-6 ${BTN_PRIMARY}`}>
         다시 시도
       </button>
+      {!quota.canCreate && <QuotaNotice quota={quota} />}
       <button type="button" onClick={onBack} className={`mt-2.5 ${BTN_SECONDARY}`}>
         조건 다시 고르기
       </button>

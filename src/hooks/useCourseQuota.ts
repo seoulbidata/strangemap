@@ -12,7 +12,7 @@ export const DAILY_COURSE_LIMIT = 3;
  * 카운터만 초기화하고 싶으면 브라우저 콘솔에서:
  *   localStorage.removeItem("seoullo_course_quota_v1")
  */
-const QUOTA_ENABLED = false;
+const QUOTA_ENABLED = true;
 
 interface QuotaState {
   /** KST 기준 YYYY-MM-DD — 이 날짜가 오늘이 아니면 카운트를 버린다 */

@@ -14,6 +14,7 @@ export const en = {
   "common.refreshing": "Updating...",
   "common.free": "Free",
   "common.noInfo": "No info",
+  "common.ad": "Ad",
 
   // ── 페이지/로딩 ───────────────────────────────────────────────────────────
   "page.loadingMap": "Loading map...",

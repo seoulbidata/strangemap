@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import type { POIItem } from "@/app/api/poi/route";
 import { SPOT_CATEGORIES } from "@/lib/spotCategories";
 import { FeedShell, FeedHeader, FilterPills, FeedCard } from "./_feedKit";
+import AdFeedCard, { inFeedAdReady, AD_EVERY } from "@/components/ads/AdFeedCard";
 import { useLocale } from "@/i18n/LocaleContext";
 import { categoryLabel } from "@/i18n/enums";
 import { localizedPlaceName } from "@/i18n/placeNames";
@@ -61,8 +62,12 @@ export default function SeoulSpotPanel({ pois, onSelectPOI }: Props) {
           <>
             <p className="text-[11px] text-[#A8A398] pb-3">{t("spot.count", { n: spotPOIs.length })}</p>
             <div className="space-y-5">
-              {spotPOIs.map((poi) => (
-                <SeoulSpotCard key={poi.id} poi={poi} onSelect={() => onSelectPOI(poi)} />
+              {spotPOIs.map((poi, i) => (
+                <Fragment key={poi.id}>
+                  <SeoulSpotCard poi={poi} onSelect={() => onSelectPOI(poi)} />
+                  {/* 카드 AD_EVERY개마다 한 장. 목록 맨 끝에는 붙이지 않는다. */}
+                  {inFeedAdReady && (i + 1) % AD_EVERY === 0 && i < spotPOIs.length - 1 && <AdFeedCard />}
+                </Fragment>
               ))}
             </div>
           </>

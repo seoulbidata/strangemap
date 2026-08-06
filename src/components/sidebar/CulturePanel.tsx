@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import type { POIItem } from "@/app/api/poi/route";
 import { CULTURE_CATEGORIES, type CultureCategory } from "@/lib/cultureCategories";
 import { FeedShell, FeedHeader, FilterPills, FeedCard, HeroChip } from "./_feedKit";
 import { useLocale } from "@/i18n/LocaleContext";
 import { categoryLabel } from "@/i18n/enums";
+import AdFeedCard, { inFeedAdReady, AD_EVERY } from "@/components/ads/AdFeedCard";
 
 interface Props {
   pois: POIItem[];
@@ -70,10 +71,11 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
           <>
             <p className="text-[11px] text-[#A8A398] pb-3">{t("culture.count", { n: culturePOIs.length })}</p>
             <div className="space-y-5">
-              {culturePOIs.map((poi) => {
+              {culturePOIs.map((poi, i) => {
                 const isFree = poi.fee === "무료" || !poi.fee;
                 return (
-                  <FeedCard key={poi.id} onClick={() => onSelectPOI(poi)}>
+                  <Fragment key={poi.id}>
+                  <FeedCard onClick={() => onSelectPOI(poi)}>
                     {/* 히어로 (썸네일 있을 때만) */}
                     {poi.thumbnail && (
                       <div className="relative h-44 bg-center bg-cover overflow-hidden">
@@ -114,6 +116,9 @@ export default function CulturePanel({ pois, onSelectPOI }: Props) {
                       </div>
                     </div>
                   </FeedCard>
+                  {/* 카드 AD_EVERY개마다 한 장. 목록 맨 끝에는 붙이지 않는다. */}
+                  {inFeedAdReady && (i + 1) % AD_EVERY === 0 && i < culturePOIs.length - 1 && <AdFeedCard />}
+                  </Fragment>
                 );
               })}
             </div>

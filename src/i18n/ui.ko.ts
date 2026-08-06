@@ -12,6 +12,7 @@ export const ko = {
   "common.refreshing": "업데이트 중...",
   "common.free": "무료",
   "common.noInfo": "정보 없음",
+  "common.ad": "광고",
 
   // ── 페이지/로딩 ───────────────────────────────────────────────────────────
   "page.loadingMap": "지도 불러오는 중...",

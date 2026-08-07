@@ -28,7 +28,8 @@ interface Props {
   routeCacheRef?: React.MutableRefObject<RouteSearchCache>;
 }
 
-type SnapState = "closed" | "medium" | "max";
+/** "half"는 첫 진입 자동 오픈 전용 정지점 — 드래그 스냅 후보에는 넣지 않는다. */
+type SnapState = "closed" | "half" | "medium" | "max";
 
 export default function MobilePanel({
   activeTab,
@@ -53,6 +54,7 @@ export default function MobilePanel({
   const startTouchY = useRef(0);
   const startTranslateY = useRef(0);
   const [viewportHeight, setViewportHeight] = useState(800);
+  const isInitialOpen = useRef(true);
 
   // Track viewport height on mobile browsers to handle dynamic address bars
   useEffect(() => {
@@ -69,10 +71,13 @@ export default function MobilePanel({
   useEffect(() => {
     if (activeTab) {
       setLastActiveTab(activeTab);
-      setSnap("medium");
+      // 첫 진입은 탭이 이미 열린 채로 마운트된다(사용자가 누른 게 아니다).
+      // 그때만 낮게 열어 지도를 덜 가리고, 이후 사용자가 직접 연 탭은 평소대로 medium.
+      setSnap(isInitialOpen.current ? "half" : "medium");
     } else {
       setSnap("closed");
     }
+    isInitialOpen.current = false;
   }, [activeTab]);
 
   const displayTab = activeTab || lastActiveTab;
@@ -84,7 +89,8 @@ export default function MobilePanel({
     
     if (state === "closed") return maxH;
     if (state === "max") return 0;
-    
+    if (state === "half") return maxH - H * 0.45;
+
     // medium state height
     const mediumH = displayTab === "search" ? H * 0.50 : H * 0.70;
     return maxH - mediumH;

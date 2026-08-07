@@ -14,7 +14,7 @@ import { AD_CLIENT, IN_FEED_SLOT, IN_FEED_LAYOUT_KEY, useAdSensePush } from "./a
  */
 export default function AdFeedCard() {
   const { t } = useLocale();
-  useAdSensePush();
+  const insRef = useAdSensePush();
 
   return (
     <div className="relative rounded-[22px] bg-white overflow-hidden shadow-[0_6px_24px_rgba(20,30,50,0.07)]">
@@ -22,6 +22,7 @@ export default function AdFeedCard() {
         {t("common.ad")}
       </span>
       <ins
+        ref={insRef}
         className="adsbygoogle"
         style={{ display: "block" }}
         data-ad-client={AD_CLIENT}

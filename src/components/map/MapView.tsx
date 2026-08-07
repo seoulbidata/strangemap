@@ -36,6 +36,7 @@ import { fetchLibrarySegment } from "@/lib/segmentLibrary";
 import Sidebar from "@/components/sidebar/Sidebar";
 import CultureSpeedDial from "@/components/map/CultureSpeedDial";
 import MobileNavigation, { type MobileTabId } from "@/components/mobile/MobileNavigation";
+import AdSenseScript from "@/components/ads/AdSenseScript";
 import MobilePanel from "@/components/mobile/MobilePanel";
 import MobileMapControls from "@/components/mobile/MobileMapControls";
 import type { RouteDrawPayload, RouteSearchCache } from "@/components/sidebar/SearchRoadPanel";
@@ -223,7 +224,9 @@ export default function MapView() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationMessage, setLocationMessage] = useState("");
-  const [sidebarActiveTab, setSidebarActiveTab] = useState<MobileTabId | null>(null);
+  // 첫 진입은 서울명소 피드를 연 채로 시작한다. 지도만 떠 있는 화면은 게시자 콘텐츠가 없는
+  // 화면이라 애드센스 심사에서 반려된다 — 진입 즉시 실제 목록이 보여야 한다.
+  const [sidebarActiveTab, setSidebarActiveTab] = useState<MobileTabId | null>("spot");
   // 길찾기 경로선이 그려진 상태 — 경로 가독성을 위해 코스 시작점 팝업 마커를 숨긴다
   const [routeActive, setRouteActive] = useState(false);
   const isMobile = useMediaQuery("(max-width: 767px)");
@@ -1519,6 +1522,8 @@ export default function MapView() {
         strategy="afterInteractive"
         onLoad={handleNaverLoad}
       />
+
+      <AdSenseScript activeTab={sidebarActiveTab} pois={poisData} />
 
       <div className="relative w-full h-full bg-[#FFFBF0]">
         {/* 지도 */}

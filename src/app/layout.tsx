@@ -40,7 +40,8 @@ export const metadata: Metadata = {
     locale: "ko_KR",
     siteName: "서울로",
   },
-  // 애드센스 사이트 소유 확인용. 로더 스크립트는 아래 <head>에 있다.
+  // 애드센스 사이트 소유 확인용. 광고 스크립트 자체는 여기 두지 않는다 —
+  // 콘텐츠가 있는 피드에서만 AdSenseScript가 불러온다. (public/ads.txt와 이 메타가 소유권 확인 담당)
   other: {
     "google-adsense-account": "ca-pub-7327215771002130",
   },
@@ -59,13 +60,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" style={{ height: "100%" }} className={`${seoulAlrim.variable} ${orbitron.variable} antialiased`}>
-      <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7327215771002130"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body style={{ margin: 0, padding: 0, height: "100vh", overflow: "hidden" }} className="bg-[#F5F2EC] text-[#1A1E2E]">
         {children}
       </body>

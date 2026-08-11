@@ -29,6 +29,16 @@ html, body {
   font-family: var(--font-seoul-alrim), "Pretendard", system-ui, sans-serif;
 }
 
+/*
+ * 지도 앱 화면(/)만 뷰포트 고정 + 스크롤 잠금.
+ * 예전엔 body 인라인 스타일로 걸어뒀는데, SEO 콘텐츠 페이지(/courses, /spots)가
+ * 같은 root layout 을 쓰면서 세로 스크롤이 필요해져 셀렉터로 분리했다.
+ */
+body:has(> .app-shell) {
+  height: 100vh;
+  overflow: hidden;
+}
+
 /* 버튼/인풋 등 폼 요소는 폰트를 상속하지 않으므로 명시 */
 button, input, select, textarea {
   font-family: inherit;

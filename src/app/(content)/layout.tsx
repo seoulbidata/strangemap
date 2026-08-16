@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/seo";
+import FeedbackButton from "@/components/FeedbackButton";
 
 /**
  * SEO 콘텐츠 페이지(/courses, /spots)의 공통 셸.
@@ -77,6 +78,10 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
           </p>
         </div>
       </footer>
+
+      {/* 콘텐츠 페이지에는 LocaleProvider 가 없다 — useLocale 이 기본값(ko)으로 동작한다.
+          이 페이지들은 어차피 한국어 정적 콘텐츠라 문제되지 않는다. */}
+      <FeedbackButton />
     </div>
   );
 }

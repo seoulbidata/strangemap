@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import WelcomeModal from "@/components/WelcomeModal";
+import FeedbackButton from "@/components/FeedbackButton";
 import { LocaleProvider } from "@/i18n/LocaleContext";
 
 const MapView = dynamic(() => import("@/components/map/MapView"), {
@@ -25,6 +26,7 @@ export default function Home() {
       <LocaleProvider>
         <WelcomeModal />
         <MapView />
+        <FeedbackButton />
       </LocaleProvider>
     </main>
   );

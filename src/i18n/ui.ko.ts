@@ -327,6 +327,38 @@ export const ko = {
 
   // ── 언어 토글 ─────────────────────────────────────────────────────────────
   "lang.toggleTo": "English",
+
+  // ── 피드백 ────────────────────────────────────────────────────────────────
+  "feedback.button": "피드백 보내기",
+  "feedback.title": "무엇이 불편하셨나요?",
+  "feedback.subtitle": "겪으신 오류나 아쉬웠던 점을 알려주시면 다음 업데이트에 반영할게요.",
+  "feedback.typeLabel": "어떤 이야기인가요?",
+  "feedback.type.bug": "오류·장애",
+  "feedback.type.inconvenience": "불편해요",
+  "feedback.type.idea": "이런 게 있으면",
+  "feedback.type.content": "장소 정보 오류",
+  "feedback.messageLabel": "내용",
+  "feedback.messagePlaceholder": "어떤 화면에서 무슨 일이 있었는지 적어주시면 큰 도움이 됩니다.",
+  "feedback.emailLabel": "답변받을 이메일",
+  "feedback.emailOptional": "선택",
+  "feedback.emailPlaceholder": "you@example.com",
+  "feedback.privacy": "이메일은 문의 답변 목적으로만 사용하고, 처리 후 파기합니다.",
+  "feedback.contextToggle": "함께 전송되는 정보 보기",
+  "feedback.contextNote": "오류를 재현하기 위해 아래 정보가 함께 전송됩니다. 개인을 식별하는 정보는 담기지 않습니다.",
+  "feedback.context.page": "접속 중인 주소",
+  "feedback.context.device": "브라우저·화면 크기",
+  "feedback.context.version": "앱 버전과 접속 시각",
+  "feedback.context.errors": "직전에 발생한 오류 기록",
+  "feedback.submit": "보내기",
+  "feedback.submitting": "보내는 중…",
+  "feedback.cancel": "취소",
+  "feedback.successTitle": "잘 받았습니다",
+  "feedback.successBody": "보내주신 내용을 확인하고, 이메일을 남기셨다면 답변드릴게요.",
+  "feedback.successClose": "닫기",
+  "feedback.error.empty": "내용을 입력해 주세요.",
+  "feedback.error.email": "이메일 주소 형식을 확인해 주세요.",
+  "feedback.error.rate": "너무 자주 보내셨어요. 잠시 후 다시 시도해 주세요.",
+  "feedback.error.send": "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
 } as const;
 
 export type UIKey = keyof typeof ko;

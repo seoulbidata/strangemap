@@ -220,6 +220,12 @@ export const en = {
   "stopCard.dwell": "Suggested stay {d}",
   "stopCard.prev": "← Previous",
   "stopCard.next": "Next →",
+  "stopCard.meal": "Meal",
+  "stopCard.food": "Nearby food",
+  "stopCard.events": "Events nearby",
+  "stopCard.noEvents": "No events running within 1km.",
+  // 지도에서 코스 오버레이를 걷는다 — 사이드바를 모두 닫은 상태의 탈출구
+  "stopCard.end": "End course",
 
   // ── 장소 카드 ─────────────────────────────────────────────────────────────
   "placeCard.spot": "Seoul Spot",

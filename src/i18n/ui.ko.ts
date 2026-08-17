@@ -218,6 +218,12 @@ export const ko = {
   "stopCard.dwell": "권장 체류 {d}",
   "stopCard.prev": "← 이전 코스",
   "stopCard.next": "다음 코스 →",
+  "stopCard.meal": "식사",
+  "stopCard.food": "주변 맛집",
+  "stopCard.events": "인근 문화 행사",
+  "stopCard.noEvents": "1km 안에서 진행 중인 문화 행사가 없어요.",
+  // 지도에서 코스 오버레이를 걷는다 — 사이드바를 모두 닫은 상태의 탈출구
+  "stopCard.end": "코스 종료",
 
   // ── 장소 카드 ─────────────────────────────────────────────────────────────
   "placeCard.spot": "서울명소",

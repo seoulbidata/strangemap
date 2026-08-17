@@ -1296,6 +1296,12 @@ export default function MapView() {
     if (isMobile) setSidebarActiveTab(null);
   };
 
+  // 지도에 그려진 코스를 걷어낸다 — 사이드바를 모두 닫은 상태에선 스톱 카드가 유일한 탈출구다
+  const handleEndCourse = () => {
+    setActiveCourse(null);
+    setSelected(null);
+  };
+
   // 컬렉션 카드 클릭 → 우측 디테일 패널 열기 (좌측 사이드바는 유지)
   const handleOpenCourseDetail = (course: ThemeCourse) => {
     setDetailCourse(course);
@@ -1726,6 +1732,7 @@ export default function MapView() {
               setSelected(poi);
               mapInstance.current?.panTo(new window.naver.maps.LatLng(poi.lat, poi.lng));
             }}
+            onEndCourse={handleEndCourse}
           />
         ) : selected ? (
           <PlaceCard

@@ -234,11 +234,13 @@ export const ko = {
   "placeCard.hours": "운영",
   "placeCard.subway": "지하철",
   "placeCard.fee": "요금",
-  "placeCard.askAI": "서울로에 물어보기",
+  "placeCard.askAI": "AI로 장소 정보 보기",
+  "placeCard.askAICulture": "AI로 행사 정보 보기",
   "placeCard.setDest": "목적지로 설정하기",
 
   // ── AI 장소 안내 패널 ─────────────────────────────────────────────────────
   "aiInfo.header": "AI 장소 안내",
+  "aiInfo.headerCulture": "AI 행사 안내",
   "aiInfo.brand": "서울로 AI",
   "aiInfo.researching": "{place}을(를) 조사 중",
   "aiInfo.preparing": "서울로가 최적의 방문 정보를 준비하고 있어요",
@@ -249,6 +251,7 @@ export const ko = {
   "aiInfo.step5": "안내 문구 작성 중",
   "aiInfo.step6": "최적의 방문 정보 준비 중",
   "aiInfo.placeInfo": "장소 정보",
+  "aiInfo.eventInfo": "행사 정보",
   "aiInfo.hours": "운영시간",
   "aiInfo.fee": "요금",
   "aiInfo.subway": "지하철",

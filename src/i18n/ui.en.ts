@@ -236,11 +236,13 @@ export const en = {
   "placeCard.hours": "Hours",
   "placeCard.subway": "Subway",
   "placeCard.fee": "Fee",
-  "placeCard.askAI": "Ask Seoulro",
+  "placeCard.askAI": "View AI place guide",
+  "placeCard.askAICulture": "View AI event guide",
   "placeCard.setDest": "Set as destination",
 
   // ── AI 장소 안내 패널 ─────────────────────────────────────────────────────
   "aiInfo.header": "AI Place Guide",
+  "aiInfo.headerCulture": "AI Event Guide",
   "aiInfo.brand": "Seoulro AI",
   "aiInfo.researching": "Researching {place}",
   "aiInfo.preparing": "Seoulro is preparing the best visit info",
@@ -251,6 +253,7 @@ export const en = {
   "aiInfo.step5": "Writing the guide",
   "aiInfo.step6": "Finalizing visit info",
   "aiInfo.placeInfo": "Place Info",
+  "aiInfo.eventInfo": "Event Info",
   "aiInfo.hours": "Hours",
   "aiInfo.fee": "Fee",
   "aiInfo.subway": "Subway",

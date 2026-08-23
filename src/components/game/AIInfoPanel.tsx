@@ -161,6 +161,8 @@ function AILoadingState({ placeName }: { placeName: string }) {
 
 export default function AIInfoPanel({ poi, onClose }: Props) {
   const { t, locale } = useLocale();
+  // 문화행사는 "장소"가 아니라 "행사" — 헤더·정보 라벨을 갈아끼운다
+  const isCulture = poi?.source === "culture";
   const [info, setInfo] = useState<AIPlaceInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [displayed, setDisplayed] = useState("");
@@ -251,7 +253,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
                   <span className="relative inline-flex w-2 h-2 rounded-full bg-[#2563EB]" />
                 </span>
                 <span className="text-[10px] font-bold tracking-[0.14em] text-[#2563EB] uppercase">
-                  {t("aiInfo.header")}
+                  {t(isCulture ? "aiInfo.headerCulture" : "aiInfo.header")}
                 </span>
               </div>
               <h2 className="text-[20px] leading-[1.3] font-bold tracking-[-0.01em] text-[#16243C] mt-1.5">
@@ -273,7 +275,7 @@ export default function AIInfoPanel({ poi, onClose }: Props) {
 
           {/* 정적 정보 */}
           <div className={`${CARD_PLAIN} space-y-2.5`}>
-            <SectionLabel className="mb-1">{t("aiInfo.placeInfo")}</SectionLabel>
+            <SectionLabel className="mb-1">{t(isCulture ? "aiInfo.eventInfo" : "aiInfo.placeInfo")}</SectionLabel>
             {poi.operating_time && <InfoRow label={t("aiInfo.hours")} value={poi.operating_time} />}
             {poi.fee && <InfoRow label={t("aiInfo.fee")} value={poi.fee} />}
             {poi.subway && <InfoRow label={t("aiInfo.subway")} value={poi.subway} />}

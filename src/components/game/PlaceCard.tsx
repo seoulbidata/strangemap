@@ -138,7 +138,7 @@ export default function PlaceCard({ poi, onClose, onAskAI, onSetDest, isQuestTar
               onClick={onAskAI}
               className="w-full h-[36px] rounded-xl text-sm font-semibold bg-[#FE9C00] text-white hover:bg-[#E08800] transition-colors"
             >
-              {t("placeCard.askAI")}
+              {t(isSpot ? "placeCard.askAI" : "placeCard.askAICulture")}
             </button>
             <button
               onClick={onSetDest}

@@ -71,6 +71,10 @@ export default function ContentLayout({ children }: { children: React.ReactNode 
             <Link href="/spots" className="text-[#57534E] hover:text-[#B45309]">
               서울 명소
             </Link>
+            {/* 방침은 찾을 수 있어야 의미가 있다 — 애드센스 심사도 도달 가능한 링크를 본다. */}
+            <Link href="/privacy" className="text-[#57534E] hover:text-[#B45309]">
+              개인정보처리방침
+            </Link>
           </nav>
           <p className="mt-6 text-xs text-[#A8A29E]">
             출처: 서울열린데이터광장 실시간 도시데이터·서울시 관광정보. 운영시간·요금 등은

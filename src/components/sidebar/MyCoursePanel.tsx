@@ -31,6 +31,7 @@ import {
 } from "@/data/themeCourses";
 import { buildCourseFromAgent } from "@/lib/aiCourseFromAgent";
 import { useCourseQuota } from "@/hooks/useCourseQuota";
+import { durationBucket, trackEvent, type CourseErrorType } from "@/lib/analytics";
 
 interface Props {
   /** 생성 완료 → 저장 + 지도 렌더 + 상세 패널 (MapView.handleAICourseReady) */
@@ -307,6 +308,15 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
   // 하루 생성 횟수 제한 (로그인 전 임시 — 브라우저 localStorage 기준)
   const quota = useCourseQuota();
 
+  // 하루 한도에 막힌 세션 계측 — "코스 만들기" 버튼은 소진 시 disabled 라 클릭 이벤트가
+  // 아예 안 생긴다. 그래서 클릭이 아니라 막힌 상태를 본 시점을 세션당 1회만 보낸다.
+  const quotaBlockReportedRef = useRef(false);
+  useEffect(() => {
+    if (quota.canCreate || quotaBlockReportedRef.current) return;
+    quotaBlockReportedRef.current = true;
+    trackEvent("course_quota_blocked");
+  }, [quota.canCreate]);
+
   const steps = buildSteps(answers);
   const step = steps[idx];
   const progress = ((idx + 1) / steps.length) * 100;
@@ -357,6 +367,11 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
     finalCourseRef.current = null;
     setDisplayIdx(-1);
     setPhase("loading");
+    trackEvent("course_generate_start");
+    const startedAt = Date.now();
+    // catch 는 에러 메시지를 그대로 쓰지 않는다 — 서버가 내려준 문자열을 흘리면 측정기준
+    // 고유값이 폭발한다. 던지기 직전에 이 변수로 사유를 확정해 둔다.
+    let errorType: CourseErrorType = "network";
     try {
       const res = await fetch("/api/course", {
         method: "POST",
@@ -369,7 +384,10 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
           seed: Date.now(),
         }),
       });
-      if (!res.ok || !res.body) throw new Error("server");
+      if (!res.ok || !res.body) {
+        errorType = "server";
+        throw new Error("server");
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -392,7 +410,10 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
           } else if (evt.event === "final") {
             // 고른 목적을 함께 넘긴다 — 카드 뱃지·코스 색이 사용자가 고른 목적을 따르도록
             const built = buildCourseFromAgent(evt.payload, answers.purpose);
-            if (!built) throw new Error("empty");
+            if (!built) {
+              errorType = "empty";
+              throw new Error("empty");
+            }
             // 만든 조건을 코스에 함께 담아 저장 → 목록 아코디언에서 "어떻게 만들었는지" 다시 보여준다
             const course: ThemeCourse = {
               ...built,
@@ -403,15 +424,26 @@ export default function MyCoursePanel({ onCourseReady, myCourses, onOpenCourse, 
             // pacing effect가 마지막 단계(코스 완성)를 충분히 보여준 뒤 알아서 done으로 넘긴다.
             doneIdxRef.current = STAGE_ORDER.length - 1;
             finalCourseRef.current = course;
+            // 화면(pacing effect)은 아직 앞 단계를 보여주는 중이지만, 계측 기준의 "성공"은
+            // 코스를 손에 넣은 지금이다. 연출 지연까지 소요시간에 넣으면 에이전트 성능이 안 보인다.
+            trackEvent("course_generate_success", {
+              duration_bucket: durationBucket(Date.now() - startedAt),
+              place_count: placeStopCount(course),
+            });
             done = true;
             break;
           } else if (evt.event === "error") {
+            errorType = "agent";
             throw new Error(evt.message || "error");
           }
         }
       }
-      if (!done) throw new Error("no-final"); // 스트림이 final 없이 끝남
+      if (!done) {
+        errorType = "no-final"; // 스트림이 final 없이 끝남
+        throw new Error("no-final");
+      }
     } catch {
+      trackEvent("course_generate_error", { error_type: errorType });
       // 코스를 못 받았으면 횟수를 돌려준다 — 서버 장애가 사용자 할당량을 태우지 않도록
       quota.refund();
       setPhase("error");

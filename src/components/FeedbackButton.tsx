@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useLocale } from "@/i18n/LocaleContext";
+import { trackEvent } from "@/lib/analytics";
 
 type FeedbackType = "bug" | "inconvenience" | "idea" | "content";
 type Status = "idle" | "sending" | "success";
@@ -191,6 +192,9 @@ export default function FeedbackButton() {
       } catch {
         /* noop */
       }
+      // 폼 내용·이메일은 절대 보내지 않는다. 값이 4개로 고정된 유형만 센다.
+      // (GA4 향상된 측정의 form_submit 은 이 폼이 preventDefault 를 쓰기 때문에 잡히다 말다 한다)
+      trackEvent("feedback_submit", { feedback_type: type });
       setStatus("success");
     } catch {
       setError(t("feedback.error.send"));
@@ -388,6 +392,15 @@ export default function FeedbackButton() {
                     <li>· {t("feedback.context.version")}</li>
                     <li>· {t("feedback.context.errors")}</li>
                   </ul>
+                  {/* 지도 화면(/)에는 푸터가 없다 — 개인정보를 받는 이 자리가 방침으로 가는 유일한 통로다. */}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2.5 inline-block text-[11.5px] font-bold text-[#8B8678] underline underline-offset-2 hover:text-[#16243C]"
+                  >
+                    {t("feedback.privacyLink")}
+                  </a>
                 </details>
 
                 {error ? (

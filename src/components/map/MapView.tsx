@@ -16,6 +16,7 @@ import {
   type ThemeCourse,
 } from "@/data/themeCourses";
 import { haversineKm } from "@/lib/courseRouting";
+import { trackEvent } from "@/lib/analytics";
 import ActiveQuestTracker from "@/components/game/ActiveQuestTracker";
 import PlaceCard from "@/components/game/PlaceCard";
 import CourseStopCard from "@/components/game/CourseStopCard";
@@ -230,6 +231,22 @@ export default function MapView() {
   // 길찾기 경로선이 그려진 상태 — 경로 가독성을 위해 코스 시작점 팝업 마커를 숨긴다
   const [routeActive, setRouteActive] = useState(false);
   const isMobile = useMediaQuery("(max-width: 767px)");
+
+  // ── 탭 노출 계측 ──────────────────────────────────────────────────────
+  // sidebarActiveTab 이 PC·모바일 공통의 단일 소스라(MobilePanel 은 prop 으로 받아 쓴다)
+  // 여기 한 곳만 보면 두 레이아웃이 모두 잡힌다.
+  // 첫 진입 기본 탭("spot")은 사용자가 고른 게 아니므로 뺀다 — 랜딩은 page_view 가 이미 말해준다.
+  // 연타로 훑고 지나간 탭도 빼려고 300ms 머문 것만 보낸다.
+  const tabTrackedOnceRef = useRef(false);
+  useEffect(() => {
+    if (!sidebarActiveTab) return;
+    if (!tabTrackedOnceRef.current) {
+      tabTrackedOnceRef.current = true;
+      return;
+    }
+    const id = setTimeout(() => trackEvent("tab_view", { tab_id: sidebarActiveTab }), 300);
+    return () => clearTimeout(id);
+  }, [sidebarActiveTab]);
 
   const locationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeCacheRef = useRef<RouteSearchCache>({

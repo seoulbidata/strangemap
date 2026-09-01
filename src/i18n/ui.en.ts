@@ -354,6 +354,7 @@ export const en = {
   "feedback.emailOptional": "optional",
   "feedback.emailPlaceholder": "you@example.com",
   "feedback.privacy": "Your email is used only to reply to this message, then deleted.",
+  "feedback.privacyLink": "Privacy Policy",
   "feedback.contextToggle": "See what's sent along",
   "feedback.contextNote": "The following is attached so we can reproduce the issue. Nothing personally identifying is included.",
   "feedback.context.page": "The page you're on",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Orbitron } from "next/font/google";
 import localFont from "next/font/local";
 import { IS_INDEXABLE, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl } from "@/lib/seo";
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 import "./globals.css";
 
 const seoulAlrim = localFont({
@@ -80,6 +81,8 @@ export default function RootLayout({
           콘텐츠 페이지(/courses, /spots)는 세로 스크롤이 필요해 body 에 직접 걸지 않는다. */}
       <body style={{ margin: 0, padding: 0 }} className="bg-[#F5F2EC] text-[#1A1E2E]">
         {children}
+        {/* 프로덕션에서만 렌더된다 — 판단은 컴포넌트 안에서 한다. */}
+        <GoogleAnalytics />
       </body>
     </html>
   );

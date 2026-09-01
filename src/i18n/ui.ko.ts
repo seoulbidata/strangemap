@@ -352,6 +352,7 @@ export const ko = {
   "feedback.emailOptional": "선택",
   "feedback.emailPlaceholder": "you@example.com",
   "feedback.privacy": "이메일은 문의 답변 목적으로만 사용하고, 처리 후 파기합니다.",
+  "feedback.privacyLink": "개인정보처리방침",
   "feedback.contextToggle": "함께 전송되는 정보 보기",
   "feedback.contextNote": "오류를 재현하기 위해 아래 정보가 함께 전송됩니다. 개인을 식별하는 정보는 담기지 않습니다.",
   "feedback.context.page": "접속 중인 주소",

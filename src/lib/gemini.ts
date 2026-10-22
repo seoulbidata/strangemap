@@ -1,4 +1,6 @@
 const DEFAULT_MODEL = "gemini-3.1-flash-lite";
+const DEFAULT_OPENROUTER_MODEL = "google/gemini-3.5-flash-lite";
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 
 type GenerateGeminiJsonTextOptions = {
   prompt: string;
@@ -26,9 +28,70 @@ function convertSchemaToLowercase(schema: any): any {
 }
 
 /**
+ * OPENROUTER_API_KEY가 있으면 OpenRouter(기본 google/gemini-3.5-flash-lite)로,
+ * 없으면 구글 AI 스튜디오 Native Gemini API로 호출합니다.
+ */
+export async function generateGeminiJsonText(
+  options: GenerateGeminiJsonTextOptions,
+): Promise<string | null> {
+  if (process.env.OPENROUTER_API_KEY) return generateOpenRouterJsonText(options);
+  return generateNativeGeminiJsonText(options);
+}
+
+/**
+ * OpenRouter OpenAI 호환 엔드포인트. responseSchema는 json_schema 구조화 출력으로 강제합니다.
+ */
+async function generateOpenRouterJsonText({
+  prompt,
+  systemInstruction,
+  maxOutputTokens,
+  responseSchema,
+}: GenerateGeminiJsonTextOptions): Promise<string | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const model = process.env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL;
+
+  try {
+    const response = await fetch(OPENROUTER_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: maxOutputTokens,
+        response_format: responseSchema
+          ? {
+              type: "json_schema",
+              json_schema: { name: "response", strict: true, schema: convertSchemaToLowercase(responseSchema) },
+            }
+          : { type: "json_object" },
+      }),
+      signal: AbortSignal.timeout(15000), // 15초 타임아웃
+    });
+
+    if (!response.ok) {
+      console.error("[OpenRouter] HTTP 에러:", response.status, await response.text().catch(() => ""));
+      return null;
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content ?? null;
+    return typeof text === "string" ? text : null;
+  } catch (error) {
+    console.error("[OpenRouter] API 호출 실패:", error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+/**
  * 구글 AI 스튜디오 Native Gemini 3.1 Flash Lite API를 직접 호출하여 0.5초대 초고속 응답을 보장합니다.
  */
-export async function generateGeminiJsonText({
+async function generateNativeGeminiJsonText({
   prompt,
   systemInstruction,
   maxOutputTokens,

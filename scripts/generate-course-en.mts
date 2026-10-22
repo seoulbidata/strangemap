@@ -153,8 +153,8 @@ async function translateCourse(course: (typeof THEME_COURSES)[number]): Promise<
 }
 
 async function main() {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY 필요 — node --env-file=.env.local 로 실행하세요.");
+  if (!process.env.OPENROUTER_API_KEY && !process.env.GEMINI_API_KEY) {
+    console.error("OPENROUTER_API_KEY 또는 GEMINI_API_KEY 필요 — node --env-file=.env.local 로 실행하세요.");
     process.exit(1);
   }
 
